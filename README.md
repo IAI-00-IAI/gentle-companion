@@ -6,7 +6,9 @@ Lightweight, local-first remote control for Pi sessions.
 
 **[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Pi session shared with `/remote-control`, a phone paired from the dashboard, Pi's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
 
-**New in 0.3.13:** Changes is scoped to session-recorded edits and applied Pi Jar subagent files, with compact mobile review controls. The session menu contains background work with elapsed timers and a scrollable Tasks popup for Pi Jar and compatible extensions. Claymorphism error pages provide safe recovery actions and explain failed page downloads.
+**New in 0.3.14:** Pi 1.4.0 compatibility hardening keeps sessions active through startup and automatic retries, safely queues remote prompts during busy runs, and prevents cancelled or truncated automation responses from being reported as successful. Regression coverage now includes overlapping relayed dialogs. Development checks use Pi 1.4.0.
+
+**0.3.13:** Changes is scoped to session-recorded edits and applied Pi Jar subagent files, with compact mobile review controls. The session menu contains background work with elapsed timers and a scrollable Tasks popup for Pi Jar and compatible extensions. Claymorphism error pages provide safe recovery actions and explain failed page downloads.
 
 **0.3.12:** Browse Changes one file at a time with a file picker and previous/next controls; the complete file inventory remains visible even when previews are limited. Automations support IANA timezone selection, daylight-saving changes, and the next scheduled run. Pair devices from the terminal with `npm run --silent pair`. Settings accumulates weekly observed tokens and estimated cost across retained sessions while keeping account-limit snapshots separate.
 
@@ -407,7 +409,7 @@ There is deliberately no arbitrary shell, arbitrary tool invocation, or arbitrar
 
 Use this only when developing Pi Companion itself. A published install does not require these steps.
 
-Requirements: Node 22.17+ and stable Rust.
+Requirements: Node 22.19+ (matching Pi 1.4.0) and stable Rust.
 
 Clone the repository, then:
 

@@ -154,6 +154,99 @@ test('daemon-owned RPC automation can ask without activating a companion bridge'
   }
 });
 
+async function sharedLifecycleSession() {
+  const socketCount = state.sockets.length;
+  const probeCount = state.probes;
+  (globalThis as any).__companionLifecycleTest = state;
+  const { default: install } = await import(extension);
+  const events: Record<string, (event: any, ctx: any) => any> = {};
+  const commands: Record<string, any> = {};
+  const submissions: Array<{ text: string; options: any }> = [];
+  let idle = true;
+  const ctx: any = {
+    cwd: '/project/demo', hasUI: true, isIdle: () => idle,
+    ui: { notify() {}, select: async () => undefined, confirm: async () => false,
+      input: async () => undefined, custom: async () => undefined, setStatus() {} }
+  };
+  install({
+    getSessionName: () => undefined, getCommands: () => [], appendEntry() {},
+    events: { on() {}, emit() {} },
+    on: (name: string, handler: any) => { events[name] = handler; },
+    registerCommand: (name: string, command: any) => { commands[name] = command; },
+    registerTool() {},
+    sendUserMessage: async (text: string, options: any) => {
+      if (!idle && !options?.deliverAs) throw new Error('Busy submissions require deliverAs');
+      submissions.push({ text, options });
+    }
+  });
+  events.session_start({}, ctx);
+  await commands.companion.handler('', ctx);
+  await nextTurn();
+  const socket = state.sockets.at(-1);
+  socket.readyState = 1;
+  socket.emit('open');
+  return {
+    events, ctx, socket, submissions,
+    setIdle(value: boolean) { idle = value; },
+    close() {
+      events.session_shutdown({}, ctx);
+      state.sockets.splice(socketCount);
+      state.probes = probeCount;
+    }
+  };
+}
+
+test('session stays active through startup, retry and queued work until settlement', async () => {
+  const app = await sharedLifecycleSession();
+  try {
+    app.setIdle(false);
+    assert.ok(app.events.before_agent_start, 'startup has a busy-status handler');
+    app.events.before_agent_start({ messageType: 'user', prompt: 'Review' }, app.ctx);
+    assert.equal(app.socket.frames.at(-1).session.status, 'active');
+    app.events.agent_start({}, app.ctx);
+    app.events.agent_end({ messages: [] }, app.ctx);
+    assert.equal(app.socket.frames.findLast((frame: any) => frame.session?.status).session.status, 'active');
+    assert.equal(app.socket.frames.at(-1).event, 'agent.end', 'low-level activity remains visible');
+    app.events.agent_start({}, app.ctx);
+    app.events.agent_end({ messages: [] }, app.ctx);
+    assert.equal(app.socket.frames.findLast((frame: any) => frame.session?.status).session.status, 'active');
+    app.setIdle(true);
+    app.events.agent_settled({ aborted: false }, app.ctx);
+    assert.equal(app.socket.frames.findLast((frame: any) => frame.session?.status).session.status, 'idle');
+    assert.deepEqual(app.socket.frames.at(-1), { type: 'event', event: 'agent.settled', payload: { aborted: false } });
+    app.setIdle(false);
+    app.events.before_agent_start({ messageType: 'custom', message: {} }, app.ctx);
+    assert.equal(app.socket.frames.at(-1).session.status, 'active');
+    app.setIdle(true);
+    app.events.agent_settled({ aborted: true }, app.ctx);
+    assert.equal(app.socket.frames.findLast((frame: any) => frame.session?.status).session.status, 'idle', 'aborted runs settle too');
+    assert.deepEqual(app.socket.frames.at(-1).payload, { aborted: true });
+  } finally { app.close(); }
+});
+
+for (const command of [
+  { type: 'prompt', text: 'Review changes', expected: 'Review changes', delivery: 'followUp' },
+  { type: 'plan', text: 'Review changes', expected: '/plan Review changes', delivery: 'followUp' },
+  { type: 'plan', text: '  ', expected: '/plan', delivery: 'followUp' },
+  { type: 'steer', text: 'Focus on auth', expected: 'Focus on auth', delivery: 'steer' }
+]) {
+  test(`remote ${command.type} (${JSON.stringify(command.text)}) submits safely while idle or starting`, async () => {
+    const app = await sharedLifecycleSession();
+    try {
+      for (const idle of [true, false]) {
+        app.setIdle(idle);
+        app.socket.emit('message', JSON.stringify({ type: 'command', command }));
+        await nextTurn();
+      }
+      assert.deepEqual(app.submissions.map(submission => ({ text: submission.text, delivery: submission.options?.deliverAs })), [
+        { text: command.expected, delivery: command.delivery },
+        { text: command.expected, delivery: command.delivery }
+      ]);
+      assert.equal(app.socket.frames.some((frame: any) => frame.type === 'error'), false);
+    } finally { app.close(); }
+  });
+}
+
 test('daemon starts privately and remote-control alone shares with safe session resets', async () => {
   const { default: install } = await import(extension);
   const events: Record<string, (event: any, ctx: any) => any> = {};

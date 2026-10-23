@@ -96,6 +96,9 @@ function reduce(entries: ActivityEntry[], message: any): ActivityEntry[] {
     case 'agent.start':
       return cap([...entries, entry('lifecycle', 'Pi started working')]);
     case 'agent.end':
+      return cap([...entries, entry('lifecycle', 'Pi run ended')]);
+    case 'agent.settled':
+      if (payload.aborted) return cap([...entries, entry('lifecycle', 'Pi stopped and is waiting')]);
       return cap([...entries, entry('lifecycle', 'Pi finished and is waiting')]);
     case 'session.start':
       return cap([...entries, entry('lifecycle', 'Session started', String(payload.cwd ?? ''))]);

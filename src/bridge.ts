@@ -422,7 +422,9 @@ export class CompanionBridge implements AskChannel {
     const command = message.command;
     switch (command.type) {
       case "prompt":
-        await this.pi.sendUserMessage(command.text, { expandPromptTemplates: true });
+        // Pi also counts startup handlers as busy; explicit delivery avoids a race
+        // between a remote submit and a run starting after the dashboard refreshed.
+        await this.pi.sendUserMessage(command.text, { deliverAs: "followUp", expandPromptTemplates: true });
         break;
       case "steer":
         await this.pi.sendUserMessage(command.text, { deliverAs: "steer", expandPromptTemplates: true });
@@ -431,7 +433,9 @@ export class CompanionBridge implements AskChannel {
         this.ctx?.abort();
         break;
       case "plan":
-        await this.pi.sendUserMessage(command.text?.trim() ? "/plan " + command.text.trim() : "/plan");
+        let planPrompt = "/plan";
+        if (command.text?.trim()) planPrompt += " " + command.text.trim();
+        await this.pi.sendUserMessage(planPrompt, { deliverAs: "followUp" });
         break;
       case "git_diff":
         await this.sendGitDiff(Boolean(command.staged), command.worktree, command.requestId);

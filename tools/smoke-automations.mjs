@@ -1,7 +1,7 @@
 // Run after cargo build + ui:build. Uses isolated state and disposable loopback ports.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -40,7 +40,8 @@ try {
     })(),
     exited.then(code => { throw new Error(`Daemon exited before readiness (${code}): ${log}`); })
   ]);
-  assert.equal((await (await request('/api/context')).json()).version, '0.3.2');
+  const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal((await (await request('/api/context')).json()).version, manifest.version);
   for (const path of ['/automations', '/automations/example', '/automations/example/runs/run']) {
     const response = await request(path);
     assert.equal(response.status, 200); assert.match(await response.text(), /<!doctype html>/i);

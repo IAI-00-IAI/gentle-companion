@@ -2,6 +2,27 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { isShellTool, shellLabel, shellPreview, shellSummary } from '../ui/src/lib/shell-activity.ts';
+import { replayActivity } from '../ui/src/lib/activity.ts';
+
+for (const settlement of [
+  { aborted: false, title: 'Pi finished and is waiting' },
+  { aborted: true, title: 'Pi stopped and is waiting' }
+]) {
+  test(`activity distinguishes low-level runs from settlement (aborted=${settlement.aborted})`, () => {
+    const events = [
+      { type: 'event', event: 'agent.start' },
+      { type: 'event', event: 'agent.end' },
+      { type: 'event', event: 'agent.start' },
+      { type: 'event', event: 'agent.end' }
+    ];
+    assert.deepEqual(replayActivity(events).map(entry => entry.title), [
+      'Pi started working', 'Pi run ended', 'Pi started working', 'Pi run ended'
+    ]);
+    assert.equal(replayActivity([
+      ...events, { type: 'event', event: 'agent.settled', payload: settlement }
+    ]).at(-1)?.title, settlement.title);
+  });
+}
 
 test('shell tools include namespaced bash and background shell operations', () => {
   for (const name of ['bash', 'functions.bash', 'jar_shell', 'functions.jar_shell', 'shell']) assert.equal(isShellTool(name), true);

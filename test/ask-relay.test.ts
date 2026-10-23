@@ -7,21 +7,31 @@ import type { AskAnswers } from "../src/protocol.ts";
 /** Companion side: records published questions and lets the test answer them. */
 class FakeChannel implements AskChannel {
   readonly published: AskInput[] = [];
+  readonly signals: Array<AbortSignal | undefined> = [];
   /** Questions withdrawn by their AbortSignal (tool ended, dialog answered locally). */
   withdrawn = 0;
-  private pending: Array<(answers: AskAnswers | null) => void> = [];
+  private pending = new Map<number, (answers: AskAnswers | null) => void>();
 
   ask(request: AskInput, signal?: AbortSignal) {
+    const index = this.published.length;
     this.published.push(request);
+    this.signals.push(signal);
     const { promise, resolve } = Promise.withResolvers<AskAnswers | null>();
     signal?.addEventListener("abort", () => { this.withdrawn++; resolve(null); }, { once: true });
-    this.pending.push(resolve);
+    this.pending.set(index, resolve);
     return promise;
   }
 
   answer(answers: AskAnswers | null) {
-    const settle = this.pending.shift();
-    assert.ok(settle, "a question is waiting");
+    const index = this.pending.keys().next().value;
+    assert.notEqual(index, undefined, "a question is waiting");
+    this.answerAt(index!, answers);
+  }
+
+  answerAt(index: number, answers: AskAnswers | null) {
+    const settle = this.pending.get(index);
+    assert.ok(settle, "the requested question is waiting");
+    this.pending.delete(index);
     settle(answers);
   }
 }
@@ -42,6 +52,50 @@ function fakeUi() {
   } as unknown as ExtensionUIContext;
   return { ui, open };
 }
+
+/** Each terminal dialog owns its cancellation signal, like Pi's dialog stack. */
+function stackedDialogUi() {
+  const { ui } = fakeUi();
+  const open: Array<{ signal: AbortSignal; answer: (value: unknown) => void }> = [];
+  function dialog(signal: AbortSignal | undefined, dismissed: unknown) {
+    assert.ok(signal, "the relay supplies a dialog-specific signal");
+    const { promise, resolve } = Promise.withResolvers<unknown>();
+    signal.addEventListener("abort", () => resolve(dismissed), { once: true });
+    open.push({ signal, answer: resolve });
+    return promise;
+  }
+  Object.assign(ui, {
+    select: (_title: string, _options: string[], opts?: { signal?: AbortSignal }) => dialog(opts?.signal, undefined),
+    confirm: (_title: string, _message: string, opts?: { signal?: AbortSignal }) => dialog(opts?.signal, false),
+    input: (_title: string, _placeholder: string, opts?: { signal?: AbortSignal }) => dialog(opts?.signal, undefined)
+  });
+  return { ui, open };
+}
+
+const dialogCases: Array<{
+  name: string;
+  start: (ui: ExtensionUIContext, title: string, signal?: AbortSignal) => Promise<unknown>;
+  remoteAnswer: string;
+  remoteResult: unknown;
+  localResult: unknown;
+  dismissed: unknown;
+}> = [
+  {
+    name: "select",
+    start: (ui, title, signal) => ui.select(title, ["a", "b"], { signal }),
+    remoteAnswer: "b", remoteResult: "b", localResult: "a", dismissed: undefined
+  },
+  {
+    name: "confirm",
+    start: (ui, title, signal) => ui.confirm(title, "Continue?", { signal }),
+    remoteAnswer: "Yes", remoteResult: true, localResult: false, dismissed: false
+  },
+  {
+    name: "input",
+    start: (ui, title, signal) => ui.input(title, "Your answer", { signal }),
+    remoteAnswer: "remote text", remoteResult: "remote text", localResult: "local text", dismissed: undefined
+  }
+];
 
 const jarArgs = {
   questions: [
@@ -154,6 +208,65 @@ describe("pi-jar jar_ask relay", () => {
 });
 
 describe("relayed ctx.ui dialogs", () => {
+  for (const dialog of dialogCases) {
+    for (const completion of ["remote", "local"]) {
+      it(`overlapping ${dialog.name} dialogs stay independent when the newer dialog finishes ${completion}ly`, { timeout: 2000 }, async () => {
+        const channel = new FakeChannel();
+        const { ui, open } = stackedDialogUi();
+        relayDialogs(ui, channel, new ToolDialogRelay(channel));
+        let firstSettled = false;
+        const first = dialog.start(ui, "First").then(value => { firstSettled = true; return value; });
+        const second = dialog.start(ui, "Second");
+
+        let secondExpected = dialog.remoteResult;
+        if (completion === "remote") {
+          channel.answerAt(1, { answer: [dialog.remoteAnswer] });
+        } else {
+          secondExpected = dialog.localResult;
+          open[1]!.answer(dialog.localResult);
+        }
+        assert.equal(await second, secondExpected);
+        await tick();
+        assert.deepEqual({
+          terminalAborted: open.map(item => item.signal.aborted),
+          companionAborted: channel.signals.map(signal => signal?.aborted),
+          firstSettled
+        }, { terminalAborted: [false, true], companionAborted: [false, true], firstSettled: false });
+
+        let firstExpected = dialog.localResult;
+        if (completion === "remote") {
+          open[0]!.answer(dialog.localResult);
+        } else {
+          firstExpected = dialog.remoteResult;
+          channel.answerAt(0, { answer: [dialog.remoteAnswer] });
+        }
+        assert.equal(await first, firstExpected, "the older dialog remains answerable from the other side");
+        assert.deepEqual(channel.signals.map(signal => signal?.aborted), [true, true]);
+      });
+    }
+
+    it(`aborting one overlapping ${dialog.name} dialog leaves the other open`, { timeout: 2000 }, async () => {
+      const channel = new FakeChannel();
+      const { ui, open } = stackedDialogUi();
+      relayDialogs(ui, channel, new ToolDialogRelay(channel));
+      const controller = new AbortController();
+      const first = dialog.start(ui, "First", controller.signal);
+      let secondSettled = false;
+      const second = dialog.start(ui, "Second").then(value => { secondSettled = true; return value; });
+
+      controller.abort();
+      assert.equal(await first, dialog.dismissed);
+      await tick();
+      assert.deepEqual({
+        terminalAborted: open.map(item => item.signal.aborted),
+        companionAborted: channel.signals.map(signal => signal?.aborted),
+        secondSettled
+      }, { terminalAborted: [true, false], companionAborted: [true, false], secondSettled: false });
+      channel.answerAt(1, { answer: [dialog.remoteAnswer] });
+      assert.equal(await second, dialog.remoteResult);
+    });
+  }
+
   it("a companion answer resolves select() and closes the terminal dialog", async () => {
     const channel = new FakeChannel();
     const { ui } = fakeUi();

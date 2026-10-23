@@ -140,6 +140,10 @@ export default function companionExtension(pi: ExtensionAPI) {
   pi.on("thinking_level_select", (_event, ctx) => {
     bridge.setContext(ctx);
   });
+  pi.on("before_agent_start", (_event, ctx) => {
+    bridge.setContext(ctx);
+    bridge.updateStatus("active");
+  });
   pi.on("agent_start", (_event, ctx) => {
     bridge.setContext(ctx);
     bridge.updateStatus("active");
@@ -147,8 +151,12 @@ export default function companionExtension(pi: ExtensionAPI) {
   });
   pi.on("agent_end", (event, ctx) => {
     bridge.setContext(ctx);
-    bridge.updateStatus("idle");
     bridge.emit("agent.end", { messages: Array.isArray((event as { messages?: unknown[] }).messages) ? (event as { messages: unknown[] }).messages.length : 0 });
+  });
+  pi.on("agent_settled", (event, ctx) => {
+    bridge.setContext(ctx);
+    bridge.updateStatus("idle");
+    bridge.emit("agent.settled", { aborted: event.aborted });
   });
   pi.on("message_end", (event, ctx) => {
     bridge.setContext(ctx);

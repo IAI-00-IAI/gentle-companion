@@ -940,11 +940,12 @@ async fn execute_action_program(
                     }
                     failed = matches!(
                         event["message"]["stopReason"].as_str(),
-                        Some("error" | "aborted")
+                        Some("error" | "aborted" | "length")
                     );
                 }
                 if event["type"] == "agent_settled" {
-                    return (result, !failed);
+                    let aborted = event["aborted"].as_bool().unwrap_or(false);
+                    return (result, !failed && !aborted);
                 }
                 if event["type"] == "response" && event["success"] == false {
                     append(&mut result, &line);
@@ -1290,6 +1291,112 @@ mod tests {
             "failed"
         );
         assert!(start.elapsed() < Duration::from_secs(4));
+    }
+    #[cfg(unix)]
+    async fn run_pi_events(events: &[Value]) -> Result<String, (&'static str, String)> {
+        use std::os::unix::fs::PermissionsExt;
+        let state = isolated_state();
+        fs::create_dir_all(&state.data_dir).await.unwrap();
+        let records = events
+            .iter()
+            .map(Value::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(state.data_dir.join("events.jsonl"), format!("{records}\n"))
+            .await
+            .unwrap();
+        let binary = state.data_dir.join("fake-pi");
+        fs::write(&binary, "#!/bin/sh\nread -r prompt\ncat events.jsonl\n")
+            .await
+            .unwrap();
+        fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700))
+            .await
+            .unwrap();
+        let action = Action::Pi {
+            prompt: "Review".into(),
+            cwd: state.data_dir.to_string_lossy().into(),
+            timeout_seconds: Some(5),
+        };
+        let (_tx, mut rx) = watch::channel(false);
+        let result = execute_action_program(&state, "a", "r", &action, &mut rx, &binary).await;
+        fs::remove_dir_all(state.data_dir.parent().unwrap())
+            .await
+            .unwrap();
+        result
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn rpc_completion_uses_final_assistant_and_settled_abort_status() {
+        let cases: &[(&str, &[&str], Option<bool>, bool)] = &[
+            ("abort without assistant", &[], Some(true), false),
+            (
+                "abort after successful assistant",
+                &["stop"],
+                Some(true),
+                false,
+            ),
+            (
+                "explicit non-aborted settlement",
+                &["stop"],
+                Some(false),
+                true,
+            ),
+            (
+                "legacy settlement without abort flag",
+                &["stop"],
+                None,
+                true,
+            ),
+            ("assistant error", &["error"], None, false),
+            ("assistant abort", &["aborted"], Some(false), false),
+            ("unrecovered truncation", &["length"], Some(false), false),
+            ("legacy unrecovered truncation", &["length"], None, false),
+            (
+                "truncation recovered before settlement",
+                &["length", "stop"],
+                Some(false),
+                true,
+            ),
+            (
+                "error recovered before settlement",
+                &["error", "stop"],
+                None,
+                true,
+            ),
+        ];
+        for (name, stop_reasons, aborted, expected_success) in cases {
+            let mut events = Vec::new();
+            for stop_reason in *stop_reasons {
+                events.push(serde_json::json!({
+                    "type": "message_end",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": stop_reason}],
+                        "stopReason": stop_reason
+                    }
+                }));
+                events.push(serde_json::json!({"type": "agent_end"}));
+            }
+            let mut settled = serde_json::json!({"type": "agent_settled"});
+            if let Some(aborted) = aborted {
+                settled["aborted"] = Value::Bool(*aborted);
+            }
+            events.push(settled);
+            let result = run_pi_events(&events).await;
+            assert_eq!(result.is_ok(), *expected_success, "{name}: {result:?}");
+            let text = match result {
+                Ok(text) => text,
+                Err((kind, text)) => {
+                    assert_eq!(kind, "failed", "{name}");
+                    text
+                }
+            };
+            let expected_text = stop_reasons
+                .last()
+                .map(|reason| format!("{reason}\n"))
+                .unwrap_or_default();
+            assert_eq!(text, expected_text, "{name}");
+        }
     }
     #[cfg(unix)]
     #[tokio::test]
