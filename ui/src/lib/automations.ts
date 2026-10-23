@@ -1,5 +1,24 @@
 import type { Automation, AutomationDraft, AutomationRun } from './types.ts';
 
+export function automationTriggerState(automation: Pick<Automation, 'schedule' | 'enabled'> | null): { label: string; description: string } {
+  if (!automation?.schedule) {
+    return {
+      label: 'Manual only',
+      description: 'No scheduled trigger is configured. Choose Run now to start a run on the host.'
+    };
+  }
+  if (!automation.enabled) {
+    return {
+      label: 'Schedule paused',
+      description: 'Scheduled triggers are paused. Run now is still available and pausing does not stop an active run.'
+    };
+  }
+  return {
+    label: 'Schedule active',
+    description: 'Scheduled triggers run while the host daemon is online. Missed triggers are not replayed.'
+  };
+}
+
 export function automationDraft(automation?: Automation): AutomationDraft {
   return automation ? { name: automation.name, enabled: automation.enabled, schedule: automation.schedule, timezone: automation.timezone ?? 'UTC', preconditions: automation.preconditions, actions: automation.actions, postActions: automation.postActions, ...(automation.historyLimit !== undefined ? { historyLimit: automation.historyLimit } : {}), ...(automation.maxRetries !== undefined ? { maxRetries: automation.maxRetries } : {}), ...(automation.retryIntervalSeconds !== undefined ? { retryIntervalSeconds: automation.retryIntervalSeconds } : {}) } : {
     name: 'New automation', enabled: true, schedule: null, timezone: 'UTC', preconditions: [],

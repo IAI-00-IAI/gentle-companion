@@ -44,7 +44,11 @@ Automation sessions accept only question answers/cancellation from browsers. Pro
 
 ### Web UI hardening
 
-HTML responses send a same-origin Content-Security-Policy (no third-party scripts, styles, fonts or connections), `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `X-Content-Type-Options: nosniff`. The UI loads nothing from the network beyond the daemon itself.
+HTML responses keep app scripts, styles, fonts and connections under the existing Content-Security-Policy, with `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `X-Content-Type-Options: nosniff`. An explicit `frame-src 'self' https:` exception supports opt-in website previews; it does not permit remote scripts in the Companion app itself.
+
+Agent links open a preview confirmation, not a host browser. Only absolute HTTPS URLs with public-looking DNS names are accepted for website previews; credentials, IP literals, local/reserved names and the Companion origin are refused. This is a client-side URL policy, not a DNS or redirect allowlist. No daemon proxy or host network fetch is provided. After the user chooses **Load website preview**, their browser contacts the site directly and may send that site's cookies. Frames run with `sandbox="allow-scripts"` but without same-origin access, forms, popups, downloads or top navigation; referrers and sensitive browser permissions are disabled. Websites can refuse embedding with CSP or X-Frame-Options. Companion does not bypass these restrictions or claim that a frame load event proves the page is available. **Open in new tab** is an explicit fallback outside the sandbox.
+
+Shared-file previews use the existing authenticated, session-scoped download endpoint and opaque file ids. Raw filesystem paths are never sent to a new read API: a link must match a registered upload. Previews are limited to 2 MiB. Safe raster images and escaped text are supported; SVG is text, not active markup. Standalone HTML is sanitized to HTML-only elements (inline SVG/MathML is removed) and shown as a static snapshot in a sandboxed `srcdoc` frame with scripts, network resources, forms, nested frames and link navigation disabled. External assets and JavaScript-dependent pages may not render fully. Companion never copies its paired-device bearer credential into frame URLs or documents. Uploaded content and user-provided URL query parameters may themselves contain secrets, so share and open them deliberately. Unsupported files remain attachment downloads, not inline same-origin content.
 
 ### Pi bridge
 

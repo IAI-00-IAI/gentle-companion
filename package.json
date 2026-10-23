@@ -50,7 +50,8 @@
     "test": "npm run test:extension && npm run test:server",
     "test:extension": "node --test --experimental-transform-types --no-warnings test/*.test.ts ui/automation.test.ts",
     "test:server": "cargo test --manifest-path server/Cargo.toml",
-    "test:smoke": "npm run ui:build && cargo build --manifest-path server/Cargo.toml --locked && node tools/smoke-automations.mjs"
+    "test:smoke": "npm run ui:build && cargo build --manifest-path server/Cargo.toml --locked && node tools/smoke-automations.mjs",
+    "test:previews": "npm run ui:build && cargo build --manifest-path server/Cargo.toml --locked && node tools/smoke-previews.mjs"
   },
   "pi": {
     "extensions": [

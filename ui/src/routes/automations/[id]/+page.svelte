@@ -10,7 +10,7 @@
   import clayIcon from '../../../assets/automation-clay.svg';
   import AutomationBadge from '#lib/AutomationBadge.svelte';
   import AutomationPagination from '#lib/AutomationPagination.svelte';
-  import { automationDraft, automationTime, automationSchedule, automationNextRun, automationDuration, pageItems, runLabels } from '#lib/automations.ts';
+  import { automationDraft, automationTime, automationSchedule, automationNextRun, automationDuration, automationTriggerState, pageItems, runLabels } from '#lib/automations.ts';
   import { errorMessage } from '#lib/toast.svelte.ts';
   import type { Automation, AutomationDraft, AutomationRun } from '#lib/types.ts';
   const id = $derived(page.params.id ?? '');
@@ -29,12 +29,19 @@
   let currentPage = $state(1);
   const history = $derived(pageItems([...runs].sort((a, b) => b.startedAt - a.startedAt).filter(r => historyStatus === 'all' || r.status === historyStatus), currentPage));
   const latest = $derived([...runs].sort((a, b) => b.startedAt - a.startedAt)[0]);
+  const trigger = $derived(automationTriggerState(automation));
+  const tabIndexes = $derived.by(() => {
+    if (tab === 'summary') return { summary: 0, history: -1 };
+    return { summary: -1, history: 0 };
+  });
   function tabKeys(event: KeyboardEvent) {
-    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-      event.preventDefault();
-      tab = event.key === 'Home' ? 'summary' : event.key === 'End' ? 'history' : tab === 'summary' ? 'history' : 'summary';
-      document.getElementById('tab-' + tab)?.focus();
-    }
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Home') tab = 'summary';
+    else if (event.key === 'End') tab = 'history';
+    else if (tab === 'summary') tab = 'history';
+    else tab = 'summary';
+    document.getElementById('tab-' + tab)?.focus();
   }
   const canEdit = $derived(companion.isAdmin && desktop);
   const running = $derived(runs.some((run) => run.status === 'running'));
@@ -72,7 +79,9 @@
     if (editing) {
       await tick();
       const form = document.getElementById('automation-editor');
-      form?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+      let behavior: ScrollBehavior = 'smooth';
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) behavior = 'instant';
+      form?.scrollIntoView({ behavior, block: 'start' });
       form?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
     }
   }
@@ -96,27 +105,94 @@
 <svelte:head><title>{automation?.name ?? 'Automation'} · Pi Companion</title></svelte:head>
 <div class="page automation-workspace automation-detail">
   <a class="automation-back btn btn-ghost" href="/automations"><Icon name="back" size={16} />All automations</a>
-  {#if loading}<div class="panel state" role="status">Loading automation…</div>
-  {:else if !automation}<div class="panel state" role="alert">{error || 'Automation not found.'}</div>
+  {#if loading}
+    <div class="panel state" role="status">Loading automation…</div>
+  {:else if !automation}
+    <div class="panel state" role="alert">{error || 'Automation not found.'}</div>
   {:else}
-    <header class="automation-hero"><div class="hero-copy"><img class="clay-icon" src={clayIcon} alt="" /><div><span class="eyebrow">AUTOMATION WORKSPACE</span><h1>{automation.name}</h1><div class="card-badges" style="margin-top: 12px"><AutomationBadge status={automation.enabled ? 'enabled' : 'disabled'} /><AutomationBadge status={automation.schedule ? 'scheduled' : 'manual'} />{#if running}<AutomationBadge status="running" />{/if}</div></div></div><div class="automation-actions">{#if running}<button class="btn" disabled={busy} onclick={() => act('stop')}><Icon name="stop" />Stop run</button>{:else}<button class="btn btn-primary" disabled={busy} onclick={() => act('start')}><Icon name="send" />{busy ? 'Please wait…' : 'Run now'}</button>{/if}</div></header>
+    <header class="automation-hero detail-header">
+      <div class="hero-copy">
+        <img class="clay-icon" src={clayIcon} alt="" width="74" height="74" />
+        <div>
+          <h1>{automation.name}</h1>
+          <div class="detail-status-line"><span>{trigger.label}</span>{#if running}<AutomationBadge status="running" />{/if}</div>
+        </div>
+      </div>
+      <div class="detail-run-control">
+        {#if running}
+          <button class="btn" disabled={busy} onclick={() => act('stop')}><Icon name="stop" />Stop run</button>
+          <p>Stops the active run and remaining steps, including finalizers.</p>
+        {:else}
+          <button class="btn btn-primary" disabled={busy} onclick={() => act('start')}><Icon name="send" />{#if busy}Please wait…{:else}Run now{/if}</button>
+          <p>Starts one run on the host, even when its schedule is paused.</p>
+        {/if}
+      </div>
+    </header>
     {#if actionError}<p class="error" role="alert">{actionError}</p>{/if}
     {#if error}<p class="error" role="alert">Live refresh failed: {error}</p>{/if}
-    {#if canEdit}<div class="automation-actions"><button class="btn" aria-expanded={editing} disabled={busy} aria-controls="automation-editor" onclick={toggleEditor}><Icon name="file" size={15} />{editing ? 'Close editor' : 'Edit automation'}</button><button class="btn" aria-pressed={automation.enabled} disabled={busy} onclick={() => act('toggle')}><Icon name={automation.enabled ? 'ban' : 'check'} size={15} />{automation.enabled ? 'Disable scheduling' : 'Enable automation'}</button><button class="btn btn-danger" disabled={busy || running} onclick={() => confirmingDelete = true}><Icon name="trash" size={15} />Delete</button></div>{/if}
-    <div class="tab-bar" role="tablist" aria-label="Automation sections"><button id="tab-summary" role="tab" aria-selected={tab === 'summary'} aria-controls="panel-summary" tabindex={tab === 'summary' ? 0 : -1} onclick={() => tab = 'summary'} onkeydown={tabKeys}><Icon name="plan" size={16} />Summary</button><button id="tab-history" role="tab" aria-selected={tab === 'history'} aria-controls="panel-history" tabindex={tab === 'history' ? 0 : -1} onclick={() => tab = 'history'} onkeydown={tabKeys}><Icon name="activity" size={16} />Run history · {runs.length}</button></div>
-    {#if confirmingDelete && canEdit}<section class="panel confirm" aria-label="Confirm deletion"><p>Delete this automation and its run history? This cannot be undone.</p><div class="actions"><button class="btn" disabled={busy} onclick={() => act('delete')}>Delete automation</button><button class="btn" onclick={() => confirmingDelete = false}>Cancel</button></div></section>{/if}
+    <div class="tab-bar" role="tablist" aria-label="Automation sections">
+      <button id="tab-summary" role="tab" aria-selected={tab === 'summary'} aria-controls="panel-summary" tabindex={tabIndexes.summary} onclick={() => tab = 'summary'} onkeydown={tabKeys}><Icon name="plan" size={16} />Overview</button>
+      <button id="tab-history" role="tab" aria-selected={tab === 'history'} aria-controls="panel-history" tabindex={tabIndexes.history} onclick={() => tab = 'history'} onkeydown={tabKeys}><Icon name="activity" size={16} />Run history · {runs.length}</button>
+    </div>
     {#if tab === 'summary'}
-      <div id="panel-summary" role="tabpanel" aria-labelledby="tab-summary" tabindex="0" class="summary-grid">
-        {#if editing && canEdit}<div id="automation-editor" class="span-all"><AutomationEditor {automation} {busy} onsave={save} oncancel={() => editing = false} /></div>{/if}
-        <section class="bento-card"><span class="eyebrow">WHEN IT RUNS</span><h2>{automationSchedule(automation.schedule, automation.timezone)}</h2><p class="automation-note" style="margin-top: 10px">{automation.enabled ? 'Ready to run. The daemon must remain online for scheduled triggers.' : 'Scheduled execution is disabled. Manual runs remain available.'}</p><dl class="info-pairs"><div><dt>Cron expression · {automation.timezone ?? 'UTC'}</dt><dd><code>{automation.schedule ?? 'Manual only'}</code></dd></div><div><dt>Next scheduled run</dt><dd>{automationNextRun(automation)}</dd></div><div><dt>Last updated</dt><dd>{automationTime(automation.updatedAt)}</dd></div><div><dt>Retry policy</dt><dd>{automation.maxRetries ? `${automation.maxRetries} retries · ${automation.retryIntervalSeconds ?? 10}s interval` : 'No retries'}</dd></div></dl></section>
-        <section class="bento-card"><span class="eyebrow">LATEST ACTIVITY</span>{#if latest}<AutomationBadge status={latest.status} /><dl class="info-pairs"><div><dt>Started</dt><dd>{automationTime(latest.startedAt)}</dd></div><div><dt>Duration</dt><dd>{automationDuration(latest.startedAt, latest.finishedAt)}</dd></div></dl><a class="btn" style="margin-top: 18px" href={'/automations/' + encodeURIComponent(id) + '/runs/' + encodeURIComponent(latest.id)}>View latest result<Icon name="chevron" size={16} /></a>{:else}<h2>Ready for its first run</h2><p class="automation-note" style="margin-top: 10px">Run this routine to capture output, a summary, and its execution status.</p>{/if}</section>
-        <section class="bento-card span-all"><span class="eyebrow">EXECUTION FLOW</span><h2>Three phases to a finished routine</h2><p class="automation-note" style="margin-top: 10px">Select a phase to explore its full flowchart.</p><AutomationFlow {automation} /><details class="script-view"><summary>View full JSON definition</summary><pre>{JSON.stringify(automationDraft(automation), null, 2)}</pre></details></section>
+      <div id="panel-summary" role="tabpanel" aria-labelledby="tab-summary" tabindex="0" class="detail-overview">
+        <div class="detail-status-grid">
+          <section class="bento-card detail-trigger" aria-labelledby="trigger-title">
+            <div class="detail-section-head"><h2 id="trigger-title">{trigger.label}</h2><Icon name="refresh" size={20} /></div>
+            <p class="automation-note">{trigger.description}</p>
+            {#if automation.schedule}
+              <p class="detail-schedule">{automationSchedule(automation.schedule, automation.timezone)}</p>
+              <dl class="info-pairs"><div><dt>Next scheduled run</dt><dd>{automationNextRun(automation)}</dd></div><div><dt>Timezone</dt><dd>{automation.timezone ?? 'UTC'}</dd></div><div class="detail-wide"><dt>Cron expression</dt><dd><code>{automation.schedule}</code></dd></div></dl>
+              {#if canEdit}<button class="btn detail-schedule-toggle" aria-pressed={automation.enabled} disabled={busy} onclick={() => act('toggle')}><Icon name="refresh" size={15} />{#if automation.enabled}Pause schedule{:else}Resume schedule{/if}</button>{/if}
+            {/if}
+          </section>
+          <section class="bento-card detail-latest" aria-labelledby="latest-title">
+            <div class="detail-section-head"><h2 id="latest-title">Latest run</h2>{#if latest}<AutomationBadge status={latest.status} />{/if}</div>
+            {#if latest}
+              <dl class="info-pairs"><div><dt>Started</dt><dd>{automationTime(latest.startedAt)}</dd></div><div><dt>Duration</dt><dd>{automationDuration(latest.startedAt, latest.finishedAt)}</dd></div></dl>
+              <a class="btn detail-result-link" href={'/automations/' + encodeURIComponent(id) + '/runs/' + encodeURIComponent(latest.id)}>{#if latest.status === 'running'}View live output{:else}View run details{/if}<Icon name="chevron" size={16} /></a>
+            {:else}
+              <p class="detail-empty-title">No runs recorded</p>
+              <p class="automation-note">Run now starts the saved steps. Run details show captured output and the final status.</p>
+            {/if}
+          </section>
+        </div>
+        <section class="bento-card detail-execution" aria-labelledby="execution-title">
+          <h2 id="execution-title">Steps and failure handling</h2>
+          <p class="automation-note">Steps run in order within each phase. Select a phase to inspect its commands, prompts and failure paths.</p>
+          <AutomationFlow {automation} />
+          <div class="detail-execution-notes">
+            <div><h3>Retries</h3><p>{#if automation.maxRetries}Only a failed main action is retried, up to {automation.maxRetries} additional attempts with {automation.retryIntervalSeconds ?? 10} seconds between attempts. Completed actions do not repeat; the retried action may repeat side effects.{:else}No automatic retries. A failed main action stops the remaining main actions.{/if}</p></div>
+            <div><h3>Finalizers</h3><p>Run after success, failure or a failed precondition. A failed finalizer stops the remaining finalizers and marks the run failed. Stopping a run also skips its remaining finalizers.</p></div>
+          </div>
+          <p class="detail-host-note"><Icon name="alert" size={16} /><span>Commands and Pi tasks use the host user's permissions. They are not sandboxed.</span></p>
+        </section>
+        <section class="bento-card detail-definition" aria-labelledby="definition-title">
+          <div class="detail-definition-head"><div><h2 id="definition-title">Saved definition</h2><p class="automation-note">Last updated {automationTime(automation.updatedAt)}.</p></div>
+            {#if canEdit}<div class="automation-actions"><button class="btn" aria-expanded={editing} disabled={busy} aria-controls="automation-editor" onclick={toggleEditor}><Icon name="file" size={15} />{#if editing}Close editor{:else}Edit definition{/if}</button><button class="btn btn-danger" disabled={busy || running} onclick={() => confirmingDelete = true}><Icon name="trash" size={15} />Delete automation</button></div>{/if}
+          </div>
+          {#if !canEdit}<p class="automation-note detail-access-note">{#if companion.isAdmin}To edit the definition or pause its schedule, open the local admin dashboard in a desktop-width window.{:else}Paired devices can start and stop runs. Editing, schedule changes and deletion are available only in the host's local admin dashboard at desktop width.{/if}</p>{/if}
+          {#if confirmingDelete && canEdit}<section class="detail-delete-confirm" aria-label="Confirm deletion"><p>Delete this automation and its run history? This cannot be undone.</p><div class="actions"><button class="btn btn-danger" disabled={busy || running} onclick={() => act('delete')}>Delete automation</button><button class="btn" disabled={busy} onclick={() => confirmingDelete = false}>Cancel</button></div></section>{/if}
+          {#if editing && canEdit}<div id="automation-editor" class="detail-editor"><AutomationEditor {automation} {busy} onsave={save} oncancel={() => editing = false} /></div>{/if}
+          <details class="script-view"><summary>View saved JSON definition</summary><pre>{JSON.stringify(automationDraft(automation), null, 2)}</pre></details>
+        </section>
       </div>
     {:else}
-      <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" tabindex="0" class="bento-card collection"><div class="collection-toolbar"><div><h2>Run history</h2><p class="subtle">Newest first · keeps the latest {automation.historyLimit ?? 30} finished runs.</p></div><label class="filter-field">Run status<select bind:value={historyStatus} onchange={() => currentPage = 1}><option value="all">All statuses</option>{#each Object.entries(runLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label></div><div class="collection-scroll" role="region" aria-label="Scrollable run history">{#if !history.total}<div class="automation-empty"><Icon name="activity" size={28} /><h2>{runs.length ? 'No runs with this status' : 'A fresh start'}</h2><p>{runs.length ? 'Select another status to find a run.' : 'Run the automation to see its results here.'}</p></div>{:else}<div class="routine-table clay"><table aria-label="Run history"><thead><tr><th scope="col">Started</th><th scope="col">Duration</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open result</span></th></tr></thead><tbody>{#each history.items as run (run.id)}<tr><td class="title-cell"><a class="row-link" href={'/automations/' + encodeURIComponent(id) + '/runs/' + encodeURIComponent(run.id)}>{automationTime(run.startedAt)}</a></td><td data-label="Duration">{automationDuration(run.startedAt, run.finishedAt)}</td><td class="status-cell"><AutomationBadge status={run.status} /></td><td class="arrow-cell" aria-hidden="true"><span class="row-arrow"><Icon name="chevron" size={16} /></span></td></tr>{/each}</tbody></table></div>{/if}</div><AutomationPagination page={history.page} pages={history.pages} total={history.total} onchange={value => currentPage = value} /></div>
+      <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" tabindex="0" class="bento-card collection">
+        <div class="collection-toolbar"><div><h2>Run history</h2><p class="subtle">Newest first. Retains up to {automation.historyLimit ?? 30} finished runs, plus any active run.</p></div><label class="filter-field">Run status<select bind:value={historyStatus} onchange={() => currentPage = 1}><option value="all">All statuses</option>{#each Object.entries(runLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label></div>
+        <div class="collection-scroll" role="region" aria-label="Scrollable run history">
+          {#if !history.total}
+            <div class="automation-empty"><Icon name="activity" size={28} />{#if runs.length}<h2>No runs with this status</h2><p>Select another status to find a run.</p>{:else}<h2>No runs recorded</h2><p>Choose Run now to start a run and capture its output.</p>{/if}</div>
+          {:else}
+            <div class="routine-table clay"><table aria-label="Run history"><thead><tr><th scope="col">Started</th><th scope="col">Duration</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open result</span></th></tr></thead><tbody>{#each history.items as run (run.id)}<tr><td class="title-cell"><a class="row-link" href={'/automations/' + encodeURIComponent(id) + '/runs/' + encodeURIComponent(run.id)}>{automationTime(run.startedAt)}</a></td><td data-label="Duration">{automationDuration(run.startedAt, run.finishedAt)}</td><td class="status-cell"><AutomationBadge status={run.status} /></td><td class="arrow-cell" aria-hidden="true"><span class="row-arrow"><Icon name="chevron" size={16} /></span></td></tr>{/each}</tbody></table></div>
+          {/if}
+        </div>
+        <AutomationPagination page={history.page} pages={history.pages} total={history.total} onchange={value => currentPage = value} />
+      </div>
     {/if}
   {/if}
 </div>
 <style>
-  .state { padding: 32px; text-align: center; } .confirm { padding: 20px; } .actions { display: flex; gap: 10px; margin-top: 12px; }
+  .state { padding: 32px; text-align: center; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 </style>

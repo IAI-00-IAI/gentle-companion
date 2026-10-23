@@ -6,7 +6,7 @@ Lightweight, local-first remote control for Pi sessions.
 
 **[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Pi session shared with `/remote-control`, a phone paired from the dashboard, Pi's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
 
-**New in 0.3.14:** Pi 1.4.0 compatibility hardening keeps sessions active through startup and automatic retries, safely queues remote prompts during busy runs, and prevents cancelled or truncated automation responses from being reported as successful. Regression coverage now includes overlapping relayed dialogs. Development checks use Pi 1.4.0.
+**New in 0.3.14:** Pi 1.4.0 compatibility hardening keeps sessions active through startup and automatic retries, safely queues remote prompts during busy runs, and prevents cancelled or truncated automation responses from being reported as successful. Regression coverage now includes overlapping relayed dialogs. Development checks use Pi 1.4.0. Revamped automation details distinguish manual runs from active/paused schedules and explain failure handling. Agent links and shared reports offer opt-in sandboxed previews without a host-browser controller or URL proxy.
 
 **0.3.13:** Changes is scoped to session-recorded edits and applied Pi Jar subagent files, with compact mobile review controls. The session menu contains background work with elapsed timers and a scrollable Tasks popup for Pi Jar and compatible extensions. Claymorphism error pages provide safe recovery actions and explain failed page downloads.
 
@@ -286,6 +286,14 @@ which destroys one temporary file by opaque id.
 
 This means the agent can consume uploaded artifacts using its normal file capabilities while Pi Companion retains ownership of upload placement and cleanup.
 
+### Preview agent links and shared files
+
+Select a link in an agent reply or formatted automation output to open Companion's preview dialog. Public HTTPS links first show the destination; choose **Load website preview** to contact that site from your current browser. Websites that block embedding require **Open in new tab**. HTTP/host-local apps, IP-address URLs and arbitrary local file paths are not proxied or opened on the host.
+
+In **Shared files**, choose **Preview** for a registered upload. Files up to 2 MiB can display as safe raster images, escaped text or a static HTML snapshot. HTML scripts, navigation and external assets are disabled; JavaScript-dependent pages need the original file outside Companion. Unsupported or larger files remain downloadable.
+
+To share a generated local report, the agent must first upload the chosen file through the existing local-admin upload API (`POST /api/sessions/{session_id}/files?source=agent`, multipart field `file`). The agent can then link its unique shared filename, returned sandbox path or session download URL. Companion resolves these references to an existing opaque file id; it never reads an unshared filesystem path. Previewing does not launch, stream or control the host browser. See [Security model](SECURITY.md#web-ui-hardening) for isolation and privacy limits.
+
 ### Camera access through Cloudflare or another HTTPS proxy
 
 Camera scanning works through an HTTPS tunnel; Companion serves `Permissions-Policy: camera=(self)`. A proxy response-header rule that replaces it with `camera=()` blocks the camera before the browser can ask permission. JavaScript cannot override that restriction.
@@ -434,6 +442,8 @@ Type checks cover the extension (`tsc`) and the UI (`svelte-check`, warnings fai
 Tests cover the question relay, deferred per-session startup and remote-off/re-enable behavior (including an executable extension/bridge harness), attachment validation and path references, changed-file grouping/filtering, workspace error classification and actual connection-store recovery, install icon dimensions and service-worker cache isolation (`node --test`), plus the daemon's wire protocol, safe session archiving, pairing expiry and code throttling, origin policy, bridge and device reconnects, path traversal, upload limits, MIME allowlist, state-file permissions and multi-session isolation (`cargo test`):
 
     npm test
+
+Optional browser regressions run with `npm run test:previews`. Like the screenshot generator, this requires Playwright with Chromium (or `PLAYWRIGHT` pointing to its module and `CHROME` to a browser executable). The script uses isolated state and mock external pages to check mobile/desktop automation layouts, malicious HTML isolation, website consent, paired-device credentials/revocation, stale link requests and focus restoration. It does not use real conversations or contact the preview websites.
 
 UI modules import shared code through the `#lib/*` subpath import declared in `ui/package.json` (SvelteKit 3 replaced `$lib`). Subpath imports do not guess extensions, so always write the full file name: `#lib/format.ts`, `#lib/companion.svelte.ts`, `#lib/Icon.svelte`. `ui/tsconfig.json` extends SvelteKit's generated `$app/tsconfig`.
 

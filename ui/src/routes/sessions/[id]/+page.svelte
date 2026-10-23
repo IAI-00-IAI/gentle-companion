@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
   import { page } from '$app/state';
+  import { beforeNavigate } from '$app/navigation';
+  import ArtifactPreview from '#lib/ArtifactPreview.svelte';
+  import { previewLinks } from '#lib/artifact-links.ts';
+  import type { PreviewTarget } from '#lib/artifact-preview.ts';
   import AskSheet from '#lib/AskSheet.svelte';
   import TerminalPopup from '#lib/TerminalPopup.svelte';
   import { matchingSlashCommands } from '#lib/slash-commands.ts';
@@ -141,6 +145,15 @@
   const uploadBlocked = $derived(companion.connection === 'disconnected' || companion.connection === 'revoked');
   const asks = $derived(companion.asks[id] ?? []);
   const files = $derived(companion.files[id] ?? []);
+  let preview = $state<PreviewTarget | null>(null);
+  const showPreview = (target: PreviewTarget) => { preview = target; };
+  const previewError = (message: string) => toasts.show(message, 'error', 7000);
+  async function previewFileList() {
+    const sessionId = id;
+    await companion.refreshFiles(sessionId);
+    return companion.files[sessionId] ?? [];
+  }
+  beforeNavigate(() => { preview = null; });
   let fileFilter = $state('');
   const filteredFiles = $derived(files.filter(file => file.name.toLocaleLowerCase().includes(fileFilter.trim().toLocaleLowerCase())));
   const diff = $derived(companion.diffs[id]);
@@ -572,7 +585,7 @@
           <div class="term">
             <!-- Scrollable region must be keyboard-focusable (WCAG 2.1.1). -->
             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-            <div class="feed scroll" bind:this={feedEl} onscroll={onFeedScroll} tabindex="0" aria-label="Session activity">
+            <div class="feed scroll" bind:this={feedEl} use:previewLinks={{ sessionId: id, files, loadFiles: previewFileList, onpreview: showPreview, onerror: previewError }} onscroll={onFeedScroll} tabindex="0" aria-label="Session activity">
               <p class="line banner"><span class="glyph">~</span><span>{prettyPath(session.cwd)}</span></p>
               {#if feed.length === 0}
                 <p class="line dim"><span class="glyph">#</span><span>Waiting for Pi. Replies, tool calls and questions stream here.</span></p>
@@ -713,6 +726,7 @@
                       <strong title={file.name}>{file.name}</strong>
                       <span class="chips"><span class="chip" title="File upload source">{file.source === 'agent' ? 'Agent' : file.source === 'user' ? 'You' : 'Unknown'}</span><span class="chip">{formatBytes(file.size)}</span><span class="chip">{relativeTime(file.createdAt)}</span></span>
                     </div>
+                    <button class="btn" aria-label="Preview {file.name}" onclick={() => showPreview({ kind: 'file', sessionId: id, file })}><Icon name="file" size={16} />Preview</button>
                     <button class="btn" aria-label="Download {file.name}" disabled={downloading.includes(file.id)} onclick={() => download(file)}><Icon name="download" size={16} />{downloading.includes(file.id) ? 'Downloading…' : 'Download'}</button>
                     <button class="btn btn-ghost btn-icon" aria-label="Remove {file.name}" onclick={() => remove(file.id, file.name)}><Icon name="trash" size={16} /></button>
                   </li>
@@ -851,6 +865,7 @@
     </section>
   </div>
 
+  {#if preview}<ArtifactPreview target={preview} onclose={() => preview = null} />{/if}
   {#if !ended}
     <AskSheet sessionId={id} {asks} bind:open={askOpen} />
     <TerminalPopup sessionId={id} popups={session?.popups ?? []} />

@@ -1,9 +1,18 @@
 <script lang="ts">
   import DOMPurify from 'dompurify';
+  import { beforeNavigate } from '$app/navigation';
+  import ArtifactPreview from './ArtifactPreview.svelte';
+  import { previewLinks } from './artifact-links.ts';
+  import type { PreviewTarget } from './artifact-preview.ts';
+  import { toasts } from './toast.svelte.ts';
   import Icon from './Icon.svelte';
   import { renderMarkdown, prettify } from './markdown.ts';
   import { resultSections, structuredResult, adfHtml } from './automation-result.ts';
   let { text, running = false }: { text: string; running?: boolean } = $props();
+  let preview = $state<PreviewTarget | null>(null);
+  const showPreview = (target: PreviewTarget) => { preview = target; };
+  const previewError = (message: string) => toasts.show(message, 'error', 7000);
+  beforeNavigate(() => { preview = null; });
   let raw = $state(false);
   let copied = $state(false);
   let copyError = $state('');
@@ -18,8 +27,8 @@
     catch { copyError = 'Clipboard unavailable. Select text in the raw view to copy.'; }
   }
 </script>
-<section class="automation-result" aria-label="Run output">
-  <div class="result-toolbar"><div><h2>Output &amp; summary</h2><p class="subtle">{raw ? 'Original captured output' : 'Markdown, tables, ADF & structured JSON'}</p></div><div class="result-controls"><button class="btn btn-sm" aria-pressed={raw} onclick={() => raw = !raw}><Icon name="file" size={15} />{raw ? 'Formatted view' : 'Raw output'}</button><button class="btn btn-sm" onclick={copy}><Icon name="copy" size={15} />{copied ? 'Copied' : 'Copy'}</button></div></div>
+<section class="automation-result" aria-label="Run output" use:previewLinks={{ onpreview: showPreview, onerror: previewError }}>
+  <div class="result-toolbar"><div><h2>Run output</h2><p class="subtle">{raw ? 'Original captured output' : 'Markdown, tables, ADF & structured JSON'}</p></div><div class="result-controls"><button class="btn btn-sm" aria-pressed={raw} onclick={() => raw = !raw}><Icon name="file" size={15} />{raw ? 'Formatted view' : 'Raw output'}</button><button class="btn btn-sm" onclick={copy}><Icon name="copy" size={15} />{copied ? 'Copied' : 'Copy'}</button></div></div>
   {#if copyError}<p role="status" class="subtle">{copyError}</p>{/if}
   {#if !text}<div class="automation-empty"><Icon name="chat" size={28} /><p>{running ? 'The run is working. Output is captured when each step finishes.' : 'No output was recorded for this run.'}</p></div>
   {:else if raw}<pre class="raw-output">{text}</pre>
@@ -33,6 +42,7 @@
     {/each}
   {/if}
 </section>
+{#if preview}<ArtifactPreview target={preview} onclose={() => preview = null} />{/if}
 <style>
   .result-toolbar, .result-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; } .result-toolbar { padding-bottom: 20px; } .result-toolbar p { font-size: .76rem; margin-top: 5px; } .output-section { margin-top: 16px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface-2); box-shadow: var(--clay-soft); min-width: 0; overflow: hidden; } .output-section > header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); } h3 { font-size: .8rem; } .step-number { font: .7rem var(--mono); color: var(--accent-text); } .format-label { margin-left: auto; font-size: .64rem; font-weight: 600; color: var(--text-2); } .raw-output { padding: 18px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .78rem; line-height: 1.75; background: var(--code-bg); border-radius: 14px; max-height: 65vh; overflow: auto; } .rich-output { padding: 20px; min-width: 0; overflow-x: auto; line-height: 1.75; font-size: .88rem; }
   .rich-output :global(h1), .rich-output :global(h2), .rich-output :global(h3) { margin: 20px 0 10px; line-height: 1.4; font-size: 1.05rem; } .rich-output :global(> :first-child) { margin-top: 0; } .rich-output :global(p) { margin: 10px 0; } .rich-output :global(a) { color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; } .rich-output :global(table) { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: .8rem; } .rich-output :global(th), .rich-output :global(td) { text-align: left; padding: 12px 14px; border: 1px solid var(--border-strong); min-width: 130px; vertical-align: top; } .rich-output :global(th) { background: var(--accent-soft); font-weight: 650; } .rich-output :global(tr:nth-child(even)) { background: var(--surface); } .rich-output :global(pre) { padding: 16px; background: var(--code-bg); border-radius: 12px; overflow: auto; } .rich-output :global(code) { background: var(--code-bg); border-radius: 5px; padding: 2px 5px; } .rich-output :global(pre code) { padding: 0; } .rich-output :global(blockquote) { border-left: 3px solid var(--accent); margin: 16px 0; padding: 8px 16px; background: var(--accent-soft); border-radius: 0 12px 12px 0; } .rich-output :global(img), .rich-output :global(svg) { max-width: 100%; height: auto; } .rich-output :global(li) { margin: 4px 0; } .rich-output :global(hr) { border: 0; border-top: 1px solid var(--border); margin: 20px 0; }

@@ -23,11 +23,12 @@ struct WebAssets;
 const SPA_SHELL: &str = "200.html";
 const IMMUTABLE_PREFIX: &str = "_app/immutable/";
 
-/// Same-origin only. Inline scripts are needed for SvelteKit's bootstrap and the
-/// pre-paint theme script; inline styles for Svelte transitions and the QR SVG.
+/// App resources remain same-origin. HTTPS frames are reserved for explicit,
+/// sandboxed website previews; shared HTML uses a stricter sandboxed srcdoc policy.
+/// Inline scripts support SvelteKit/bootstrap and inline styles support the UI.
 const CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; \
 img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws: wss:; font-src 'self'; object-src 'none'; \
-base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+base-uri 'self'; form-action 'self'; frame-src 'self' https:; frame-ancestors 'none'";
 
 fn looks_like_file(path: &str) -> bool {
     path.rsplit('/').next().is_some_and(|segment| segment.contains('.'))
@@ -54,9 +55,8 @@ pub async fn serve(uri: Uri, request_headers: HeaderMap) -> Response {
     };
 
     let hash = asset.metadata.sha256_hash();
-    // HTML validators cover its security policy too: identical shell bytes must not
-    // preserve an older camera=() policy after a daemon upgrade.
-    let policy_revision = if name.ends_with(".html") { "-camera-v2" } else { "" };
+    // HTML validators cover security-policy changes even when shell bytes match.
+    let policy_revision = if name.ends_with(".html") { "-camera-v2-preview-v1" } else { "" };
     let etag = format!("\"{}{policy_revision}\"", hash.iter().take(16).map(|b| format!("{b:02x}")).collect::<String>());
     let cache = if name.starts_with(IMMUTABLE_PREFIX) {
         "public, max-age=31536000, immutable"
@@ -129,7 +129,12 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers()["permissions-policy"], "camera=(self)");
         assert!(response.headers()[header::ETAG].to_str().unwrap().contains("-camera-v2"));
-        assert!(response.headers()[header::CONTENT_SECURITY_POLICY].to_str().unwrap().contains("media-src 'self' blob:"));
+        let policy = response.headers()[header::CONTENT_SECURITY_POLICY].to_str().unwrap();
+        assert!(policy.contains("media-src 'self' blob:"));
+        assert!(policy.contains("frame-src 'self' https:"));
+        assert!(policy.contains("frame-ancestors 'none'"));
+        assert!(policy.contains("connect-src 'self' ws: wss:"));
+        assert!(response.headers()[header::ETAG].to_str().unwrap().contains("-preview-v1"));
         let mut headers = HeaderMap::new();
         headers.insert(header::IF_NONE_MATCH, response.headers()[header::ETAG].clone());
         let revalidated = serve("/pair".parse().unwrap(), headers).await;

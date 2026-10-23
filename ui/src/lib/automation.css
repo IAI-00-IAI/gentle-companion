@@ -111,4 +111,45 @@
   .automation-detail .routine-table td[data-label="Duration"] { grid-column: 1; grid-row: 2; }
   .automation-detail .routine-table .status-cell { grid-column: 2; grid-row: 2; justify-self: end; }
 }
+/* Detail views separate starting a run, scheduling, and editing the saved definition. */
+.automation-detail .detail-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); gap: 24px; align-items: center; }
+.automation-detail .detail-status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; color: var(--text-2); font-size: .85rem; }
+.automation-detail .detail-run-control { display: grid; gap: 10px; min-width: 0; }
+.automation-detail .detail-run-control .btn { width: 100%; }
+.automation-detail .detail-run-control p { margin: 0; color: var(--text-2); font-size: .8rem; line-height: 1.55; }
+.automation-detail .detail-overview { display: grid; gap: 20px; min-width: 0; }
+.automation-detail .detail-status-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; }
+.automation-detail .detail-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.automation-detail .detail-overview h2 { margin: 0; font-size: 1.05rem; line-height: 1.45; }
+.automation-detail .automation-note { font-size: .875rem; line-height: 1.65; }
+.automation-detail .detail-schedule { margin: 18px 0 0; font-size: .95rem; font-weight: 650; overflow-wrap: anywhere; }
+.automation-detail .detail-wide { grid-column: 1 / -1; }
+.automation-detail .detail-schedule-toggle, .automation-detail .detail-result-link { margin-top: 20px; }
+.automation-detail .detail-empty-title { margin: 20px 0 8px; font-size: 1rem; font-weight: 650; }
+.automation-detail .detail-execution > .automation-note { margin-top: 10px; max-width: 75ch; }
+.automation-detail .detail-execution-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.automation-detail .detail-execution-notes h3 { margin: 0 0 8px; font-size: .875rem; }
+.automation-detail .detail-execution-notes p { margin: 0; color: var(--text-2); font-size: .85rem; line-height: 1.65; }
+.automation-detail .detail-host-note { display: flex; align-items: flex-start; gap: 10px; margin: 20px 0 0; color: var(--text-2); font-size: .85rem; line-height: 1.6; }
+.automation-detail .detail-host-note > svg { flex-shrink: 0; margin-top: 3px; }
+.automation-detail .detail-definition-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.automation-detail .detail-definition-head > div { min-width: 0; }
+.automation-detail .detail-definition-head .automation-note { margin-top: 6px; }
+.automation-detail .detail-definition-head .automation-actions { width: auto; }
+.automation-detail .detail-access-note { margin-top: 14px; max-width: 75ch; }
+.automation-detail .detail-delete-confirm { margin-top: 20px; padding: 16px; border: 1px solid var(--danger); border-radius: 16px; background: var(--danger-soft); }
+.automation-detail .detail-delete-confirm p { margin: 0; font-size: .875rem; line-height: 1.6; }
+.automation-detail .detail-editor { margin-top: 20px; }
+.automation-detail .script-view summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; }
+@media (max-width: 900px) {
+  .automation-detail .detail-header, .automation-detail .detail-status-grid { grid-template-columns: minmax(0, 1fr); }
+  .automation-detail .detail-run-control { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+}
+@media (max-width: 550px) {
+  .automation-detail .detail-overview, .automation-detail .detail-status-grid { gap: 16px; }
+  .automation-detail .detail-header { gap: 18px; }
+  .automation-detail .detail-run-control, .automation-detail .detail-execution-notes { grid-template-columns: minmax(0, 1fr); }
+  .automation-detail .detail-definition-head { align-items: stretch; }
+  .automation-detail .detail-definition-head .automation-actions { width: 100%; }
+}
 @media(prefers-reduced-motion: reduce) { .automation-workspace * { transition: none !important; animation: none !important; } }
