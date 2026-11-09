@@ -84,6 +84,8 @@ struct AppState {
     bridge_client: bridge::BridgeClient,
     /// Caps how many bridged responses are relayed at once.
     bridge_permits: Arc<tokio::sync::Semaphore>,
+    /// Caps how many bridged files are copied at once.
+    bridge_copy_permits: Arc<tokio::sync::Semaphore>,
     pairings: Arc<RwLock<HashMap<String, PairingInvite>>>,
     /// Times of recent wrong pairing-code attempts (brute-force brake).
     code_failures: Arc<Mutex<Vec<u64>>>,
@@ -117,6 +119,7 @@ impl AppState {
             bridge: Arc::new(Mutex::new(bridge::Registry::default())),
             bridge_client: bridge::new_client(),
             bridge_permits: Arc::new(tokio::sync::Semaphore::new(bridge::MAX_CONCURRENT_RELAYS)),
+            bridge_copy_permits: Arc::new(tokio::sync::Semaphore::new(bridge::MAX_CONCURRENT_COPIES)),
             pairings: Arc::new(RwLock::new(HashMap::new())),
             code_failures: Arc::new(Mutex::new(Vec::new())),
             devices: Arc::new(RwLock::new(devices)),
@@ -330,6 +333,7 @@ fn local_router(state: AppState) -> Router {
         .route("/api/sessions/{session_id}/bridge/file", post(bridge::fetch_file_local))
         .route("/api/sessions/{session_id}/bridge/endpoint", post(bridge::open_endpoint_local))
         .route("/api/sessions/{session_id}/bridge/endpoint/revoke", post(bridge::revoke_endpoint_local))
+        .route("/api/sessions/{session_id}/bridge/endpoint/renew", post(bridge::renew_endpoint_local))
         .route("/api/pairing/start", post(start_pairing))
         .route("/api/devices", get(list_devices))
         .route("/api/devices/{device_id}", delete(revoke_device))
@@ -363,6 +367,7 @@ fn remote_router(state: AppState) -> Router {
         .route("/api/sessions/{session_id}/bridge/file", post(bridge::fetch_file_remote))
         .route("/api/sessions/{session_id}/bridge/endpoint", post(bridge::open_endpoint_remote))
         .route("/api/sessions/{session_id}/bridge/endpoint/revoke", post(bridge::revoke_endpoint_remote))
+        .route("/api/sessions/{session_id}/bridge/endpoint/renew", post(bridge::renew_endpoint_remote))
         .route("/ws/browser", get(browser_ws_remote))
         .fallback(get(assets::serve))
         .layer(middleware::from_fn_with_state(state.clone(), require_device_origin))
@@ -1363,6 +1368,8 @@ async fn bridge_socket(socket: WebSocket, session_id: String, state: AppState) {
                 snapshot.insert("disconnectedAt".into(), Value::from(now_secs()));
             }
             session.command_tx = None;
+            // No Pi, no bridge: links die with the connection and are never revived on reconnect.
+            state.bridge.lock().await.revoke_session(&session_id);
             broadcast(&state, serde_json::json!({
                 "type": "session.update", "sessionId": session_id, "patch": { "status": "stopped" }
             }));

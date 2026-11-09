@@ -503,7 +503,7 @@ class Companion {
 
   /** Mint an expiring link that relays to a localhost server the agent mentioned. */
   async bridgeEndpoint(sessionId: string, url: string) {
-    const endpoint = await this.request<{ origin: string; path: string; expiresAt: number }>('/api/sessions/' + encodeURIComponent(sessionId) + '/bridge/endpoint', {
+    const endpoint = await this.request<{ origin: string; path: string; expiresAt: number; leaseSeconds?: number }>('/api/sessions/' + encodeURIComponent(sessionId) + '/bridge/endpoint', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ url })
@@ -512,6 +512,15 @@ class Companion {
       throw new Error('The workspace returned an invalid bridge link.');
     }
     return endpoint;
+  }
+
+  /** Tell the daemon an open preview is still there, so its short lease does not run out. */
+  async bridgeRenew(sessionId: string, path: string) {
+    await this.request('/api/sessions/' + encodeURIComponent(sessionId) + '/bridge/endpoint/renew', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path })
+    }, 10_000);
   }
 
   /** End a relay link when its preview closes. Only the device or console that opened it can. */

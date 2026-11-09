@@ -41,13 +41,15 @@ use hyper_util::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 use futures_util::StreamExt;
-use tokio::{fs, io::AsyncReadExt, sync::OwnedSemaphorePermit};
+use tokio::{fs, io::AsyncReadExt, sync::{OwnedSemaphorePermit, watch}};
 use uuid::Uuid;
 
 use crate::{ApiError, ApiResult, AppState, TempFile, activity::MentionKind};
 
-/// An endpoint token stays valid this long after its last request.
-const ENDPOINT_IDLE_SECS: u64 = 2 * 60 * 60;
+/// A bridge link is a short lease: it ends this long after its last request or renewal. An open
+/// preview renews it about once a minute, so a link orphaned by a crash, a dropped connection or a
+/// failed revoke stops working within minutes instead of lingering.
+pub const ENDPOINT_LEASE_SECS: u64 = 5 * 60;
 const MAX_ENDPOINTS_PER_SESSION: usize = 16;
 /// HTML, CSS and JavaScript larger than this are refused rather than rewritten.
 const MAX_REWRITE_BYTES: usize = 5 * 1024 * 1024;
@@ -65,6 +67,19 @@ const MAX_RELAY_DURATION: Duration = Duration::from_secs(5 * 60);
 const RELAY_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 /// Sub-folder of the Companion temp root that every session may read bridged files from.
 pub const SHARED_FOLDER: &str = ".shared";
+/// File copies running at once. Copies are disk-bound, so they get their own small budget.
+pub const MAX_CONCURRENT_COPIES: usize = 4;
+
+/// How much disk bridged copies may use. The device can call the file endpoint directly, so the
+/// dialog's confirmation is not a limit. Plain uploads are not counted here.
+#[derive(Clone, Copy)]
+struct CopyQuota {
+    session_bytes: u64,
+    session_files: usize,
+    total_bytes: u64,
+}
+
+const COPY_QUOTA: CopyQuota = CopyQuota { session_bytes: 512 * 1024 * 1024, session_files: 64, total_bytes: 2 * 1024 * 1024 * 1024 };
 
 pub type BridgeClient = Client<HttpConnector, Body>;
 
@@ -93,11 +108,17 @@ struct Endpoint {
     connect_authority: String,
     port: u16,
     expires_at: u64,
+    /// Turns true when the token is revoked or expires, so responses already streaming stop too.
+    revoked: watch::Sender<bool>,
 }
 
 #[derive(Default)]
 pub struct Registry {
     endpoints: HashMap<String, Endpoint>,
+    /// Counts bulk revocations (bridge off, unshare, stop, archive, device removal). A link
+    /// request records it before checking its permissions and is refused if it moved by the time
+    /// the token would be minted, so a request can never outlive a revocation it raced with.
+    generation: u64,
 }
 
 impl Registry {
@@ -106,12 +127,38 @@ impl Registry {
         self.endpoints.len()
     }
 
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// Remove every token matching `ended`, telling streams already using it to stop.
+    fn end_where(&mut self, ended: impl Fn(&Endpoint) -> bool) {
+        let tokens: Vec<String> = self.endpoints.iter().filter(|(_, endpoint)| ended(endpoint)).map(|(token, _)| token.clone()).collect();
+        for token in tokens {
+            self.end_token(&token);
+        }
+    }
+
+    fn end_token(&mut self, token: &str) {
+        if let Some(endpoint) = self.endpoints.remove(token) {
+            let _ = endpoint.revoked.send(true);
+        }
+    }
+
+    /// Like `open`, but only if no bulk revocation happened since `generation` was read.
+    fn open_if_current(&mut self, generation: u64, session_id: &str, caller: &Caller, target: &Target, now: u64) -> Option<String> {
+        if self.generation != generation {
+            return None;
+        }
+        Some(self.open(session_id, caller, target, now))
+    }
+
     /// Mint a token for one preview. Every call gets its own token, even for the same server, so
     /// closing one preview (which revokes its token) never breaks another that is still open.
     /// Each caller holds at most `MAX_ENDPOINTS_PER_SESSION` tokens per session; the least recently
     /// used one is dropped to make room.
     fn open(&mut self, session_id: &str, caller: &Caller, target: &Target, now: u64) -> String {
-        self.endpoints.retain(|_, endpoint| endpoint.expires_at > now);
+        self.end_where(|endpoint| endpoint.expires_at <= now);
         self.evict_oldest(session_id, caller);
         let token = Uuid::new_v4().simple().to_string() + &Uuid::new_v4().simple().to_string();
         self.endpoints.insert(
@@ -123,7 +170,8 @@ impl Registry {
                 host_header: target.host_header.clone(),
                 connect_authority: target.connect_authority.clone(),
                 port: target.port,
-                expires_at: now + ENDPOINT_IDLE_SECS,
+                expires_at: now + ENDPOINT_LEASE_SECS,
+                revoked: watch::channel(false).0,
             },
         );
         token
@@ -142,53 +190,71 @@ impl Registry {
             }
             mine.sort_by_key(|(_, expires_at)| *expires_at);
             let oldest = mine[0].0.clone();
-            self.endpoints.remove(&oldest);
+            self.end_token(&oldest);
         }
     }
 
     /// Every token, for when the bridge is switched off.
     pub fn revoke_all(&mut self) {
-        self.endpoints.clear();
+        self.generation += 1;
+        self.end_where(|_| true);
     }
 
-    /// Every token for a session (it was archived or removed).
+    /// Every token for a session (it was archived, removed or its Pi stopped).
     pub fn revoke_session(&mut self, session_id: &str) {
-        self.endpoints.retain(|_, endpoint| endpoint.session_id != session_id);
+        self.generation += 1;
+        self.end_where(|endpoint| endpoint.session_id == session_id);
     }
 
     /// Device tokens for a session, when it stops being shared. Console tokens are unaffected.
     pub fn revoke_session_devices(&mut self, session_id: &str) {
-        self.endpoints.retain(|_, endpoint| {
-            let device_token = matches!(endpoint.caller, Caller::Device(_));
-            !(device_token && endpoint.session_id == session_id)
-        });
+        self.generation += 1;
+        self.end_where(|endpoint| matches!(endpoint.caller, Caller::Device(_)) && endpoint.session_id == session_id);
     }
 
     /// Every token a device holds, when it is revoked.
     pub fn revoke_device(&mut self, device_id: &str) {
-        self.endpoints.retain(|_, endpoint| endpoint.caller != Caller::Device(device_id.to_string()));
+        self.generation += 1;
+        let holder = Caller::Device(device_id.to_string());
+        self.end_where(|endpoint| endpoint.caller == holder);
     }
 
     /// End one token on behalf of whoever opened it. Returns whether anything was revoked.
     fn revoke_token(&mut self, token: &str, session_id: &str, caller: &Caller) -> bool {
-        let owned = self
-            .endpoints
-            .get(token)
-            .is_some_and(|endpoint| endpoint.session_id == session_id && &endpoint.caller == caller);
+        let owned = self.owns(token, session_id, caller);
         if owned {
-            self.endpoints.remove(token);
+            self.end_token(token);
         }
         owned
     }
 
+    fn owns(&self, token: &str, session_id: &str, caller: &Caller) -> bool {
+        self.endpoints
+            .get(token)
+            .is_some_and(|endpoint| endpoint.session_id == session_id && &endpoint.caller == caller)
+    }
+
+    /// Extend a lease on behalf of whoever opened it. False when the link is gone or not theirs.
+    fn renew(&mut self, token: &str, session_id: &str, caller: &Caller, now: u64) -> bool {
+        let live = self.endpoints.get(token).is_some_and(|endpoint| endpoint.expires_at > now);
+        if !live || !self.owns(token, session_id, caller) {
+            return false;
+        }
+        if let Some(endpoint) = self.endpoints.get_mut(token) {
+            endpoint.expires_at = now + ENDPOINT_LEASE_SECS;
+        }
+        true
+    }
+
     /// Look the token up and slide its expiry forward.
     fn touch(&mut self, token: &str, now: u64) -> Option<Endpoint> {
-        let endpoint = self.endpoints.get_mut(token)?;
-        if endpoint.expires_at <= now {
-            self.endpoints.remove(token);
+        let expired = self.endpoints.get(token)?.expires_at <= now;
+        if expired {
+            self.end_token(token);
             return None;
         }
-        endpoint.expires_at = now + ENDPOINT_IDLE_SECS;
+        let endpoint = self.endpoints.get_mut(token)?;
+        endpoint.expires_at = now + ENDPOINT_LEASE_SECS;
         Some(endpoint.clone())
     }
 }
@@ -405,8 +471,17 @@ async fn ensure_bridgeable_session(state: &AppState, session_id: &str) -> ApiRes
     crate::check_session_id(session_id)?;
     crate::require_interactive_session(state, session_id).await?;
     ensure_enabled(state).await?;
-    if !state.sessions.read().await.contains_key(session_id) {
-        return Err((StatusCode::NOT_FOUND, "Session not found.".into()));
+    ensure_pi_connected(state, session_id).await
+}
+
+/// A stopped session has no running Pi to ask, and no agent output that can vouch for new
+/// requests, so nothing is bridged for it until Pi reconnects.
+async fn ensure_pi_connected(state: &AppState, session_id: &str) -> ApiResult<()> {
+    let sessions = state.sessions.read().await;
+    let session = sessions.get(session_id).ok_or((StatusCode::NOT_FOUND, "Session not found.".to_string()))?;
+    let status = session.snapshot.get("status").and_then(Value::as_str);
+    if matches!(status, Some("stopped" | "disconnected")) {
+        return Err((StatusCode::CONFLICT, "Pi is not connected for this session. Start it again to use the bridge.".into()));
     }
     Ok(())
 }
@@ -435,7 +510,8 @@ pub async fn open_endpoint_local(
     Path(session_id): Path<String>,
     Json(request): Json<EndpointRequest>,
 ) -> ApiResult<Json<Value>> {
-    open_endpoint(&state, &session_id, &request.url, Caller::Admin).await.map(Json)
+    let generation = current_generation(&state).await;
+    open_endpoint(&state, &session_id, &request.url, Caller::Admin, generation).await.map(Json)
 }
 
 pub async fn open_endpoint_remote(
@@ -444,9 +520,11 @@ pub async fn open_endpoint_remote(
     headers: HeaderMap,
     Json(request): Json<EndpointRequest>,
 ) -> ApiResult<Json<Value>> {
+    // Read before any check: a revocation that lands after this makes the mint below fail.
+    let generation = current_generation(&state).await;
     let device_id = crate::authorize_device(&state, crate::bearer_token(&headers)?).await?;
     crate::require_remote_session(&state, &session_id).await?;
-    open_endpoint(&state, &session_id, &request.url, Caller::Device(device_id)).await.map(Json)
+    open_endpoint(&state, &session_id, &request.url, Caller::Device(device_id), generation).await.map(Json)
 }
 
 /// Copy a file the agent mentioned into the session sandbox so it can be previewed/downloaded.
@@ -472,6 +550,10 @@ async fn bridge_file(state: &AppState, session_id: &str, reference: &str) -> Api
     let max_bytes = settings.max_upload_mb * 1024 * 1024;
     let name = crate::safe_file_name(&canonical.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_default());
     let mime = crate::upload_mime(&settings, &name, None)?;
+
+    let _copy_slot = state.bridge_copy_permits.clone().try_acquire_owned().map_err(|_| {
+        (StatusCode::SERVICE_UNAVAILABLE, "Too many files are being copied right now. Try again shortly.".to_string())
+    })?;
 
     // Open once, prove the handle is the file that was just checked, then copy from the handle.
     let source = open_checked_file(&canonical, &scope, &data_root).await?;
@@ -499,9 +581,14 @@ async fn bridge_file(state: &AppState, session_id: &str, reference: &str) -> Api
         created_at: crate::now_secs(),
         origin: Some(origin.clone()),
     };
-    let replaced = replace_previous_copies(state, session_id, &origin, file.clone()).await;
-    for old_path in replaced {
+    let admission = admit_copy(&mut *state.files.write().await, session_id, &origin, file.clone(), COPY_QUOTA);
+    for old_path in admission.removed {
         let _ = fs::remove_file(old_path).await;
+    }
+    if let Err(error) = admission.outcome {
+        let _ = fs::remove_file(&disk_path).await;
+        crate::notify_session_files(state, session_id).await;
+        return Err(error);
     }
     crate::notify_session_files(state, session_id).await;
     Ok(file)
@@ -611,19 +698,52 @@ async fn copy_bounded(source: fs::File, destination: &FsPath, max_bytes: u64) ->
 }
 
 /// Fetching the same source again refreshes the copy instead of piling up duplicates.
-async fn replace_previous_copies(state: &AppState, session_id: &str, origin: &str, file: TempFile) -> Vec<String> {
-    let mut files = state.files.write().await;
+struct Admission {
+    /// Copies taken out of the list (replaced or evicted); the caller deletes them from disk.
+    removed: Vec<String>,
+    /// Whether the new copy was recorded.
+    outcome: ApiResult<()>,
+}
+
+fn bridged_bytes(list: &[TempFile]) -> u64 {
+    list.iter().filter(|existing| existing.origin.is_some()).map(|existing| existing.size).sum()
+}
+
+fn bridged_count(list: &[TempFile]) -> usize {
+    list.iter().filter(|existing| existing.origin.is_some()).count()
+}
+
+/// Record a finished copy, within the quota. A newer copy of the same source replaces the old one;
+/// if the session is still over its limits, its oldest bridged copies go first. The copy is refused
+/// when it cannot fit even then, or when all sessions together are over the total.
+fn admit_copy(files: &mut HashMap<String, Vec<TempFile>>, session_id: &str, origin: &str, file: TempFile, quota: CopyQuota) -> Admission {
+    let mut removed = Vec::new();
+    let elsewhere: u64 = files.iter().filter(|(id, _)| id.as_str() != session_id).map(|(_, other)| bridged_bytes(other)).sum();
     let list = files.entry(session_id.to_string()).or_default();
-    let mut replaced = Vec::new();
     list.retain(|existing| {
         let same_source = existing.origin.as_deref() == Some(origin);
         if same_source {
-            replaced.push(existing.path.clone());
+            removed.push(existing.path.clone());
         }
         !same_source
     });
+    while bridged_bytes(list) + file.size > quota.session_bytes || bridged_count(list) + 1 > quota.session_files {
+        let oldest = list
+            .iter()
+            .enumerate()
+            .filter(|(_, existing)| existing.origin.is_some())
+            .min_by_key(|(_, existing)| existing.created_at)
+            .map(|(index, _)| index);
+        let Some(index) = oldest else { break };
+        removed.push(list.remove(index).path);
+    }
+    let fits = file.size <= quota.session_bytes && elsewhere + bridged_bytes(list) + file.size <= quota.total_bytes;
+    if !fits {
+        let full = (StatusCode::INSUFFICIENT_STORAGE, "Companion's storage for bridged files is full. Remove some files and try again.".to_string());
+        return Admission { removed, outcome: Err(full) };
+    }
     list.push(file);
-    replaced
+    Admission { removed, outcome: Ok(()) }
 }
 
 /// The canonical working directory, or an error. Never falls back to a wide default: a missing,
@@ -643,7 +763,12 @@ async fn session_working_directory(state: &AppState, session_id: &str) -> ApiRes
     Ok(canonical)
 }
 
-async fn open_endpoint(state: &AppState, session_id: &str, url: &str, caller: Caller) -> ApiResult<Value> {
+pub async fn current_generation(state: &AppState) -> u64 {
+    state.bridge.lock().await.generation()
+}
+
+/// Mint a link after every permission check. `generation` was read before those checks began.
+pub async fn open_endpoint(state: &AppState, session_id: &str, url: &str, caller: Caller, generation: u64) -> ApiResult<Value> {
     ensure_bridgeable_session(state, session_id).await?;
     let target = parse_loopback_url(url).map_err(bad_request)?;
     refuse_companion_port(target.port)?;
@@ -652,11 +777,13 @@ async fn open_endpoint(state: &AppState, session_id: &str, url: &str, caller: Ca
         return Err((StatusCode::FORBIDDEN, "Only servers the agent mentioned in this session can be bridged.".into()));
     }
     let now = crate::now_secs();
-    let token = state.bridge.lock().await.open(session_id, &caller, &target, now);
+    let minted = state.bridge.lock().await.open_if_current(generation, session_id, &caller, &target, now);
+    let token = minted.ok_or((StatusCode::CONFLICT, "Sharing or the bridge changed while opening this link. Try again.".to_string()))?;
     Ok(json!({
         "origin": target.origin,
         "path": format!("/bridge/{token}{}", target.path_and_query),
-        "expiresAt": now + ENDPOINT_IDLE_SECS,
+        "expiresAt": now + ENDPOINT_LEASE_SECS,
+        "leaseSeconds": ENDPOINT_LEASE_SECS,
     }))
 }
 
@@ -689,6 +816,35 @@ pub async fn revoke_endpoint_remote(
     let device_id = crate::authorize_device(&state, crate::bearer_token(&headers)?).await?;
     crate::check_session_id(&session_id)?;
     revoke_endpoint(&state, &session_id, &request.path, Caller::Device(device_id)).await
+}
+
+pub async fn renew_endpoint_local(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+    Json(request): Json<RevokeRequest>,
+) -> ApiResult<StatusCode> {
+    renew_endpoint(&state, &session_id, &request.path, Caller::Admin).await
+}
+
+pub async fn renew_endpoint_remote(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+    headers: HeaderMap,
+    Json(request): Json<RevokeRequest>,
+) -> ApiResult<StatusCode> {
+    let device_id = crate::authorize_device(&state, crate::bearer_token(&headers)?).await?;
+    renew_endpoint(&state, &session_id, &request.path, Caller::Device(device_id)).await
+}
+
+/// An open preview calls this about once a minute. 404 means the link already ended.
+async fn renew_endpoint(state: &AppState, session_id: &str, path: &str, caller: Caller) -> ApiResult<StatusCode> {
+    crate::check_session_id(session_id)?;
+    let token = token_in_path(path).ok_or_else(|| bad_request("That is not a bridge link."))?;
+    let renewed = state.bridge.lock().await.renew(token, session_id, &caller, crate::now_secs());
+    if renewed {
+        return Ok(StatusCode::NO_CONTENT);
+    }
+    Err((StatusCode::NOT_FOUND, "This bridge link has ended. Open it again from the session.".into()))
 }
 
 /// End a link as soon as its preview is closed. Deliberately works with the bridge switched off.
@@ -794,7 +950,7 @@ async fn authorize_endpoint(state: &AppState, remote: bool, token: &str) -> ApiR
     let expired = (StatusCode::NOT_FOUND, "This bridge link has expired. Open it again from the session.".to_string());
     let endpoint = state.bridge.lock().await.touch(token, crate::now_secs()).ok_or(expired.clone())?;
     refuse_companion_port(endpoint.port)?;
-    if !state.sessions.read().await.contains_key(&endpoint.session_id) {
+    if ensure_pi_connected(state, &endpoint.session_id).await.is_err() {
         state.bridge.lock().await.revoke_session(&endpoint.session_id);
         return Err(expired);
     }
@@ -868,15 +1024,30 @@ async fn forward(state: &AppState, remote: bool, token: &str, request: Request) 
         .body(Body::new(Limited::new(body, MAX_REQUEST_BYTES)))
         .map_err(|_| bad_request("That request cannot be forwarded."))?;
 
-    let unreachable = || (StatusCode::BAD_GATEWAY, format!("Could not reach {}. Is the server still running?", endpoint.origin));
-    let sent = tokio::time::timeout(UPSTREAM_TIMEOUT, state.bridge_client.request(upstream_request)).await;
-    let upstream = sent
-        .map_err(|_| (StatusCode::GATEWAY_TIMEOUT, format!("{} did not answer in time.", endpoint.origin)))?
-        .map_err(|error| {
-            tracing::debug!("bridge upstream failed: {error}");
-            unreachable()
-        })?;
-    build_response(upstream, &endpoint, &prefix, permit).await
+    // Revoking the token (preview closed, sharing off, device removed, Pi stopped) also ends this
+    // exchange, whether it is still waiting for the server or already streaming the body.
+    let mut revoked = endpoint.revoked.subscribe();
+    let exchange = async {
+        let unreachable = || (StatusCode::BAD_GATEWAY, format!("Could not reach {}. Is the server still running?", endpoint.origin));
+        let sent = tokio::time::timeout(UPSTREAM_TIMEOUT, state.bridge_client.request(upstream_request)).await;
+        let upstream = sent
+            .map_err(|_| (StatusCode::GATEWAY_TIMEOUT, format!("{} did not answer in time.", endpoint.origin)))?
+            .map_err(|error| {
+                tracing::debug!("bridge upstream failed: {error}");
+                unreachable()
+            })?;
+        build_response(upstream, &endpoint, &prefix, permit, endpoint.revoked.subscribe()).await
+    };
+    tokio::select! {
+        biased;
+        _ = until_revoked(&mut revoked) => Err((StatusCode::NOT_FOUND, "This bridge link has ended. Open it again from the session.".to_string())),
+        response = exchange => response,
+    }
+}
+
+/// Resolves once the token has been revoked (or is already). Also resolves if the registry is gone.
+async fn until_revoked(revoked: &mut watch::Receiver<bool>) {
+    let _ = revoked.wait_for(|ended| *ended).await;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -909,6 +1080,7 @@ async fn build_response(
     endpoint: &Endpoint,
     prefix: &str,
     permit: OwnedSemaphorePermit,
+    revoked: watch::Receiver<bool>,
 ) -> ApiResult<Response> {
     let (parts, incoming) = upstream.into_parts();
     let rewrite = rewrite_kind(&parts.headers);
@@ -933,7 +1105,7 @@ async fn build_response(
 
     let body = match rewrite {
         Some(kind) => rewritten_body(incoming, kind, prefix, endpoint).await?,
-        None => relay_body(incoming, permit),
+        None => relay_body(incoming, permit, revoked),
     };
     let mut response = Response::new(body);
     *response.status_mut() = parts.status;
@@ -1004,12 +1176,14 @@ async fn rewritten_body(
 /// Stream an upstream body with a byte budget, a total-time budget and an idle timeout. The
 /// concurrency permit is held until the stream ends, so slow or endless upstreams cannot pile up.
 /// Hyper's pull-based body gives backpressure: nothing is read faster than the browser consumes.
-fn relay_body(incoming: hyper::body::Incoming, permit: OwnedSemaphorePermit) -> Body {
+/// Revoking the link cuts the stream at the next opportunity, even mid-body.
+fn relay_body(incoming: hyper::body::Incoming, permit: OwnedSemaphorePermit, revoked: watch::Receiver<bool>) -> Body {
     struct Relay<S> {
         chunks: S,
         sent: usize,
         deadline: tokio::time::Instant,
         finished: bool,
+        revoked: watch::Receiver<bool>,
         _permit: OwnedSemaphorePermit,
     }
     let relay = Relay {
@@ -1017,6 +1191,7 @@ fn relay_body(incoming: hyper::body::Incoming, permit: OwnedSemaphorePermit) -> 
         sent: 0,
         deadline: tokio::time::Instant::now() + MAX_RELAY_DURATION,
         finished: false,
+        revoked,
         _permit: permit,
     };
     let stream = futures_util::stream::unfold(relay, |mut relay| async move {
@@ -1025,7 +1200,15 @@ fn relay_body(incoming: hyper::body::Incoming, permit: OwnedSemaphorePermit) -> 
         }
         let remaining = relay.deadline.saturating_duration_since(tokio::time::Instant::now());
         let wait = remaining.min(RELAY_IDLE_TIMEOUT);
-        let next = tokio::time::timeout(wait, relay.chunks.next()).await;
+        let next = tokio::select! {
+            biased;
+            _ = until_revoked(&mut relay.revoked) => {
+                relay.finished = true;
+                let closed = io::Error::new(io::ErrorKind::ConnectionAborted, "The bridge link was closed.");
+                return Some((Err(closed), relay));
+            }
+            next = tokio::time::timeout(wait, relay.chunks.next()) => next,
+        };
         let failure = |message: &str| io::Error::new(io::ErrorKind::TimedOut, message.to_string());
         let outcome = match next {
             Err(_) => Err(failure("The bridged server stalled or took too long.")),
@@ -1420,8 +1603,8 @@ mod tests {
         assert!(registry.touch(&kept, 1_000_001).is_some(), "one caller cannot evict another's preview");
 
         let old = registry.open("s3", &Caller::Admin, &target, 100);
-        assert!(registry.touch(&old, 100 + ENDPOINT_IDLE_SECS - 1).is_some());
-        assert!(registry.touch(&old, 100 + 2 * ENDPOINT_IDLE_SECS).is_none());
+        assert!(registry.touch(&old, 100 + ENDPOINT_LEASE_SECS - 1).is_some());
+        assert!(registry.touch(&old, 100 + 2 * ENDPOINT_LEASE_SECS).is_none());
     }
 
     #[tokio::test]
@@ -1493,6 +1676,126 @@ mod tests {
         assert_eq!(css, "@import '/bridge/abc/base.css'; a{background:url(http://localhost:4000/x.png)}");
         // Running the rewrite again changes nothing.
         assert_eq!(rewrite_css(&css, PREFIX, 3000), css);
+    }
+
+    #[test]
+    fn leases_renew_only_for_their_owner_and_only_while_live() {
+        let target = parse_loopback_url("http://localhost:3000").unwrap();
+        let mut registry = Registry::default();
+        let device = Caller::Device("d".into());
+        let token = registry.open("s1", &device, &target, 100);
+        assert!(!registry.renew(&token, "s1", &Caller::Admin, 150), "not the opener");
+        assert!(!registry.renew(&token, "s2", &device, 150), "wrong session");
+        assert!(registry.renew(&token, "s1", &device, 100 + ENDPOINT_LEASE_SECS - 1));
+        // Renewed at T = 100 + lease - 1, so it lives until that + lease; a missed heartbeat ends it.
+        assert!(registry.touch(&token, 100 + 2 * ENDPOINT_LEASE_SECS - 2).is_some());
+        assert!(registry.touch(&token, 100 + 4 * ENDPOINT_LEASE_SECS).is_none(), "an orphaned link stops by itself");
+        assert!(!registry.renew(&token, "s1", &device, 100 + 4 * ENDPOINT_LEASE_SECS), "an expired link is not revived");
+    }
+
+    #[test]
+    fn bulk_revocation_moves_the_generation_and_closing_one_preview_does_not() {
+        let target = parse_loopback_url("http://localhost:3000").unwrap();
+        let mut registry = Registry::default();
+        let start = registry.generation();
+        let token = registry.open("s1", &Caller::Admin, &target, 100);
+        assert!(registry.revoke_token(&token, "s1", &Caller::Admin));
+        assert_eq!(registry.generation(), start, "a preview closing must not fail a concurrent open");
+        assert!(registry.open_if_current(start, "s1", &Caller::Admin, &target, 100).is_some());
+        for revoke in [
+            |registry: &mut Registry| registry.revoke_all(),
+            |registry: &mut Registry| registry.revoke_session("s1"),
+            |registry: &mut Registry| registry.revoke_session_devices("s1"),
+            |registry: &mut Registry| registry.revoke_device("d"),
+        ] {
+            let before = registry.generation();
+            revoke(&mut registry);
+            assert!(registry.generation() > before);
+            assert!(registry.open_if_current(before, "s1", &Caller::Admin, &target, 100).is_none(), "stale generation cannot mint");
+        }
+    }
+
+    #[test]
+    fn revoking_signals_streams_that_hold_the_token() {
+        let target = parse_loopback_url("http://localhost:3000").unwrap();
+        let mut registry = Registry::default();
+        let token = registry.open("s1", &Caller::Admin, &target, 100);
+        let in_flight = registry.touch(&token, 101).unwrap();
+        let listener = in_flight.revoked.subscribe();
+        assert!(!*listener.borrow());
+        registry.revoke_session("s1");
+        assert!(*listener.borrow(), "the stream sees the revocation");
+
+        let expiring = registry.open("s2", &Caller::Admin, &target, 100);
+        let listener = registry.touch(&expiring, 101).unwrap().revoked.subscribe();
+        assert!(registry.touch(&expiring, 101 + 2 * ENDPOINT_LEASE_SECS).is_none());
+        assert!(*listener.borrow(), "an expired link also ends its streams");
+    }
+
+    fn copy(id: &str, size: u64, created_at: u64, origin: Option<&str>) -> TempFile {
+        TempFile {
+            source: "agent".into(),
+            id: id.into(),
+            name: format!("{id}.txt"),
+            path: format!("/tmp/{id}"),
+            size,
+            mime: "text/plain".into(),
+            created_at,
+            origin: origin.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn copy_quotas_evict_the_oldest_bridged_copies_and_never_touch_uploads() {
+        let quota = CopyQuota { session_bytes: 100, session_files: 3, total_bytes: 250 };
+        let mut files: HashMap<String, Vec<TempFile>> = HashMap::new();
+        files.insert("s1".into(), vec![copy("upload", 500, 1, None)]);
+        let admit = |files: &mut HashMap<String, Vec<TempFile>>, id: &str, size, at, origin: &str| {
+            admit_copy(files, "s1", origin, copy(id, size, at, Some(origin)), quota)
+        };
+
+        for (id, at) in [("a", 10), ("b", 11), ("c", 12)] {
+            let admission = admit(&mut files, id, 10, at, id);
+            assert!(admission.outcome.is_ok() && admission.removed.is_empty());
+        }
+        // A fourth copy exceeds the file count: the oldest bridged copy goes, the upload stays.
+        let admission = admit(&mut files, "d", 10, 13, "d");
+        assert!(admission.outcome.is_ok());
+        assert_eq!(admission.removed, vec!["/tmp/a".to_string()]);
+        let ids: Vec<&str> = files["s1"].iter().map(|file| file.id.as_str()).collect();
+        assert_eq!(ids, ["upload", "b", "c", "d"]);
+
+        // Bytes: a 95-byte copy evicts the others until it fits.
+        let admission = admit(&mut files, "big", 95, 14, "big");
+        assert!(admission.outcome.is_ok());
+        assert_eq!(admission.removed.len(), 3);
+        assert_eq!(bridged_bytes(&files["s1"]), 95);
+
+        // Refetching the same source replaces the old copy instead of adding to the total.
+        let admission = admit(&mut files, "big2", 95, 15, "big");
+        assert!(admission.outcome.is_ok());
+        assert_eq!(admission.removed, vec!["/tmp/big".to_string()]);
+        assert_eq!(bridged_count(&files["s1"]), 1);
+
+        // Larger than the whole per-session quota is refused and records nothing.
+        let admission = admit(&mut files, "huge", 101, 16, "huge");
+        assert_eq!(admission.outcome.unwrap_err().0, StatusCode::INSUFFICIENT_STORAGE);
+        assert!(files["s1"].iter().all(|file| file.id != "huge"));
+    }
+
+    #[test]
+    fn the_total_quota_spans_sessions_without_evicting_other_sessions() {
+        let quota = CopyQuota { session_bytes: 100, session_files: 10, total_bytes: 150 };
+        let mut files: HashMap<String, Vec<TempFile>> = HashMap::new();
+        for (session, id) in [("s1", "one"), ("s2", "two")] {
+            let admission = admit_copy(&mut files, session, id, copy(id, 70, 1, Some(id)), quota);
+            assert!(admission.outcome.is_ok(), "{session}");
+        }
+        let admission = admit_copy(&mut files, "s3", "three", copy("three", 70, 2, Some("three")), quota);
+        assert_eq!(admission.outcome.unwrap_err().0, StatusCode::INSUFFICIENT_STORAGE);
+        assert!(admission.removed.is_empty(), "another session's files are never evicted");
+        assert_eq!(files["s1"].len() + files["s2"].len(), 2);
+        assert!(files["s3"].is_empty());
     }
 
     #[test]

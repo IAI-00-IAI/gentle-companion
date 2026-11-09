@@ -546,3 +546,206 @@ async fn two_previews_of_one_server_do_not_share_a_link() {
     assert_eq!(send(&remote, get(&second, Some("null"), None)).await.0, StatusCode::OK, "closing one tab leaves the other working");
     let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
 }
+
+/// Wait for a condition that a background task will make true.
+async fn eventually(what: &str, mut condition: impl AsyncFnMut() -> bool) {
+    let waited = tokio::time::timeout(Duration::from_secs(3), async {
+        while !condition().await {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    assert!(waited.is_ok(), "timed out waiting for {what}");
+}
+
+async fn set_bridge_enabled(local: &Router, enabled: bool) {
+    let (_, _, current) = send(local, get("/api/settings", Some(CONSOLE_ORIGIN), None)).await;
+    let mut settings: Value = serde_json::from_str::<Value>(&current).unwrap()["settings"].clone();
+    settings["bridgeEnabled"] = json!(enabled);
+    let update = request("PUT", "/api/settings", Some(CONSOLE_ORIGIN), None).header("content-type", "application/json").body(Body::from(settings.to_string())).unwrap();
+    assert_eq!(send(local, update).await.0, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn a_link_request_that_raced_turning_the_bridge_off_and_on_cannot_mint() {
+    let Workspace { state, cwd, .. } = workspace("race-bridge", true).await;
+    let local = local_router(state.clone());
+    let (device_id, _) = pair(&state).await;
+    let server = upstream().await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "race-bridge", &format!("Serving {origin}")).await;
+
+    // The request read the generation, passed every check, and was then overtaken by off -> on.
+    let generation = bridge::current_generation(&state).await;
+    set_bridge_enabled(&local, false).await;
+    set_bridge_enabled(&local, true).await;
+    let raced = bridge::open_endpoint(&state, "race-bridge", &origin, bridge::Caller::Device(device_id.clone()), generation).await;
+    assert_eq!(raced.unwrap_err().0, StatusCode::CONFLICT, "a token minted after the revocation would be live again");
+    assert_eq!(state.bridge.lock().await.len(), 0);
+
+    let fresh = bridge::current_generation(&state).await;
+    assert!(bridge::open_endpoint(&state, "race-bridge", &origin, bridge::Caller::Device(device_id), fresh).await.is_ok());
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+#[tokio::test]
+async fn a_link_request_that_raced_unsharing_and_resharing_cannot_mint() {
+    let state = test_state();
+    let addr = serve(local_router(state.clone())).await;
+    let (device_id, _) = pair(&state).await;
+    let mut pi = bridge(addr, "race-share", true).await;
+    let server = upstream().await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "race-share", &format!("Serving {origin}")).await;
+
+    let generation = bridge::current_generation(&state).await;
+    for shared in [false, true] {
+        send_json(&mut pi, json!({ "type": "session.update", "session": { "remoteEnabled": shared } })).await;
+        eventually("the share flag to land", async || state.sessions.read().await["race-share"].snapshot["remoteEnabled"] == json!(shared)).await;
+    }
+    // Sharing is on again, so every permission check would pass; only the generation catches it.
+    let raced = bridge::open_endpoint(&state, "race-share", &origin, bridge::Caller::Device(device_id), generation).await;
+    assert_eq!(raced.unwrap_err().0, StatusCode::CONFLICT);
+    assert_eq!(state.bridge.lock().await.len(), 0);
+}
+
+#[tokio::test]
+async fn stopping_pi_ends_links_and_blocks_bridging_until_it_reconnects() {
+    let state = test_state();
+    let local_addr = serve(local_router(state.clone())).await;
+    let local = local_router(state.clone());
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    let pi = bridge(local_addr, "stopping", true).await;
+    let server = upstream().await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "stopping", &format!("Serving {origin}")).await;
+    let path = open_device_link(&remote, &token, "stopping", &origin).await;
+    assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::OK);
+
+    drop(pi);
+    eventually("the session to stop", async || state.sessions.read().await["stopping"].snapshot["status"] == json!("stopped")).await;
+    assert_eq!(state.bridge.lock().await.len(), 0, "stopping Pi ends every link");
+    assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::NOT_FOUND);
+
+    let open = bridge_post(Some(DEVICE_ORIGIN), Some(&token), "/api/sessions/stopping/bridge/endpoint", json!({ "url": origin }));
+    assert_eq!(send(&remote, open).await.0, StatusCode::CONFLICT, "no new links while Pi is away");
+    let file = bridge_post(Some(DEVICE_ORIGIN), Some(&token), "/api/sessions/stopping/bridge/file", json!({ "reference": "/tmp/anything.txt" }));
+    assert_eq!(send(&remote, file).await.0, StatusCode::CONFLICT, "no file copies while Pi is away");
+    let console = bridge_post(None, None, "/api/sessions/stopping/bridge/endpoint", json!({ "url": origin }));
+    assert_eq!(send(&local, console).await.0, StatusCode::CONFLICT);
+
+    // Reconnecting does not revive the old link; a new one works.
+    let _pi = bridge(local_addr, "stopping", true).await;
+    assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::NOT_FOUND);
+    let fresh = open_device_link(&remote, &token, "stopping", &origin).await;
+    assert_eq!(send(&remote, get(&fresh, Some("null"), None)).await.0, StatusCode::OK);
+}
+
+/// A server that streams one chunk every 20 ms, forever.
+async fn endless_stream() -> SocketAddr {
+    let app = Router::new().route("/stream", route_get(|| async {
+        let chunks = futures_util::stream::unfold((), |()| async {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            Some((Ok::<_, std::io::Error>(axum::body::Bytes::from_static(b"tick\n")), ()))
+        });
+        Body::from_stream(chunks)
+    }));
+    serve(app).await
+}
+
+async fn read_until_cut(response: axum::response::Response) -> bool {
+    let mut body = response.into_body().into_data_stream();
+    let cut = tokio::time::timeout(Duration::from_secs(3), async {
+        while let Some(chunk) = futures_util::StreamExt::next(&mut body).await {
+            if chunk.is_err() {
+                return;
+            }
+        }
+    })
+    .await;
+    cut.is_ok()
+}
+
+#[tokio::test]
+async fn revoking_a_link_cuts_a_response_that_is_already_streaming() {
+    let Workspace { state, cwd, .. } = workspace("cut", true).await;
+    let local = local_router(state.clone());
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    let server = endless_stream().await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "cut", &format!("Serving {origin}")).await;
+    let revoke_path = "/api/sessions/cut/bridge/endpoint/revoke";
+
+    // 1. The opener closes the preview while a body is mid-stream.
+    let path = open_device_link(&remote, &token, "cut", &origin).await;
+    let response = remote.clone().oneshot(get(&format!("{}stream", path.trim_end_matches(&['/', '?'][..]).to_string() + "/"), Some("null"), None)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let revoke = bridge_post(Some(DEVICE_ORIGIN), Some(&token), revoke_path, json!({ "path": path }));
+    assert_eq!(send(&remote, revoke).await.0, StatusCode::NO_CONTENT);
+    assert!(read_until_cut(response).await, "closing the preview must end the stream, not let it run for minutes");
+
+    // 2. Unsharing the session while a body is mid-stream.
+    let path = open_device_link(&remote, &token, "cut", &origin).await;
+    let response = remote.clone().oneshot(get(&format!("{}/stream", path.trim_end_matches('/')), Some("null"), None)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    state.bridge.lock().await.revoke_session_devices("cut");
+    assert!(read_until_cut(response).await, "unsharing must end the stream");
+
+    // 3. The bridge is switched off while a console body is mid-stream.
+    let (_, _, body) = send(&local, bridge_post(None, None, "/api/sessions/cut/bridge/endpoint", json!({ "url": origin }))).await;
+    let path = serde_json::from_str::<Value>(&body).unwrap()["path"].as_str().unwrap().to_string();
+    let response = local.clone().oneshot(get(&format!("{}/stream", path.trim_end_matches('/')), None, None)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    set_bridge_enabled(&local, false).await;
+    assert!(read_until_cut(response).await, "turning the bridge off must end the stream");
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+#[tokio::test]
+async fn open_previews_renew_their_lease_and_only_the_opener_can() {
+    let Workspace { state, cwd, .. } = workspace("lease", true).await;
+    let local = local_router(state.clone());
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    let (_, other_token) = pair(&state).await;
+    let server = upstream().await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "lease", &format!("Serving {origin}")).await;
+    let (_, _, minted) = send(&remote, bridge_post(Some(DEVICE_ORIGIN), Some(&token), "/api/sessions/lease/bridge/endpoint", json!({ "url": origin }))).await;
+    let minted: Value = serde_json::from_str(&minted).unwrap();
+    assert_eq!(minted["leaseSeconds"], bridge::ENDPOINT_LEASE_SECS);
+    let path = minted["path"].as_str().unwrap().to_string();
+    let renew_path = "/api/sessions/lease/bridge/endpoint/renew";
+
+    let by_opener = bridge_post(Some(DEVICE_ORIGIN), Some(&token), renew_path, json!({ "path": path }));
+    assert_eq!(send(&remote, by_opener).await.0, StatusCode::NO_CONTENT);
+    let by_other = bridge_post(Some(DEVICE_ORIGIN), Some(&other_token), renew_path, json!({ "path": path }));
+    assert_eq!(send(&remote, by_other).await.0, StatusCode::NOT_FOUND);
+    let by_console = bridge_post(None, None, renew_path, json!({ "path": path }));
+    assert_eq!(send(&local, by_console).await.0, StatusCode::NOT_FOUND);
+
+    // Once the link has ended, a renewal says so and does not bring it back.
+    state.bridge.lock().await.revoke_session("lease");
+    let late = bridge_post(Some(DEVICE_ORIGIN), Some(&token), renew_path, json!({ "path": path }));
+    assert_eq!(send(&remote, late).await.0, StatusCode::NOT_FOUND);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+#[tokio::test]
+async fn simultaneous_file_copies_are_capped() {
+    let Workspace { state, cwd, .. } = workspace("copies", false).await;
+    let local = local_router(state.clone());
+    let file = cwd.join("a.txt");
+    write_file(&file, "a").await;
+    agent_says(&state, "copies", &format!("Wrote {}", file.display())).await;
+    let fetch = || bridge_post(None, None, "/api/sessions/copies/bridge/file", json!({ "reference": file.to_string_lossy() }));
+    state.bridge_copy_permits.forget_permits(bridge::MAX_CONCURRENT_COPIES);
+    let (status, _, body) = send(&local, fetch()).await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    state.bridge_copy_permits.add_permits(bridge::MAX_CONCURRENT_COPIES);
+    assert_eq!(send(&local, fetch()).await.0, StatusCode::OK);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+    let _ = fs::remove_dir_all(&state.temp_root).await;
+}

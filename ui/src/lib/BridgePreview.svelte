@@ -1,6 +1,18 @@
+<script module lang="ts">
+  import { companion } from './companion.svelte.ts';
+  import { toasts } from './toast.svelte.ts';
+  import { RevocationQueue } from './bridge-lease.ts';
+
+  /** Shared by every preview, so a revoke that failed outlives the dialog that wanted it. */
+  const revocations = new RevocationQueue((sessionId, path) => companion.bridgeRevoke(sessionId, path), {
+    onUnconfirmed: () =>
+      toasts.show('Could not confirm that the preview link was closed. Retrying; it also expires on its own within five minutes.', 'error', 8000)
+  });
+  if (typeof window !== 'undefined') window.addEventListener('online', () => void revocations.flush());
+</script>
+
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { companion } from './companion.svelte.ts';
   import { errorMessage } from './toast.svelte.ts';
   import { BridgeLease, type BridgeLink } from './bridge-lease.ts';
   import type { BridgeTarget } from './artifact-preview.ts';
@@ -13,9 +25,19 @@
   let frame = $state<BridgeLink | undefined>();
   let closing = false;
   let disposed = false;
-  /** Revokes the link when the preview ends, even if that happens before the link has arrived. */
-  const lease = new BridgeLease(async (path) => {
-    if (target.kind === 'bridge-endpoint') await companion.bridgeRevoke(target.sessionId, path);
+  /**
+   * Keeps the daemon's short lease alive while this preview is open and revokes the link when it
+   * ends, even if that happens before the link has arrived. A failed revoke is retried.
+   */
+  const lease = new BridgeLease({
+    sessionId: () => (target.kind === 'bridge-endpoint' ? target.sessionId : ''),
+    revocations,
+    renew: (sessionId, path) => companion.bridgeRenew(sessionId, path),
+    onLost: () => {
+      if (disposed || closing) return;
+      frame = undefined;
+      error = 'This link ended, for example because Pi stopped or sharing was turned off. Open it again to continue.';
+    }
   });
 
   const subject = $derived(target.kind === 'bridge-file' ? target.reference : target.url);
