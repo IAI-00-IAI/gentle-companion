@@ -764,12 +764,16 @@ async fn an_upstream_wait_ends_when_the_lease_expires() {
     let origin = format!("http://127.0.0.1:{}", server.port());
     agent_says(&state, "lease-wait", &format!("Serving {origin}")).await;
     let path = open_device_link(&remote, &token, "lease-wait", &origin).await;
+    // Age the lease before starting the request so it expires before the 30-second upstream timeout.
+    tokio::time::pause();
+    tokio::time::advance(Duration::from_secs(bridge::ENDPOINT_LEASE_SECS - 10)).await;
+    tokio::time::resume();
     let pending = tokio::spawn(async move {
         remote.oneshot(get(&format!("{}/wait", path.trim_end_matches('/')), Some("null"), None)).await.unwrap()
     });
     started.notified().await;
     tokio::time::pause();
-    tokio::time::advance(Duration::from_secs(bridge::ENDPOINT_LEASE_SECS)).await;
+    tokio::time::advance(Duration::from_secs(10)).await;
     assert_eq!(pending.await.unwrap().status(), StatusCode::NOT_FOUND);
     let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
 }
