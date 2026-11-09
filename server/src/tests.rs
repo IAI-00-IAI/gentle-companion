@@ -154,11 +154,35 @@ async fn add_session(state: &AppState, id: &str, remote: bool) {
     );
 }
 
+fn is_companion_port(port: u16) -> bool {
+    [local_addr(), remote_addr()]
+        .into_iter()
+        .map(|address| address.parse::<SocketAddr>().expect("valid Companion address"))
+        .any(|address| address.port() == port)
+}
+
 async fn serve(router: Router) -> SocketAddr {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    // Linux may assign a Companion port from its ephemeral range. Keep rejected
+    // listeners open until another port is chosen so the kernel cannot reuse them.
+    let mut rejected = Vec::new();
+    let listener = loop {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        if !is_companion_port(listener.local_addr().unwrap().port()) {
+            break listener;
+        }
+        rejected.push(listener);
+    };
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     addr
+}
+
+#[test]
+fn companion_listener_ports_are_excluded_from_test_servers() {
+    for address in [local_addr(), remote_addr()] {
+        let port = address.parse::<SocketAddr>().unwrap().port();
+        assert!(is_companion_port(port));
+    }
 }
 
 async fn ws_connect(addr: SocketAddr, path: &str, origin: Option<&str>, protocols: Option<&str>) -> Result<Ws, tungstenite::Error> {
