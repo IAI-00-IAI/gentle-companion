@@ -128,15 +128,94 @@ async fn file_bridge_resolves_symlinks_before_checking_scope() {
 }
 
 #[tokio::test]
-async fn file_bridge_allows_the_shared_temp_directory() {
+async fn file_bridge_allows_the_shared_folder_but_not_other_sessions_folders() {
     let Workspace { state, cwd, .. } = workspace("temp", false).await;
+    add_session_in(&state, "other", &cwd, false).await;
     let local = local_router(state.clone());
-    let shared = state.temp_root.join("shared-note.txt");
-    fs::create_dir_all(&state.temp_root).await.unwrap();
+    let shared_dir = state.temp_root.join(bridge::SHARED_FOLDER);
+    let other_dir = state.temp_root.join("other");
+    for dir in [&shared_dir, &other_dir] {
+        fs::create_dir_all(dir).await.unwrap();
+    }
+    let shared = shared_dir.join("shared-note.txt");
+    let private = other_dir.join("id-private.txt");
     write_file(&shared, "shared").await;
-    agent_says(&state, "temp", &format!("Saved {}", shared.display())).await;
-    let (status, _, body) = send(&local, bridge_post(None, None, "/api/sessions/temp/bridge/file", json!({ "reference": shared.to_string_lossy() }))).await;
+    write_file(&private, "private").await;
+    agent_says(&state, "temp", &format!("Saved {} and {}", shared.display(), private.display())).await;
+    let fetch = |path: &FsPath| bridge_post(None, None, "/api/sessions/temp/bridge/file", json!({ "reference": path.to_string_lossy() }));
+    let (status, _, body) = send(&local, fetch(&shared)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, _, body) = send(&local, fetch(&private)).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "another session's upload must stay private: {body}");
+    // Not even when the working directory is wide enough to contain the temp root.
+    add_session_in(&state, "wide", state.temp_root.parent().unwrap(), false).await;
+    agent_says(&state, "wide", &format!("Saved {}", private.display())).await;
+    let (status, _, body) = send(&local, bridge_post(None, None, "/api/sessions/wide/bridge/file", json!({ "reference": private.to_string_lossy() }))).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+    let _ = fs::remove_dir_all(&state.temp_root).await;
+}
+
+#[tokio::test]
+async fn file_bridge_fails_closed_without_a_usable_working_directory() {
+    let state = test_state();
+    let local = local_router(state.clone());
+    let victim = scratch("victim");
+    fs::create_dir_all(&victim).await.unwrap();
+    let file = victim.join("notes.txt");
+    write_file(&file, "x").await;
+    let snapshots = [
+        ("missing", json!({ "id": "missing", "remoteEnabled": false, "status": "idle" })),
+        ("relative", json!({ "id": "relative", "remoteEnabled": false, "status": "idle", "cwd": "relative/dir" })),
+        ("gone", json!({ "id": "gone", "remoteEnabled": false, "status": "idle", "cwd": "/definitely/not/here" })),
+        ("root", json!({ "id": "root", "remoteEnabled": false, "status": "idle", "cwd": "/" })),
+    ];
+    for (id, snapshot) in snapshots {
+        state.sessions.write().await.insert(id.to_string(), Session { snapshot, command_tx: None });
+        agent_says(&state, id, &format!("Saved {}", file.display())).await;
+        let path = format!("/api/sessions/{id}/bridge/file");
+        let (status, _, body) = send(&local, bridge_post(None, None, &path, json!({ "reference": file.to_string_lossy() }))).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{id}: {body}");
+    }
+    let _ = fs::remove_dir_all(&victim).await;
+}
+
+#[tokio::test]
+async fn file_bridge_mention_must_match_the_whole_path_and_supports_spaces() {
+    let Workspace { state, cwd, .. } = workspace("names", false).await;
+    let local = local_router(state.clone());
+    let spaced_dir = cwd.join("My Docs");
+    fs::create_dir_all(&spaced_dir).await.unwrap();
+    let plain = cwd.join("report.html");
+    let spaced = spaced_dir.join("a b.md");
+    let encoded = spaced_dir.join("c d.md");
+    for path in [&plain, &spaced, &encoded] {
+        write_file(path, "x").await;
+    }
+    // `report.html.bak` and a longer name are not mentions of `report.html`.
+    agent_says(&state, "names", &format!("Wrote {}.bak and {}/a b.md and {}", plain.display(), spaced_dir.display(), cwd.join("My%20Docs/c%20d.md").display())).await;
+    let fetch = |path: String| bridge_post(None, None, "/api/sessions/names/bridge/file", json!({ "reference": path }));
+    assert_eq!(send(&local, fetch(plain.to_string_lossy().to_string())).await.0, StatusCode::FORBIDDEN);
+    assert_eq!(send(&local, fetch(spaced.to_string_lossy().to_string())).await.0, StatusCode::OK);
+    // The UI sends a decoded path; the agent wrote it percent-encoded.
+    assert_eq!(send(&local, fetch(encoded.to_string_lossy().to_string())).await.0, StatusCode::OK);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+    let _ = fs::remove_dir_all(&state.temp_root).await;
+}
+
+#[tokio::test]
+async fn file_bridge_enforces_the_size_limit_while_copying() {
+    let Workspace { state, cwd, .. } = workspace("big", false).await;
+    let local = local_router(state.clone());
+    let big = cwd.join("big.txt");
+    write_file(&big, &"x".repeat(2 * 1024 * 1024)).await;
+    agent_says(&state, "big", &format!("Wrote {}", big.display())).await;
+    state.settings.write().await.max_upload_mb = 1;
+    let (status, _, body) = send(&local, bridge_post(None, None, "/api/sessions/big/bridge/file", json!({ "reference": big.to_string_lossy() }))).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE, "{body}");
+    assert!(session_files(&state, "big").await.is_empty());
+    let leftovers = std::fs::read_dir(state.temp_root.join("big")).map(|entries| entries.count()).unwrap_or(0);
+    assert_eq!(leftovers, 0, "a refused copy leaves nothing behind");
     let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
     let _ = fs::remove_dir_all(&state.temp_root).await;
 }
@@ -310,5 +389,141 @@ async fn device_endpoint_tokens_work_on_the_device_surface_until_revoked() {
 
     state.devices.write().await.remove(&device_id);
     assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::UNAUTHORIZED);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+#[tokio::test]
+async fn companions_own_listeners_cannot_be_bridged() {
+    let Workspace { state, cwd, .. } = workspace("self", true).await;
+    let local = local_router(state.clone());
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    agent_says(&state, "self", "Admin http://127.0.0.1:43721 device http://localhost:43722 and http://[::1]:43721").await;
+    for url in ["http://127.0.0.1:43721", "http://localhost:43722", "http://[::1]:43721", "http://0.0.0.0:43721"] {
+        let path = "/api/sessions/self/bridge/endpoint";
+        let (status, _, body) = send(&local, bridge_post(None, None, path, json!({ "url": url }))).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "console {url}: {body}");
+        let (status, _, body) = send(&remote, bridge_post(Some(DEVICE_ORIGIN), Some(&token), path, json!({ "url": url }))).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "device {url}: {body}");
+    }
+    assert_eq!(state.bridge.lock().await.len(), 0);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+async fn open_device_link(remote: &Router, token: &str, session_id: &str, url: &str) -> String {
+    let path = format!("/api/sessions/{session_id}/bridge/endpoint");
+    let (status, _, body) = send(remote, bridge_post(Some(DEVICE_ORIGIN), Some(token), &path, json!({ "url": url }))).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    serde_json::from_str::<Value>(&body).unwrap()["path"].as_str().unwrap().to_string()
+}
+
+#[tokio::test]
+async fn turning_the_bridge_off_and_on_does_not_revive_old_links() {
+    let Workspace { state, cwd, .. } = workspace("toggle", true).await;
+    let local = local_router(state.clone());
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    let server = upstream().await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "toggle", &format!("Serving {origin}")).await;
+    let path = open_device_link(&remote, &token, "toggle", &origin).await;
+    assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::OK);
+
+    let (_, _, settings) = send(&local, get("/api/settings", Some(CONSOLE_ORIGIN), None)).await;
+    let mut settings: Value = serde_json::from_str::<Value>(&settings).unwrap()["settings"].clone();
+    for enabled in [false, true] {
+        settings["bridgeEnabled"] = json!(enabled);
+        let update = request("PUT", "/api/settings", Some(CONSOLE_ORIGIN), None).header("content-type", "application/json").body(Body::from(settings.to_string())).unwrap();
+        assert_eq!(send(&local, update).await.0, StatusCode::OK);
+    }
+    assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::NOT_FOUND, "the old link stays dead");
+    let fresh = open_device_link(&remote, &token, "toggle", &origin).await;
+    assert_ne!(fresh, path);
+    assert_eq!(send(&remote, get(&fresh, Some("null"), None)).await.0, StatusCode::OK);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+#[tokio::test]
+async fn unsharing_a_session_or_revoking_a_device_ends_its_links_for_good() {
+    let state = test_state();
+    let local_addr = serve(local_router(state.clone())).await;
+    let remote = remote_router(state.clone());
+    let local = local_router(state.clone());
+    let (device_id, token) = pair(&state).await;
+    let mut pi = bridge(local_addr, "shared", true).await;
+    let server = upstream().await;
+    let origin = format!("http://localhost:{}", server.port());
+    agent_says(&state, "shared", &format!("Serving {origin}")).await;
+    let path = open_device_link(&remote, &token, "shared", &origin).await;
+    assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::OK);
+
+    send_json(&mut pi, json!({ "type": "session.update", "session": { "remoteEnabled": false } })).await;
+    tokio::time::timeout(Duration::from_secs(2), async { while state.bridge.lock().await.len() > 0 { tokio::time::sleep(Duration::from_millis(10)).await; } }).await.expect("links revoked on unshare");
+    send_json(&mut pi, json!({ "type": "session.update", "session": { "remoteEnabled": true } })).await;
+    tokio::time::timeout(Duration::from_secs(2), async { while state.sessions.read().await["shared"].snapshot["remoteEnabled"] != json!(true) { tokio::time::sleep(Duration::from_millis(10)).await; } }).await.expect("reshared");
+    assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::NOT_FOUND, "resharing must not revive the old link");
+
+    let fresh = open_device_link(&remote, &token, "shared", &origin).await;
+    assert_eq!(send(&remote, get(&fresh, Some("null"), None)).await.0, StatusCode::OK);
+    let revoke = request("DELETE", &format!("/api/devices/{device_id}"), Some(CONSOLE_ORIGIN), None).body(Body::empty()).unwrap();
+    assert_eq!(send(&local, revoke).await.0, StatusCode::NO_CONTENT);
+    assert_eq!(state.bridge.lock().await.len(), 0);
+}
+
+#[tokio::test]
+async fn closing_a_preview_revokes_only_the_openers_link() {
+    let Workspace { state, cwd, .. } = workspace("close", true).await;
+    let local = local_router(state.clone());
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    let (_, other_token) = pair(&state).await;
+    let server = upstream().await;
+    let origin = format!("http://localhost:{}", server.port());
+    agent_says(&state, "close", &format!("Serving {origin}")).await;
+    let path = open_device_link(&remote, &token, "close", &origin).await;
+    let revoke_path = "/api/sessions/close/bridge/endpoint/revoke";
+
+    // Another device and the console cannot end it; the opener can, even with the bridge off.
+    let by_other = bridge_post(Some(DEVICE_ORIGIN), Some(&other_token), revoke_path, json!({ "path": path }));
+    assert_eq!(send(&remote, by_other).await.0, StatusCode::NO_CONTENT);
+    let by_console = bridge_post(None, None, revoke_path, json!({ "path": path }));
+    assert_eq!(send(&local, by_console).await.0, StatusCode::NO_CONTENT);
+    assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::OK, "foreign revoke is a no-op");
+    state.settings.write().await.bridge_enabled = false;
+    let by_opener = bridge_post(Some(DEVICE_ORIGIN), Some(&token), revoke_path, json!({ "path": path }));
+    assert_eq!(send(&remote, by_opener).await.0, StatusCode::NO_CONTENT);
+    assert_eq!(state.bridge.lock().await.len(), 0);
+    state.settings.write().await.bridge_enabled = true;
+    assert_eq!(send(&remote, get(&path, Some("null"), None)).await.0, StatusCode::NOT_FOUND);
+    let bad = bridge_post(Some(DEVICE_ORIGIN), Some(&token), revoke_path, json!({ "path": "/etc/passwd" }));
+    assert_eq!(send(&remote, bad).await.0, StatusCode::BAD_REQUEST);
+    let anonymous = bridge_post(Some(DEVICE_ORIGIN), None, revoke_path, json!({ "path": path }));
+    assert_eq!(send(&remote, anonymous).await.0, StatusCode::UNAUTHORIZED);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+#[tokio::test]
+async fn relays_are_capped_and_loopback_alias_redirects_stay_in_the_bridge() {
+    let Workspace { state, cwd, .. } = workspace("limits", false).await;
+    let local = local_router(state.clone());
+    let alias = Router::new().route("/go", route_get(|headers: HeaderMap| async move {
+        let host = headers.get("host").and_then(|value| value.to_str().ok()).unwrap_or_default().to_string();
+        let port = host.rsplit(':').next().unwrap_or_default().to_string();
+        Redirect::temporary(&format!("http://127.0.0.1:{port}/login"))
+    }));
+    let server = serve(alias).await;
+    let origin = format!("http://localhost:{}", server.port());
+    agent_says(&state, "limits", &format!("Serving {origin}")).await;
+    let (_, _, body) = send(&local, bridge_post(None, None, "/api/sessions/limits/bridge/endpoint", json!({ "url": origin }))).await;
+    let path = serde_json::from_str::<Value>(&body).unwrap()["path"].as_str().unwrap().to_string();
+    let prefix = path.trim_end_matches('/').to_string();
+
+    let (status, headers, _) = send(&local, get(&format!("{prefix}/go"), None, None)).await;
+    assert!(status.is_redirection());
+    assert_eq!(headers[header::LOCATION], format!("{prefix}/login").as_str(), "127.0.0.1 redirect from a localhost server stays bridged");
+
+    state.bridge_permits.forget_permits(bridge::MAX_CONCURRENT_RELAYS);
+    let (status, _, body) = send(&local, get(&format!("{prefix}/go"), None, None)).await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
     let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
 }

@@ -113,7 +113,13 @@ for (const [href, expected] of [
   ['~/notes.md', { kind: 'file', reference: '~/notes.md' }],
   ['docs/guide.md', { kind: 'file', reference: 'docs/guide.md' }],
   ['file:///work/app/report.html', { kind: 'file', reference: 'file:///work/app/report.html' }],
-  ['C:\\work\\report.html', { kind: 'file', reference: 'C:\\work\\report.html' }]
+  ['C:\\work\\report.html', { kind: 'file', reference: 'C:\\work\\report.html' }],
+  ['/Users/me/My Documents/report.pdf', { kind: 'file', reference: '/Users/me/My Documents/report.pdf' }],
+  ['/Users/me/My%20Documents/r%C3%A9sum%C3%A9.pdf', { kind: 'file', reference: '/Users/me/My Documents/résumé.pdf' }],
+  ['docs/my%20guide.md', { kind: 'file', reference: 'docs/my guide.md' }],
+  ['file:///Users/me/My%20Documents/a.pdf', { kind: 'file', reference: 'file:///Users/me/My%20Documents/a.pdf' }],
+  ['/tmp/100%.txt', { kind: 'file', reference: '/tmp/100%.txt' }],
+  ['/tmp/bad%E0%A4%A.txt', { kind: 'file', reference: '/tmp/bad%E0%A4%A.txt' }]
 ] as const) {
   test(`link reference is classified: ${href}`, () => {
     assert.deepEqual(linkBridgeReference(href), expected);
@@ -123,7 +129,7 @@ for (const [href, expected] of [
 for (const href of [
   '', '#section', '?q=1', '//cdn.example/x.js', 'mailto:a@b.c', 'javascript:alert(1)', 'data:text/html,hi',
   'https://example.com', 'http://example.com', 'http://localhost.evil.com', 'http://localhost@evil.com',
-  'http://192.168.1.5:3000', 'path with space.html', 'a\u0000b.html', '/' + 'a'.repeat(1100)
+  'http://192.168.1.5:3000', 'a\u0000b.html', 'a\tb.html', 'a\nb.html', '/' + 'a'.repeat(1100)
 ]) {
   test(`link reference is not classified: ${JSON.stringify(href.slice(0, 40))}`, () => {
     assert.equal(linkBridgeReference(href), undefined);
@@ -134,6 +140,9 @@ for (const [text, expected] of [
   ['/tmp/out/report.html', { kind: 'file', reference: '/tmp/out/report.html' }],
   ['./dist/index.html', { kind: 'file', reference: './dist/index.html' }],
   ['~/Documents/plan.pdf', { kind: 'file', reference: '~/Documents/plan.pdf' }],
+  ['/Users/me/My Documents/report.pdf', { kind: 'file', reference: '/Users/me/My Documents/report.pdf' }],
+  ['C:\\Users\\me\\My Documents\\plan.docx', { kind: 'file', reference: 'C:\\Users\\me\\My Documents\\plan.docx' }],
+  ['./notes (final).md', { kind: 'file', reference: './notes (final).md' }],
   ['http://localhost:3000', { kind: 'endpoint', url: 'http://localhost:3000' }]
 ] as const) {
   test(`inline code reference is classified: ${text}`, () => {
@@ -142,7 +151,7 @@ for (const [text, expected] of [
 }
 
 for (const text of [
-  'npm run dev', '/usr/bin', 'src/app.ts', 'app.ts', 'const x = 1', '/tmp/*.html', 'file.ts:42', '/tmp/a b.html',
+  'npm run dev', '/usr/bin', 'src/app.ts', 'app.ts', 'const x = 1', '/tmp/*.html', 'file.ts:42', 'rm -rf /tmp/x.txt', 'cd /tmp/some dir', ' /tmp/a.html and more', '/tmp/a.html\nb',
   'https://example.com/a.html', '/tmp/', 'http://example.com'
 ]) {
   test(`inline code is not mistaken for a reference: ${JSON.stringify(text)}`, () => {
@@ -167,5 +176,8 @@ test('bridge modal asks before anything is fetched or relayed and keeps the fram
   assert.equal(source.match(/companion\.bridge(?:File|Endpoint)\(/g)?.length, 2);
   assert.match(source, /onclick=\{\(\) => fetchFile\(true\)\}/);
   assert.match(source, /onclick=\{openEndpoint\}/);
+  // Closing the dialog, or leaving the page, ends the relay link once.
+  assert.match(source, /companion\.bridgeRevoke\(target\.sessionId, frame\.path\)/);
+  assert.equal(source.match(/releaseLink\(\);/g)?.length, 2);
   assert.doesNotMatch(source, /\{@html/);
 });

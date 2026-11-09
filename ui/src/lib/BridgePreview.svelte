@@ -12,6 +12,7 @@
   let frame = $state<{ path: string; origin: string } | undefined>();
   let closing = false;
   let disposed = false;
+  let released = false;
 
   const subject = $derived(target.kind === 'bridge-file' ? target.reference : target.url);
   const title = $derived.by(() => {
@@ -27,14 +28,23 @@
     return () => {
       disposed = true;
       closing = true;
+      releaseLink();
       element.close();
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
   });
 
+  /** Ends the relay link as soon as the preview goes away, so a closed preview leaves nothing reachable. */
+  function releaseLink() {
+    if (released || !frame || target.kind !== 'bridge-endpoint') return;
+    released = true;
+    void companion.bridgeRevoke(target.sessionId, frame.path).catch(() => {});
+  }
+
   function close() {
     if (closing) return;
     closing = true;
+    releaseLink();
     dialog?.close();
     onclose();
   }
@@ -84,7 +94,7 @@
 
   <div class="bridge-body">
     {#if frame}
-      <p class="bridge-note">Relayed through Pi Companion from <code>{frame.origin}</code>. The page is sandboxed: no cookies, no access to Companion. The link stops working after two idle hours.</p>
+      <p class="bridge-note">Relayed through Pi Companion from <code>{frame.origin}</code>. The page is sandboxed: no cookies, no access to Companion. Closing this window ends the link, including any new tab opened from it.</p>
       <iframe class="bridge-frame" title={'Local server: ' + frame.origin} src={frame.path} sandbox="allow-scripts allow-forms allow-modals" referrerpolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'; payment 'none'; usb 'none'"></iframe>
     {:else}
       <div class="bridge-confirm">
@@ -92,11 +102,11 @@
         {#if target.kind === 'bridge-file'}
           <h3>Fetch this file from the computer running Pi?</h3>
           <code class="bridge-address">{subject}</code>
-          <p>Companion copies it into this session’s shared files so you can preview or download it here. Only files the agent mentioned, inside the session’s working directory or Companion’s temp folder, can be fetched. Credential files are always refused.</p>
+          <p>Companion copies it into this session’s shared files so you can preview or download it here. Only files the agent mentioned, inside the session’s working directory or this session’s Companion folders, can be fetched. Files that look like credentials are skipped, but names cannot catch every secret, so check the path first.</p>
         {:else}
           <h3>Open this local server through Companion?</h3>
           <code class="bridge-address">{subject}</code>
-          <p>While it is open, Companion relays this device’s requests to that server on the computer running Pi. Only localhost servers the agent mentioned can be opened. Pages run sandboxed; cookies and WebSockets are not relayed.</p>
+          <p>While it is open, Companion relays this device’s requests to that server on the computer running Pi. Only localhost servers the agent mentioned can be opened. Pages run sandboxed; cookies and WebSockets are not relayed. Closing this window ends the link.</p>
         {/if}
         {#if error}<p class="bridge-error" role="alert"><Icon name="alert" size={16} />{error}</p>{/if}
       </div>

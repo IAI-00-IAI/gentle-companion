@@ -82,6 +82,8 @@ struct AppState {
     /// Expiring tokens for proxied localhost servers (see bridge.rs).
     bridge: Arc<Mutex<bridge::Registry>>,
     bridge_client: bridge::BridgeClient,
+    /// Caps how many bridged responses are relayed at once.
+    bridge_permits: Arc<tokio::sync::Semaphore>,
     pairings: Arc<RwLock<HashMap<String, PairingInvite>>>,
     /// Times of recent wrong pairing-code attempts (brute-force brake).
     code_failures: Arc<Mutex<Vec<u64>>>,
@@ -114,6 +116,7 @@ impl AppState {
             usage: Arc::new(Mutex::new(usage::Store::default())),
             bridge: Arc::new(Mutex::new(bridge::Registry::default())),
             bridge_client: bridge::new_client(),
+            bridge_permits: Arc::new(tokio::sync::Semaphore::new(bridge::MAX_CONCURRENT_RELAYS)),
             pairings: Arc::new(RwLock::new(HashMap::new())),
             code_failures: Arc::new(Mutex::new(Vec::new())),
             devices: Arc::new(RwLock::new(devices)),
@@ -326,6 +329,7 @@ fn local_router(state: AppState) -> Router {
         .route("/api/sessions/{session_id}/files/{file_id}", get(download_file_local).delete(delete_file_local))
         .route("/api/sessions/{session_id}/bridge/file", post(bridge::fetch_file_local))
         .route("/api/sessions/{session_id}/bridge/endpoint", post(bridge::open_endpoint_local))
+        .route("/api/sessions/{session_id}/bridge/endpoint/revoke", post(bridge::revoke_endpoint_local))
         .route("/api/pairing/start", post(start_pairing))
         .route("/api/devices", get(list_devices))
         .route("/api/devices/{device_id}", delete(revoke_device))
@@ -358,6 +362,7 @@ fn remote_router(state: AppState) -> Router {
         .route("/api/sessions/{session_id}/files/{file_id}", get(download_file_remote).delete(delete_file_remote))
         .route("/api/sessions/{session_id}/bridge/file", post(bridge::fetch_file_remote))
         .route("/api/sessions/{session_id}/bridge/endpoint", post(bridge::open_endpoint_remote))
+        .route("/api/sessions/{session_id}/bridge/endpoint/revoke", post(bridge::revoke_endpoint_remote))
         .route("/ws/browser", get(browser_ws_remote))
         .fallback(get(assets::serve))
         .layer(middleware::from_fn_with_state(state.clone(), require_device_origin))
@@ -533,7 +538,12 @@ async fn put_settings(
     Json(next): Json<Settings>,
 ) -> ApiResult<Json<Value>> {
     let valid = next.validate().map_err(|message| (StatusCode::BAD_REQUEST, message))?;
+    let bridge_stays_on = valid.bridge_enabled;
     *state.settings.write().await = valid;
+    if !bridge_stays_on {
+        // Turning it back on later must not revive links issued before.
+        state.bridge.lock().await.revoke_all();
+    }
     persist(&state).await;
     broadcast(&state, serde_json::json!({ "type": "settings.update" }));
     Ok(get_settings(State(state)).await)
@@ -601,6 +611,7 @@ async fn delete_session(state: &AppState, session_id: &str, remote: bool) -> Api
     let remote_enabled = session.snapshot.get("remoteEnabled").and_then(Value::as_bool) == Some(true);
     sessions.remove(session_id);
     state.activity.write().await.remove(session_id);
+    state.bridge.lock().await.revoke_session(session_id);
     // Keep the lock through publication so a concurrent registration cannot be followed
     // by a stale removal event. No filesystem operation is performed by archiving.
     broadcast(state, serde_json::json!({ "type": "session.removed", "sessionId": session_id, "remoteEnabled": remote_enabled }));
@@ -624,6 +635,7 @@ async fn auto_archive(state: &AppState) {
     for id in ids {
         let session = sessions.remove(&id).unwrap();
         state.activity.write().await.remove(&id);
+        state.bridge.lock().await.revoke_session(&id);
         broadcast(state, serde_json::json!({"type":"session.removed","sessionId":id,"remoteEnabled":session.snapshot.get("remoteEnabled").and_then(Value::as_bool)==Some(true)}));
     }
 }
@@ -764,6 +776,7 @@ async fn revoke_device(
     if state.devices.write().await.remove(&device_id).is_none() {
         return StatusCode::NOT_FOUND;
     }
+    state.bridge.lock().await.revoke_device(&device_id);
     persist(&state).await;
     let _ = state.kick_tx.send(Kick { device_id, code: CLOSE_REVOKED, reason: "revoked" });
     broadcast(&state, serde_json::json!({ "type": "devices.update" }));
@@ -1299,6 +1312,10 @@ async fn bridge_socket(socket: WebSocket, session_id: String, state: AppState) {
                 if let (Some(patch), Some(snapshot)) = (value.get("session").and_then(Value::as_object), session.snapshot.as_object_mut()) {
                     for (key, value) in patch {
                         snapshot.insert(key.clone(), value.clone());
+                    }
+                    if patch.get("remoteEnabled").and_then(Value::as_bool) == Some(false) {
+                        // Resharing later must not revive device links issued while it was shared.
+                        state.bridge.lock().await.revoke_session_devices(&session_id);
                     }
                     broadcast(&state, serde_json::json!({
                         "type": "session.update",

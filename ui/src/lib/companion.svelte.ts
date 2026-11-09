@@ -514,6 +514,15 @@ class Companion {
     return endpoint;
   }
 
+  /** End a relay link when its preview closes. Only the device or console that opened it can. */
+  async bridgeRevoke(sessionId: string, path: string) {
+    await this.request('/api/sessions/' + encodeURIComponent(sessionId) + '/bridge/endpoint/revoke', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path })
+    }, 10_000);
+  }
+
   async removeFile(sessionId: string, fileId: string) {
     await this.request(
       '/api/sessions/' + encodeURIComponent(sessionId) + '/files/' + encodeURIComponent(fileId),

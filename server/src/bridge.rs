@@ -19,6 +19,7 @@
 
 use std::{
     collections::HashMap,
+    io,
     net::IpAddr,
     path::{Path as FsPath, PathBuf},
     time::Duration,
@@ -39,10 +40,11 @@ use hyper_util::{
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
-use tokio::fs;
+use futures_util::StreamExt;
+use tokio::{fs, io::AsyncReadExt, sync::OwnedSemaphorePermit};
 use uuid::Uuid;
 
-use crate::{ApiError, ApiResult, AppState, TempFile};
+use crate::{ApiError, ApiResult, AppState, TempFile, activity::MentionKind};
 
 /// An endpoint token stays valid this long after its last request.
 const ENDPOINT_IDLE_SECS: u64 = 2 * 60 * 60;
@@ -52,6 +54,14 @@ const MAX_REWRITE_BYTES: usize = 5 * 1024 * 1024;
 const MAX_REQUEST_BYTES: usize = 50 * 1024 * 1024;
 const UPSTREAM_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REFERENCE_CHARS: usize = 1024;
+/// Responses being relayed at once, across every token. Each holds a permit until its body ends.
+pub const MAX_CONCURRENT_RELAYS: usize = 32;
+/// A relayed response may not exceed this many bytes, last longer than this, or stall longer than the idle limit.
+const MAX_RELAY_BYTES: usize = 100 * 1024 * 1024;
+const MAX_RELAY_DURATION: Duration = Duration::from_secs(5 * 60);
+const RELAY_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+/// Sub-folder of the Companion temp root that every session may read bridged files from.
+pub const SHARED_FOLDER: &str = ".shared";
 
 pub type BridgeClient = Client<HttpConnector, Body>;
 
@@ -78,6 +88,7 @@ struct Endpoint {
     host_header: String,
     /// Where to connect: `127.0.0.1:3000` when the agent wrote `0.0.0.0:3000`.
     connect_authority: String,
+    port: u16,
     expires_at: u64,
 }
 
@@ -87,6 +98,11 @@ pub struct Registry {
 }
 
 impl Registry {
+    #[cfg(test)]
+    pub fn len(&self) -> usize {
+        self.endpoints.len()
+    }
+
     /// Reuse a live token for the same target, otherwise mint one.
     fn open(&mut self, session_id: &str, caller: &Caller, target: &Target, now: u64) -> String {
         self.endpoints.retain(|_, endpoint| endpoint.expires_at > now);
@@ -107,6 +123,7 @@ impl Registry {
                 origin: target.origin.clone(),
                 host_header: target.host_header.clone(),
                 connect_authority: target.connect_authority.clone(),
+                port: target.port,
                 expires_at: now + ENDPOINT_IDLE_SECS,
             },
         );
@@ -130,6 +147,41 @@ impl Registry {
         }
     }
 
+    /// Every token, for when the bridge is switched off.
+    pub fn revoke_all(&mut self) {
+        self.endpoints.clear();
+    }
+
+    /// Every token for a session (it was archived or removed).
+    pub fn revoke_session(&mut self, session_id: &str) {
+        self.endpoints.retain(|_, endpoint| endpoint.session_id != session_id);
+    }
+
+    /// Device tokens for a session, when it stops being shared. Console tokens are unaffected.
+    pub fn revoke_session_devices(&mut self, session_id: &str) {
+        self.endpoints.retain(|_, endpoint| {
+            let device_token = matches!(endpoint.caller, Caller::Device(_));
+            !(device_token && endpoint.session_id == session_id)
+        });
+    }
+
+    /// Every token a device holds, when it is revoked.
+    pub fn revoke_device(&mut self, device_id: &str) {
+        self.endpoints.retain(|_, endpoint| endpoint.caller != Caller::Device(device_id.to_string()));
+    }
+
+    /// End one token on behalf of whoever opened it. Returns whether anything was revoked.
+    fn revoke_token(&mut self, token: &str, session_id: &str, caller: &Caller) -> bool {
+        let owned = self
+            .endpoints
+            .get(token)
+            .is_some_and(|endpoint| endpoint.session_id == session_id && &endpoint.caller == caller);
+        if owned {
+            self.endpoints.remove(token);
+        }
+        owned
+    }
+
     /// Look the token up and slide its expiry forward.
     fn touch(&mut self, token: &str, now: u64) -> Option<Endpoint> {
         let endpoint = self.endpoints.get_mut(token)?;
@@ -151,6 +203,7 @@ pub struct Target {
     pub origin: String,
     pub host_header: String,
     pub connect_authority: String,
+    pub port: u16,
     pub path_and_query: String,
 }
 
@@ -187,6 +240,7 @@ pub fn parse_loopback_url(url: &str) -> Result<Target, String> {
         origin: format!("http://{}", authority.as_str()),
         host_header: authority.as_str().to_string(),
         connect_authority: format!("{connect_host}:{port}"),
+        port,
         path_and_query,
     })
 }
@@ -254,13 +308,47 @@ pub fn resolve_reference(reference: &str, cwd: &FsPath, home: Option<&FsPath>) -
     Some(cwd.join(path))
 }
 
-const SENSITIVE_FOLDERS: [&str; 6] = [".ssh", ".gnupg", ".aws", ".kube", ".azure", ".docker"];
-const SENSITIVE_NAME_PREFIXES: [&str; 8] = [".env", ".netrc", ".npmrc", ".pypirc", "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa"];
-const SENSITIVE_EXTENSIONS: [&str; 6] = [".pem", ".key", ".p12", ".pfx", ".kdbx", ".keystore"];
+// Best effort: no filename list can identify every secret, so this narrows accidents, and the
+// person's confirmation plus the working-directory scope remain the real controls.
+const SENSITIVE_FOLDERS: [&str; 10] = [".ssh", ".gnupg", ".aws", ".kube", ".azure", ".docker", ".git", ".terraform", ".gem", ".m2"];
+/// Pairs of folders, such as `.config/gh`, that hold tokens.
+const SENSITIVE_FOLDER_PAIRS: [(&str, &str); 4] = [(".config", "gcloud"), (".config", "gh"), (".config", "git"), (".pi", "agent")];
+const SENSITIVE_NAME_PREFIXES: [&str; 17] = [
+    ".env", ".netrc", ".npmrc", ".pypirc", ".git-credentials", ".pgpass", ".my.cnf", ".boto", ".s3cfg", ".htpasswd",
+    ".bash_history", ".zsh_history", ".python_history", "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa",
+];
+const SENSITIVE_EXTENSIONS: [&str; 9] = [".pem", ".key", ".p12", ".pfx", ".kdbx", ".keystore", ".jks", ".tfstate", ".tfvars"];
+/// Names containing any of these are refused (`secrets.json`, `aws-credentials.csv`, `db_password.txt`).
+const SENSITIVE_NAME_FRAGMENTS: [&str; 5] = ["secret", "credential", "password", "passwd", "apikey"];
 
-/// Whether a canonical path lies inside one of the canonical roots a bridge may read from.
-pub fn is_within_roots(path: &FsPath, allowed_roots: &[PathBuf]) -> bool {
-    allowed_roots.iter().any(|root| path.starts_with(root))
+/// The canonical folders one session may bridge files from.
+pub struct FileScope {
+    pub working_directory: PathBuf,
+    pub temp_root: PathBuf,
+    pub session_id: String,
+}
+
+impl FileScope {
+    fn own_temp_folder(&self) -> PathBuf {
+        self.temp_root.join(&self.session_id)
+    }
+
+    fn shared_temp_folder(&self) -> PathBuf {
+        self.temp_root.join(SHARED_FOLDER)
+    }
+
+    /// Working directory, this session's temp folder, or the shared temp folder. Other sessions'
+    /// temp folders are out of scope even when the working directory happens to contain them.
+    pub fn allows(&self, canonical: &FsPath) -> bool {
+        let in_temp_scope = canonical.starts_with(self.own_temp_folder()) || canonical.starts_with(self.shared_temp_folder());
+        if in_temp_scope {
+            return true;
+        }
+        if canonical.starts_with(&self.temp_root) {
+            return false;
+        }
+        canonical.starts_with(&self.working_directory)
+    }
 }
 
 /// Credential-like locations are never bridged, even inside an allowed root.
@@ -276,15 +364,17 @@ pub fn is_sensitive_path(path: &FsPath, protected_roots: &[PathBuf]) -> bool {
     if parts.iter().any(|part| SENSITIVE_FOLDERS.contains(&part.as_str())) {
         return true;
     }
-    let in_pi_agent = parts.windows(2).any(|pair| pair[0] == ".pi" && pair[1] == "agent");
-    let in_gcloud = parts.windows(2).any(|pair| pair[0] == ".config" && pair[1] == "gcloud");
-    if in_pi_agent || in_gcloud {
+    let in_sensitive_pair = SENSITIVE_FOLDER_PAIRS
+        .iter()
+        .any(|(first, second)| parts.windows(2).any(|pair| pair[0] == *first && pair[1] == *second));
+    if in_sensitive_pair {
         return true;
     }
     let name = parts.last().map(String::as_str).unwrap_or_default();
     let secret_name = SENSITIVE_NAME_PREFIXES.iter().any(|prefix| name.starts_with(prefix));
     let secret_extension = SENSITIVE_EXTENSIONS.iter().any(|extension| name.ends_with(extension));
-    secret_name || secret_extension
+    let secret_fragment = SENSITIVE_NAME_FRAGMENTS.iter().any(|fragment| name.contains(fragment));
+    secret_name || secret_extension || secret_fragment
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -363,57 +453,41 @@ pub async fn open_endpoint_remote(
 /// Copy a file the agent mentioned into the session sandbox so it can be previewed/downloaded.
 async fn bridge_file(state: &AppState, session_id: &str, reference: &str) -> ApiResult<TempFile> {
     ensure_bridgeable_session(state, session_id).await?;
-    let cwd = session_cwd(state, session_id).await?;
+    let working_directory = session_working_directory(state, session_id).await?;
     let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from);
-    let requested = resolve_reference(reference, &cwd, home.as_deref())
+    let requested = resolve_reference(reference, &working_directory, home.as_deref())
         .ok_or_else(|| bad_request("That is not a file path or file:// link."))?;
-
-    let mentioned = {
-        let activity = state.activity.read().await;
-        activity.mentions(session_id, reference.trim()) || activity.mentions(session_id, &requested.to_string_lossy())
-    };
-    if !mentioned {
-        return Err((StatusCode::FORBIDDEN, "Only files the agent mentioned in this session can be fetched.".into()));
-    }
+    require_file_mention(state, session_id, reference, &requested).await?;
 
     let not_found = || (StatusCode::NOT_FOUND, "That file was not found on the computer running Pi.".to_string());
     let canonical = fs::canonicalize(&requested).await.map_err(|_| not_found())?;
-    let metadata = fs::metadata(&canonical).await.map_err(|_| not_found())?;
-    if !metadata.is_file() {
-        return Err(bad_request("Only regular files can be fetched, not folders."));
-    }
-    let allowed_roots = vec![
-        fs::canonicalize(&cwd).await.map_err(|_| not_found())?,
-        fs::canonicalize(&state.temp_root).await.unwrap_or_else(|_| state.temp_root.clone()),
-    ];
-    if !is_within_roots(&canonical, &allowed_roots) {
-        return Err((
-            StatusCode::FORBIDDEN,
-            "Only files inside the session's working directory or the shared Companion temp folder can be fetched.".into(),
-        ));
-    }
+    let scope = FileScope {
+        working_directory,
+        temp_root: fs::canonicalize(&state.temp_root).await.unwrap_or_else(|_| state.temp_root.clone()),
+        session_id: session_id.to_string(),
+    };
     let data_root = fs::canonicalize(&state.data_dir).await.unwrap_or_else(|_| state.data_dir.clone());
-    if is_sensitive_path(&canonical, &[data_root]) {
-        return Err((StatusCode::FORBIDDEN, "That location looks like it holds credentials, so it is never bridged.".into()));
-    }
+    check_file_allowed(&canonical, &scope, &data_root)?;
 
     let settings = state.settings.read().await.clone();
     let max_bytes = settings.max_upload_mb * 1024 * 1024;
-    if metadata.len() > max_bytes {
-        return Err((StatusCode::PAYLOAD_TOO_LARGE, format!("File is larger than the {} MiB limit.", settings.max_upload_mb)));
-    }
     let name = crate::safe_file_name(&canonical.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_default());
     let mime = crate::upload_mime(&settings, &name, None)?;
 
+    // Open once, prove the handle is the file that was just checked, then copy from the handle.
+    let source = open_checked_file(&canonical, &scope, &data_root).await?;
     let session_dir = state.temp_root.join(session_id);
     fs::create_dir_all(&session_dir).await.map_err(crate::internal_error)?;
     crate::set_private_dir_permissions(&session_dir).await;
     let id = Uuid::new_v4().to_string();
     let disk_path = session_dir.join(format!("{id}-{name}"));
-    if let Err(error) = fs::copy(&canonical, &disk_path).await {
-        let _ = fs::remove_file(&disk_path).await;
-        return Err(crate::internal_error(error));
-    }
+    let size = match copy_bounded(source, &disk_path, max_bytes).await {
+        Ok(size) => size,
+        Err(error) => {
+            let _ = fs::remove_file(&disk_path).await;
+            return Err(error);
+        }
+    };
 
     let origin = canonical.to_string_lossy().to_string();
     let file = TempFile {
@@ -421,7 +495,7 @@ async fn bridge_file(state: &AppState, session_id: &str, reference: &str) -> Api
         id,
         name,
         path: disk_path.to_string_lossy().to_string(),
-        size: metadata.len(),
+        size,
         mime,
         created_at: crate::now_secs(),
         origin: Some(origin.clone()),
@@ -432,6 +506,109 @@ async fn bridge_file(state: &AppState, session_id: &str, reference: &str) -> Api
     }
     crate::notify_session_files(state, session_id).await;
     Ok(file)
+}
+
+/// The reference, or the path it resolved to, must appear in what the agent produced. A path
+/// written percent-encoded (`My%20Docs`) counts too, since the UI sends the decoded form.
+async fn require_file_mention(state: &AppState, session_id: &str, reference: &str, resolved: &FsPath) -> ApiResult<()> {
+    let resolved_text = resolved.to_string_lossy().to_string();
+    let candidates = [
+        reference.trim().to_string(),
+        resolved_text.clone(),
+        percent_encode_path(reference.trim()),
+        percent_encode_path(&resolved_text),
+    ];
+    let activity = state.activity.read().await;
+    let mentioned = candidates.iter().any(|candidate| activity.mentions(session_id, candidate, MentionKind::Path));
+    if mentioned {
+        return Ok(());
+    }
+    Err((StatusCode::FORBIDDEN, "Only files the agent mentioned in this session can be fetched.".into()))
+}
+
+fn percent_encode_path(path: &str) -> String {
+    let mut encoded = String::with_capacity(path.len());
+    for byte in path.bytes() {
+        let plain = byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'.' | b'-' | b'_' | b'~' | b':');
+        if plain {
+            encoded.push(byte as char);
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
+/// Scope and credential checks on a canonical path.
+fn check_file_allowed(canonical: &FsPath, scope: &FileScope, data_root: &FsPath) -> ApiResult<()> {
+    if !scope.allows(canonical) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Only files inside the session's working directory, its own temp folder or the shared Companion folder can be fetched.".into(),
+        ));
+    }
+    if is_sensitive_path(canonical, &[data_root.to_path_buf()]) {
+        return Err((StatusCode::FORBIDDEN, "That location looks like it may hold credentials, so it is not bridged.".into()));
+    }
+    Ok(())
+}
+
+/// Open without following a final symlink or blocking on a pipe, then confirm the open handle
+/// is the regular file at the canonical path that was validated, even if the path changed meanwhile.
+async fn open_checked_file(canonical: &FsPath, scope: &FileScope, data_root: &FsPath) -> ApiResult<fs::File> {
+    let canonical = canonical.to_path_buf();
+    let scope_copy = FileScope {
+        working_directory: scope.working_directory.clone(),
+        temp_root: scope.temp_root.clone(),
+        session_id: scope.session_id.clone(),
+    };
+    let data_root = data_root.to_path_buf();
+    let opened = tokio::task::spawn_blocking(move || open_checked_file_blocking(&canonical, &scope_copy, &data_root))
+        .await
+        .map_err(crate::internal_error)??;
+    Ok(fs::File::from_std(opened))
+}
+
+fn open_checked_file_blocking(canonical: &FsPath, scope: &FileScope, data_root: &FsPath) -> ApiResult<std::fs::File> {
+    let changed = || (StatusCode::CONFLICT, "That file changed while it was being fetched. Try again.".to_string());
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    }
+    let file = options.open(canonical).map_err(|_| (StatusCode::NOT_FOUND, "That file was not found on the computer running Pi.".to_string()))?;
+    let handle = file.metadata().map_err(crate::internal_error)?;
+    if !handle.is_file() {
+        return Err(bad_request("Only regular files can be fetched, not folders."));
+    }
+    let current = std::fs::canonicalize(canonical).map_err(|_| changed())?;
+    if current != canonical {
+        return Err(changed());
+    }
+    check_file_allowed(&current, scope, data_root)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let on_disk = std::fs::metadata(&current).map_err(|_| changed())?;
+        if on_disk.dev() != handle.dev() || on_disk.ino() != handle.ino() {
+            return Err(changed());
+        }
+    }
+    Ok(file)
+}
+
+/// Copy at most `max_bytes` from the open handle; one more byte than that means it is too large.
+async fn copy_bounded(source: fs::File, destination: &FsPath, max_bytes: u64) -> ApiResult<u64> {
+    let too_large = || (StatusCode::PAYLOAD_TOO_LARGE, format!("File is larger than the {} MiB limit.", max_bytes / 1024 / 1024));
+    let mut limited = source.take(max_bytes + 1);
+    let mut output = fs::File::create(destination).await.map_err(crate::internal_error)?;
+    let copied = tokio::io::copy(&mut limited, &mut output).await.map_err(crate::internal_error)?;
+    if copied > max_bytes {
+        return Err(too_large());
+    }
+    Ok(copied)
 }
 
 /// Fetching the same source again refreshes the copy instead of piling up duplicates.
@@ -450,17 +627,28 @@ async fn replace_previous_copies(state: &AppState, session_id: &str, origin: &st
     replaced
 }
 
-async fn session_cwd(state: &AppState, session_id: &str) -> ApiResult<PathBuf> {
-    let sessions = state.sessions.read().await;
-    let session = sessions.get(session_id).ok_or((StatusCode::NOT_FOUND, "Session not found.".to_string()))?;
-    let cwd = session.snapshot.get("cwd").and_then(Value::as_str).unwrap_or("/");
-    Ok(PathBuf::from(cwd))
+/// The canonical working directory, or an error. Never falls back to a wide default: a missing,
+/// relative, unreadable or filesystem-root directory would turn the scope into the whole disk.
+async fn session_working_directory(state: &AppState, session_id: &str) -> ApiResult<PathBuf> {
+    let reported = {
+        let sessions = state.sessions.read().await;
+        let session = sessions.get(session_id).ok_or((StatusCode::NOT_FOUND, "Session not found.".to_string()))?;
+        session.snapshot.get("cwd").and_then(Value::as_str).map(PathBuf::from)
+    };
+    let unknown = || bad_request("This session did not report a usable working directory, so files cannot be bridged.");
+    let reported = reported.filter(|path| path.is_absolute()).ok_or_else(unknown)?;
+    let canonical = fs::canonicalize(&reported).await.map_err(|_| unknown())?;
+    if canonical.parent().is_none() {
+        return Err(unknown());
+    }
+    Ok(canonical)
 }
 
 async fn open_endpoint(state: &AppState, session_id: &str, url: &str, caller: Caller) -> ApiResult<Value> {
     ensure_bridgeable_session(state, session_id).await?;
     let target = parse_loopback_url(url).map_err(bad_request)?;
-    let mentioned = state.activity.read().await.mentions(session_id, &target.origin);
+    refuse_companion_port(target.port)?;
+    let mentioned = state.activity.read().await.mentions(session_id, &target.origin, MentionKind::Origin);
     if !mentioned {
         return Err((StatusCode::FORBIDDEN, "Only servers the agent mentioned in this session can be bridged.".into()));
     }
@@ -471,6 +659,58 @@ async fn open_endpoint(state: &AppState, session_id: &str, url: &str, caller: Ca
         "path": format!("/bridge/{token}{}", target.path_and_query),
         "expiresAt": now + ENDPOINT_IDLE_SECS,
     }))
+}
+
+#[derive(Deserialize)]
+pub struct RevokeRequest {
+    path: String,
+}
+
+/// The token in `/bridge/<token>/...`.
+fn token_in_path(path: &str) -> Option<&str> {
+    let rest = path.strip_prefix("/bridge/")?;
+    let token = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    if token.is_empty() { None } else { Some(token) }
+}
+
+pub async fn revoke_endpoint_local(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+    Json(request): Json<RevokeRequest>,
+) -> ApiResult<StatusCode> {
+    revoke_endpoint(&state, &session_id, &request.path, Caller::Admin).await
+}
+
+pub async fn revoke_endpoint_remote(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+    headers: HeaderMap,
+    Json(request): Json<RevokeRequest>,
+) -> ApiResult<StatusCode> {
+    let device_id = crate::authorize_device(&state, crate::bearer_token(&headers)?).await?;
+    crate::check_session_id(&session_id)?;
+    revoke_endpoint(&state, &session_id, &request.path, Caller::Device(device_id)).await
+}
+
+/// End a link as soon as its preview is closed. Deliberately works with the bridge switched off.
+async fn revoke_endpoint(state: &AppState, session_id: &str, path: &str, caller: Caller) -> ApiResult<StatusCode> {
+    crate::check_session_id(session_id)?;
+    let token = token_in_path(path).ok_or_else(|| bad_request("That is not a bridge link."))?;
+    state.bridge.lock().await.revoke_token(token, session_id, &caller);
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Companion's own listeners must never be bridged, whatever loopback name or port override
+/// reached them: the admin console has no credentials, so relaying to it would hand a paired
+/// device the local administrator's powers.
+fn refuse_companion_port(port: u16) -> ApiResult<()> {
+    let own_ports = [crate::local_addr(), crate::remote_addr()]
+        .into_iter()
+        .filter_map(|address| address.rsplit(':').next().and_then(|value| value.parse::<u16>().ok()));
+    if own_ports.into_iter().any(|own| own == port) {
+        return Err((StatusCode::FORBIDDEN, "Pi Companion's own address cannot be bridged.".into()));
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -554,7 +794,9 @@ async fn authorize_endpoint(state: &AppState, remote: bool, token: &str) -> ApiR
     ensure_enabled(state).await?;
     let expired = (StatusCode::NOT_FOUND, "This bridge link has expired. Open it again from the session.".to_string());
     let endpoint = state.bridge.lock().await.touch(token, crate::now_secs()).ok_or(expired.clone())?;
+    refuse_companion_port(endpoint.port)?;
     if !state.sessions.read().await.contains_key(&endpoint.session_id) {
+        state.bridge.lock().await.revoke_session(&endpoint.session_id);
         return Err(expired);
     }
     match (&endpoint.caller, remote) {
@@ -593,6 +835,11 @@ fn forwards_request_header(name: &HeaderName) -> bool {
 
 async fn forward(state: &AppState, remote: bool, token: &str, request: Request) -> ApiResult<Response> {
     let endpoint = authorize_endpoint(state, remote, token).await?;
+    let permit = state
+        .bridge_permits
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Too many bridged requests are open at once. Try again shortly.".to_string()))?;
     let prefix = format!("/bridge/{token}");
     let (parts, body) = request.into_parts();
     let rest = parts.uri.path().strip_prefix(&prefix).unwrap_or_default();
@@ -630,7 +877,7 @@ async fn forward(state: &AppState, remote: bool, token: &str, request: Request) 
             tracing::debug!("bridge upstream failed: {error}");
             unreachable()
         })?;
-    build_response(upstream, &endpoint, &prefix).await
+    build_response(upstream, &endpoint, &prefix, permit).await
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -662,6 +909,7 @@ async fn build_response(
     upstream: axum::http::Response<hyper::body::Incoming>,
     endpoint: &Endpoint,
     prefix: &str,
+    permit: OwnedSemaphorePermit,
 ) -> ApiResult<Response> {
     let (parts, incoming) = upstream.into_parts();
     let rewrite = rewrite_kind(&parts.headers);
@@ -671,7 +919,7 @@ async fn build_response(
             continue;
         }
         if name == header::LOCATION {
-            let location = value.to_str().ok().map(|location| rewrite_location(location, &endpoint.origin, prefix));
+            let location = value.to_str().ok().map(|location| rewrite_location(location, endpoint.port, prefix));
             if let Some(Ok(rewritten)) = location.map(|location| HeaderValue::from_str(&location)) {
                 response_headers.insert(header::LOCATION, rewritten);
             }
@@ -685,8 +933,8 @@ async fn build_response(
     add_isolation_headers(&mut response_headers);
 
     let body = match rewrite {
-        Some(kind) => rewritten_body(incoming, kind, prefix, &endpoint.origin).await?,
-        None => Body::new(incoming),
+        Some(kind) => rewritten_body(incoming, kind, prefix, endpoint).await?,
+        None => relay_body(incoming, permit),
     };
     let mut response = Response::new(body);
     *response.status_mut() = parts.status;
@@ -698,8 +946,9 @@ async fn rewritten_body(
     incoming: hyper::body::Incoming,
     kind: Rewrite,
     prefix: &str,
-    origin: &str,
+    endpoint: &Endpoint,
 ) -> ApiResult<Body> {
+    let origin = &endpoint.origin;
     let too_large = || (StatusCode::BAD_GATEWAY, format!("{origin} sent a page too large to bridge (over 5 MiB)."));
     let collected = Limited::new(incoming, MAX_REWRITE_BYTES).collect().await.map_err(|_| too_large())?;
     let bytes = collected.to_bytes();
@@ -708,21 +957,70 @@ async fn rewritten_body(
         return Ok(Body::from(bytes));
     };
     let rewritten = match kind {
-        Rewrite::Html => rewrite_html(&text, prefix),
+        Rewrite::Html => rewrite_html(&text, prefix, endpoint.port),
         Rewrite::Css => rewrite_css(&text, prefix),
         Rewrite::Script => rewrite_script(&text, prefix),
     };
     Ok(Body::from(rewritten))
 }
 
-/// Keep redirects inside the bridge: same-server absolute and root-relative locations get the
-/// token prefix; anything else is left to the browser.
-pub fn rewrite_location(location: &str, origin: &str, prefix: &str) -> String {
-    if let Some(rest) = location.strip_prefix(origin) {
-        if rest.is_empty() || rest.starts_with(['/', '?']) {
-            let rest = if rest.starts_with('/') { rest.to_string() } else { format!("/{rest}") };
-            return format!("{prefix}{rest}");
+/// Stream an upstream body with a byte budget, a total-time budget and an idle timeout. The
+/// concurrency permit is held until the stream ends, so slow or endless upstreams cannot pile up.
+/// Hyper's pull-based body gives backpressure: nothing is read faster than the browser consumes.
+fn relay_body(incoming: hyper::body::Incoming, permit: OwnedSemaphorePermit) -> Body {
+    struct Relay<S> {
+        chunks: S,
+        sent: usize,
+        deadline: tokio::time::Instant,
+        finished: bool,
+        _permit: OwnedSemaphorePermit,
+    }
+    let relay = Relay {
+        chunks: incoming.into_data_stream(),
+        sent: 0,
+        deadline: tokio::time::Instant::now() + MAX_RELAY_DURATION,
+        finished: false,
+        _permit: permit,
+    };
+    let stream = futures_util::stream::unfold(relay, |mut relay| async move {
+        if relay.finished {
+            return None;
         }
+        let remaining = relay.deadline.saturating_duration_since(tokio::time::Instant::now());
+        let wait = remaining.min(RELAY_IDLE_TIMEOUT);
+        let next = tokio::time::timeout(wait, relay.chunks.next()).await;
+        let failure = |message: &str| io::Error::new(io::ErrorKind::TimedOut, message.to_string());
+        let outcome = match next {
+            Err(_) => Err(failure("The bridged server stalled or took too long.")),
+            Ok(None) => return None,
+            Ok(Some(Err(error))) => Err(io::Error::other(error)),
+            Ok(Some(Ok(chunk))) => {
+                relay.sent += chunk.len();
+                if relay.sent > MAX_RELAY_BYTES { Err(failure("The bridged response was too large.")) } else { Ok(chunk) }
+            }
+        };
+        relay.finished = outcome.is_err();
+        Some((outcome, relay))
+    });
+    Body::from_stream(stream)
+}
+
+/// The port a redirect target names when it points at a loopback server, with the path to use.
+fn loopback_location(location: &str) -> Option<(u16, String)> {
+    let absolute = if location.starts_with("//") { format!("http:{location}") } else { location.to_string() };
+    let target = parse_loopback_url(&absolute).ok()?;
+    Some((target.port, target.path_and_query))
+}
+
+/// Keep redirects inside the bridge. Root-relative locations, and absolute or scheme-relative
+/// locations naming the bridged server's port on any loopback name (`localhost`, `127.0.0.1`,
+/// `[::1]`), get the token prefix. Relative locations already resolve inside the bridge.
+pub fn rewrite_location(location: &str, bridged_port: u16, prefix: &str) -> String {
+    if let Some((port, path_and_query)) = loopback_location(location) {
+        if port == bridged_port {
+            return format!("{prefix}{path_and_query}");
+        }
+        return location.to_string();
     }
     if location.starts_with('/') && !location.starts_with("//") && !location.starts_with(prefix) {
         return format!("{prefix}{location}");
@@ -818,9 +1116,9 @@ pub fn rewrite_script(script: &str, prefix: &str) -> String {
 }
 
 /// Prefix root-relative attributes, then add the request shim as early as possible.
-pub fn rewrite_html(html: &str, prefix: &str) -> String {
+pub fn rewrite_html(html: &str, prefix: &str, port: u16) -> String {
     let rewritten = prefix_root_urls(html, &HTML_MARKERS, prefix);
-    let shim = request_shim(prefix);
+    let shim = request_shim(prefix, port);
     let lowered = rewritten.to_ascii_lowercase();
     for opening in ["<head", "<html"] {
         let Some(start) = lowered.find(opening) else { continue };
@@ -831,18 +1129,14 @@ pub fn rewrite_html(html: &str, prefix: &str) -> String {
     format!("{shim}{rewritten}")
 }
 
-/// Pages call `fetch("/api")` at runtime; send those through the bridge as well. WebSockets are
-/// not proxied.
-fn request_shim(prefix: &str) -> String {
-    format!(
-        "<script>(function(){{var P={prefix:?};\
-function f(u){{return typeof u==='string'&&u.charCodeAt(0)===47&&u.charCodeAt(1)!==47&&u.indexOf(P+'/')!==0?P+u:u}}\
-var F=window.fetch;if(F){{window.fetch=function(i,o){{return F.call(this,f(i),o)}}}}\
-var X=window.XMLHttpRequest&&XMLHttpRequest.prototype.open;\
-if(X){{XMLHttpRequest.prototype.open=function(m,u){{arguments[1]=f(String(u));return X.apply(this,arguments)}}}}\
-var E=window.EventSource;if(E){{window.EventSource=function(u,o){{return new E(f(String(u)),o)}};window.EventSource.prototype=E.prototype}}\
-}})();</script>"
-    )
+const SHIM_TEMPLATE: &str = include_str!("bridge_shim.js");
+
+/// Runtime requests (`fetch`, XHR, `Request`, workers, EventSource, absolute URLs to the bridged
+/// server) are sent through the bridge. WebSockets are not proxied.
+fn request_shim(prefix: &str, port: u16) -> String {
+    let quoted_prefix = serde_json::to_string(prefix).unwrap_or_default();
+    let script = SHIM_TEMPLATE.replace("__PREFIX__", &quoted_prefix).replace("__PORT__", &port.to_string());
+    format!("<script>{script}</script>")
 }
 
 #[cfg(test)]
@@ -899,6 +1193,13 @@ mod tests {
             "/home/me/.config/gcloud/creds.db",
             "/work/app/.env.production",
             "/work/app/certs/server.PEM",
+            "/home/me/.git-credentials",
+            "/home/me/.config/gh/hosts.yml",
+            "/work/app/config/secrets.json",
+            "/work/app/db_password.txt",
+            "/work/app/.git/config",
+            "/work/infra/prod.tfstate",
+            "/work/infra/terraform.tfvars",
         ] {
             assert!(is_sensitive_path(FsPath::new(sensitive), &roots), "{sensitive} must be sensitive");
         }
@@ -908,15 +1209,98 @@ mod tests {
     }
 
     #[test]
-    fn only_the_working_directory_and_temp_folder_are_in_scope() {
-        let roots = vec![PathBuf::from("/work/app"), PathBuf::from("/tmp/pi-companion")];
-        for inside in ["/work/app/docs/a.md", "/tmp/pi-companion/s1/id-report.html"] {
-            assert!(is_within_roots(FsPath::new(inside), &roots), "{inside} must be in scope");
+    fn scope_is_the_working_directory_plus_this_sessions_and_the_shared_temp_folders() {
+        let scope = FileScope {
+            working_directory: PathBuf::from("/work/app"),
+            temp_root: PathBuf::from("/tmp/pi-companion"),
+            session_id: "s1".into(),
+        };
+        for inside in ["/work/app/docs/a.md", "/tmp/pi-companion/s1/id-report.html", "/tmp/pi-companion/.shared/note.txt"] {
+            assert!(scope.allows(FsPath::new(inside)), "{inside} must be in scope");
         }
         // Prefix matching is per path component: /work/app-secrets is not inside /work/app.
-        for outside in ["/work/app-secrets/a.md", "/work/other/a.md", "/tmp/other.html", "/etc/hosts", "/home/me/notes.txt"] {
-            assert!(!is_within_roots(FsPath::new(outside), &roots), "{outside} must be out of scope");
+        for outside in [
+            "/work/app-secrets/a.md", "/work/other/a.md", "/tmp/other.html", "/etc/hosts", "/home/me/notes.txt",
+            "/tmp/pi-companion/s2/id-report.html", "/tmp/pi-companion/s10/x.txt", "/tmp/pi-companion/other.txt",
+        ] {
+            assert!(!scope.allows(FsPath::new(outside)), "{outside} must be out of scope");
         }
+        // A working directory that contains the temp root still cannot reach other sessions' folders.
+        let wide = FileScope { working_directory: PathBuf::from("/tmp"), ..scope };
+        assert!(wide.allows(FsPath::new("/tmp/notes.txt")));
+        assert!(wide.allows(FsPath::new("/tmp/pi-companion/s1/x.txt")));
+        assert!(!wide.allows(FsPath::new("/tmp/pi-companion/s2/x.txt")));
+    }
+
+    fn scratch_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("pi-companion-bridge-{label}-{}", Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::canonicalize(&dir).unwrap()
+    }
+
+    fn scope_of(dir: &FsPath) -> FileScope {
+        FileScope { working_directory: dir.to_path_buf(), temp_root: dir.join("temp-root-unused"), session_id: "s1".into() }
+    }
+
+    #[test]
+    fn opening_a_validated_file_returns_its_handle() {
+        let dir = scratch_dir("open");
+        let file = dir.join("a.txt");
+        std::fs::write(&file, "hello").unwrap();
+        assert!(open_checked_file_blocking(&file, &scope_of(&dir), &dir.join("data")).is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn opening_never_follows_a_symlink_swapped_in_after_validation() {
+        let dir = scratch_dir("swap");
+        let outside = scratch_dir("swap-outside");
+        std::fs::write(outside.join("private.txt"), "private").unwrap();
+        // The validated canonical path was a plain file; now that path is a link to elsewhere.
+        let swapped = dir.join("a.txt");
+        std::os::unix::fs::symlink(outside.join("private.txt"), &swapped).unwrap();
+        let error = open_checked_file_blocking(&swapped, &scope_of(&dir), &dir.join("data")).unwrap_err();
+        assert!(matches!(error.0, StatusCode::NOT_FOUND | StatusCode::CONFLICT | StatusCode::FORBIDDEN), "{error:?}");
+
+        // A directory swapped for a link to another location changes the canonical path.
+        std::fs::create_dir_all(dir.join("real")).unwrap();
+        std::fs::write(dir.join("real/b.txt"), "b").unwrap();
+        std::os::unix::fs::symlink(&outside, dir.join("alias")).unwrap();
+        std::fs::write(outside.join("b.txt"), "other").unwrap();
+        let through_alias = dir.join("alias/b.txt");
+        let error = open_checked_file_blocking(&through_alias, &scope_of(&dir), &dir.join("data")).unwrap_err();
+        assert_eq!(error.0, StatusCode::CONFLICT, "{error:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn folders_and_missing_files_are_not_opened_as_files() {
+        let dir = scratch_dir("kinds");
+        assert!(open_checked_file_blocking(&dir, &scope_of(&dir), &dir.join("data")).is_err());
+        assert_eq!(open_checked_file_blocking(&dir.join("missing"), &scope_of(&dir), &dir.join("data")).unwrap_err().0, StatusCode::NOT_FOUND);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn percent_encoding_matches_how_agents_write_paths_with_spaces() {
+        assert_eq!(percent_encode_path("/Users/me/My Docs/a b.pdf"), "/Users/me/My%20Docs/a%20b.pdf");
+        assert_eq!(percent_encode_path("/plain/a-b_c.txt"), "/plain/a-b_c.txt");
+    }
+
+    #[test]
+    fn companion_listeners_are_never_bridge_targets() {
+        let admin = crate::local_addr().rsplit(':').next().unwrap().parse::<u16>().unwrap();
+        let device = crate::remote_addr().rsplit(':').next().unwrap().parse::<u16>().unwrap();
+        for port in [admin, device] {
+            assert!(refuse_companion_port(port).is_err());
+            for host in ["localhost", "127.0.0.1", "0.0.0.0", "[::1]", "LOCALHOST"] {
+                let target = parse_loopback_url(&format!("http://{host}:{port}/api/devices")).unwrap();
+                assert!(refuse_companion_port(target.port).is_err(), "{host}:{port}");
+            }
+        }
+        assert!(refuse_companion_port(3000).is_ok());
     }
 
     #[test]
@@ -937,9 +1321,47 @@ mod tests {
     }
 
     #[test]
+    fn revocation_removes_tokens_so_they_never_return() {
+        let target = parse_loopback_url("http://localhost:3000").unwrap();
+        let device = Caller::Device("d1".into());
+        let mut registry = Registry::default();
+        let admin_token = registry.open("s1", &Caller::Admin, &target, 100);
+        let device_token = registry.open("s1", &device, &target, 100);
+        let other_device_token = registry.open("s1", &Caller::Device("d2".into()), &target, 100);
+        let other_session_token = registry.open("s2", &device, &target, 100);
+
+        registry.revoke_session_devices("s1");
+        assert!(registry.touch(&device_token, 101).is_none() && registry.touch(&other_device_token, 101).is_none());
+        assert!(registry.touch(&admin_token, 101).is_some() && registry.touch(&other_session_token, 101).is_some());
+
+        let again = registry.open("s1", &device, &target, 102);
+        assert_ne!(again, device_token, "a new link, never the revoked one");
+        registry.revoke_device("d1");
+        assert!(registry.touch(&again, 103).is_none() && registry.touch(&other_session_token, 103).is_none());
+
+        assert!(!registry.revoke_token(&admin_token, "s1", &device), "only the opener may end a token");
+        assert!(!registry.revoke_token(&admin_token, "s2", &Caller::Admin));
+        assert!(registry.revoke_token(&admin_token, "s1", &Caller::Admin));
+        let token = registry.open("s3", &Caller::Admin, &target, 200);
+        registry.revoke_session("s3");
+        assert!(registry.touch(&token, 201).is_none());
+        let kept = registry.open("s4", &Caller::Admin, &target, 300);
+        registry.revoke_all();
+        assert!(registry.touch(&kept, 301).is_none());
+    }
+
+    #[test]
+    fn bridge_links_name_their_token() {
+        assert_eq!(token_in_path("/bridge/abc/app?x=1"), Some("abc"));
+        assert_eq!(token_in_path("/bridge/abc"), Some("abc"));
+        assert_eq!(token_in_path("/bridge/"), None);
+        assert_eq!(token_in_path("/other/abc"), None);
+    }
+
+    #[test]
     fn html_root_relative_urls_are_prefixed_once() {
         let html = r#"<html><head><link href="/style.css"><script src='/app.js'></script></head><body><a href="/about">x</a><a href="//cdn.example/x.js">y</a><img src="rel.png"><a href="/bridge/abc/done">z</a><div style="background:url(/bg.png)"></div></body></html>"#;
-        let output = rewrite_html(html, PREFIX);
+        let output = rewrite_html(html, PREFIX, 3000);
         assert!(output.contains(r#"href="/bridge/abc/style.css""#));
         assert!(output.contains(r#"src='/bridge/abc/app.js'"#));
         assert!(output.contains(r#"href="/bridge/abc/about""#));
@@ -947,15 +1369,15 @@ mod tests {
         assert!(output.contains(r#"src="rel.png""#));
         assert!(output.contains(r#"href="/bridge/abc/done""#));
         assert!(output.contains("url(/bridge/abc/bg.png)"));
-        assert!(output.find("<script>(function(){").unwrap() < output.find("<link").unwrap(), "shim comes first in <head>");
-        assert_eq!(rewrite_html(&output, PREFIX).matches("/bridge/abc/bridge/abc").count(), 0);
+        assert!(output.find("<script>// Injected").unwrap() < output.find("<link").unwrap(), "shim comes first in <head>");
+        assert_eq!(rewrite_html(&output, PREFIX, 3000).matches("/bridge/abc/bridge/abc").count(), 0);
     }
 
     #[test]
     fn html_without_head_still_gets_the_shim_after_doctype_free_prefix() {
-        let output = rewrite_html("<p>hi</p>", PREFIX);
+        let output = rewrite_html("<p>hi</p>", PREFIX, 3000);
         assert!(output.starts_with("<script>") && output.ends_with("<p>hi</p>"));
-        let with_html = rewrite_html("<!doctype html><html lang=en><body></body></html>", PREFIX);
+        let with_html = rewrite_html("<!doctype html><html lang=en><body></body></html>", PREFIX, 3000);
         assert!(with_html.starts_with("<!doctype html><html lang=en><script>"));
     }
 
@@ -978,18 +1400,30 @@ mod tests {
 
     #[test]
     fn rewriting_keeps_multibyte_text_intact() {
-        let output = rewrite_html("<p>héllo ✓</p><a href=\"/ü\">日本語</a>", PREFIX);
+        let output = rewrite_html("<p>héllo ✓</p><a href=\"/ü\">日本語</a>", PREFIX, 3000);
         assert!(output.contains("héllo ✓") && output.contains("日本語") && output.contains("/bridge/abc/ü"));
     }
 
     #[test]
-    fn redirects_stay_inside_the_bridge() {
-        let origin = "http://localhost:3000";
-        assert_eq!(rewrite_location("http://localhost:3000/login", origin, PREFIX), "/bridge/abc/login");
-        assert_eq!(rewrite_location("http://localhost:3000", origin, PREFIX), "/bridge/abc/");
-        assert_eq!(rewrite_location("/login?next=/", origin, PREFIX), "/bridge/abc/login?next=/");
-        assert_eq!(rewrite_location("/bridge/abc/login", origin, PREFIX), "/bridge/abc/login");
-        assert_eq!(rewrite_location("http://localhost:30001/x", origin, PREFIX), "http://localhost:30001/x");
-        assert_eq!(rewrite_location("https://example.com/", origin, PREFIX), "https://example.com/");
+    fn redirects_stay_inside_the_bridge_across_loopback_names() {
+        let port = 3000;
+        for (location, expected) in [
+            ("http://localhost:3000/login", "/bridge/abc/login"),
+            ("http://127.0.0.1:3000/login?next=/", "/bridge/abc/login?next=/"),
+            ("http://[::1]:3000/", "/bridge/abc/"),
+            ("http://LOCALHOST:3000", "/bridge/abc/"),
+            ("//localhost:3000/login", "/bridge/abc/login"),
+            ("//127.0.0.1:3000/x", "/bridge/abc/x"),
+            ("/login?next=/", "/bridge/abc/login?next=/"),
+            ("/bridge/abc/login", "/bridge/abc/login"),
+            ("?page=2", "?page=2"),
+            ("next", "next"),
+            ("http://localhost:30001/x", "http://localhost:30001/x"),
+            ("http://127.0.0.1:4000/x", "http://127.0.0.1:4000/x"),
+            ("https://example.com/", "https://example.com/"),
+            ("//cdn.example/x.js", "//cdn.example/x.js"),
+        ] {
+            assert_eq!(rewrite_location(location, port, PREFIX), expected, "{location}");
+        }
     }
 }

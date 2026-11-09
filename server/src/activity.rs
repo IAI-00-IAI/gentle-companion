@@ -72,24 +72,63 @@ impl ActivityLog {
 
     /// Whether anything the agent or its tools produced contains `needle`. What people typed
     /// into the companion is excluded, so a prompt cannot vouch for a path or URL.
-    pub fn mentions(&self, needle: &str) -> bool {
+    pub fn mentions(&self, needle: &str, kind: MentionKind) -> bool {
         if needle.is_empty() {
             return false;
         }
         self.messages
             .iter()
             .filter(|message| message.get("event").and_then(Value::as_str) != Some("user.message"))
-            .any(|message| contains_text(message, needle))
+            .any(|message| contains_text(message, needle, kind))
     }
 }
 
-fn contains_text(value: &Value, needle: &str) -> bool {
+/// What a mentioned reference is, which decides where it may continue after the match.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MentionKind {
+    /// `http://localhost:3000`: may be followed by a path, but not by more of the host or port.
+    Origin,
+    /// A file path or name: may not continue into a longer name, extension or sub-path.
+    Path,
+}
+
+fn contains_text(value: &Value, needle: &str, kind: MentionKind) -> bool {
     match value {
-        Value::String(text) => text.contains(needle),
-        Value::Array(items) => items.iter().any(|item| contains_text(item, needle)),
-        Value::Object(fields) => fields.values().any(|field| contains_text(field, needle)),
+        Value::String(text) => contains_reference(text, needle, kind),
+        Value::Array(items) => items.iter().any(|item| contains_text(item, needle, kind)),
+        Value::Object(fields) => fields.values().any(|field| contains_text(field, needle, kind)),
         _ => false,
     }
+}
+
+fn is_name_char(character: char) -> bool {
+    character.is_alphanumeric() || character == '_' || character == '-'
+}
+
+/// Whether `text` holds `needle` as a whole reference. `http://localhost:30001` is not a mention of
+/// `http://localhost:3000`, and `report.html.bak` is not a mention of `report.html`.
+fn contains_reference(text: &str, needle: &str, kind: MentionKind) -> bool {
+    text.match_indices(needle).any(|(start, matched)| {
+        let before = text[..start].chars().next_back();
+        let after_start = start + matched.len();
+        let mut after = text[after_start..].chars();
+        let next = after.next();
+        let following = after.next();
+        let starts_cleanly = match (kind, before) {
+            (_, None) => true,
+            (MentionKind::Origin, Some(c)) => !is_name_char(c),
+            (MentionKind::Path, Some(c)) => !is_name_char(c) && !matches!(c, '/' | '\\' | '.' | '~'),
+        };
+        let ends_cleanly = match next {
+            None => true,
+            Some(c) if is_name_char(c) => false,
+            Some('.') => !following.is_some_and(is_name_char),
+            Some(':') if kind == MentionKind::Origin => !following.is_some_and(|c| c.is_ascii_digit()),
+            Some('/' | '\\') if kind == MentionKind::Path => false,
+            Some(_) => true,
+        };
+        starts_cleanly && ends_cleanly
+    })
 }
 
 #[derive(Default)]
@@ -110,8 +149,8 @@ impl ActivityStore {
         self.logs.remove(session_id);
     }
 
-    pub fn mentions(&self, session_id: &str, needle: &str) -> bool {
-        self.logs.get(session_id).is_some_and(|log| log.mentions(needle))
+    pub fn mentions(&self, session_id: &str, needle: &str, kind: MentionKind) -> bool {
+        self.logs.get(session_id).is_some_and(|log| log.mentions(needle, kind))
     }
 }
 
@@ -164,9 +203,41 @@ mod tests {
         let mut log = ActivityLog::default();
         log.record(json!({"type":"event","event":"assistant.delta","payload":{"kind":"text","delta":"Wrote /work/report.html"}}));
         log.record(json!({"type":"event","event":"user.message","payload":{"title":"You","text":"show /work/secret.txt"}}));
-        assert!(log.mentions("/work/report.html"));
-        assert!(!log.mentions("/work/secret.txt"));
-        assert!(!log.mentions(""));
+        assert!(log.mentions("/work/report.html", MentionKind::Path));
+        assert!(!log.mentions("/work/secret.txt", MentionKind::Path));
+        assert!(!log.mentions("", MentionKind::Path));
+    }
+
+    #[test]
+    fn mentions_match_whole_references_not_prefixes() {
+        let said = |text: &str| {
+            let mut log = ActivityLog::default();
+            log.record(json!({"type":"event","event":"assistant.delta","payload":{"kind":"text","delta":text}}));
+            log
+        };
+        let cases = [
+            ("Serving http://localhost:30001", "http://localhost:3000", MentionKind::Origin, false),
+            ("Serving http://localhost:3000/app", "http://localhost:3000", MentionKind::Origin, true),
+            ("Open http://localhost:3000.", "http://localhost:3000", MentionKind::Origin, true),
+            ("Open (http://localhost:3000)", "http://localhost:3000", MentionKind::Origin, true),
+            ("Open http://localhost:3000:", "http://localhost:3000", MentionKind::Origin, true),
+            ("Open http://localhost:3000", "http://localhost", MentionKind::Origin, false),
+            ("Open xhttp://localhost:3000", "http://localhost:3000", MentionKind::Origin, false),
+            ("Open http://localhost.evil.com:3000", "http://localhost", MentionKind::Origin, false),
+            ("Wrote /work/report.html.bak", "/work/report.html", MentionKind::Path, false),
+            ("Wrote /work/report.html2", "/work/report.html", MentionKind::Path, false),
+            ("Wrote /work/report.html.", "/work/report.html", MentionKind::Path, true),
+            ("Wrote `/work/report.html`", "/work/report.html", MentionKind::Path, true),
+            ("Wrote /other/work/report.html", "/work/report.html", MentionKind::Path, false),
+            ("Wrote /work/report.html/extra", "/work/report.html", MentionKind::Path, false),
+            ("Wrote ./docs/a.md", "docs/a.md", MentionKind::Path, false),
+            ("Wrote mydocs/a.md", "docs/a.md", MentionKind::Path, false),
+            ("See [x](docs/a.md)", "docs/a.md", MentionKind::Path, true),
+            ("Wrote /work/My Docs/a b.md now", "/work/My Docs/a b.md", MentionKind::Path, true),
+        ];
+        for (text, needle, kind, expected) in cases {
+            assert_eq!(said(text).mentions(needle, kind), expected, "{needle:?} in {text:?}");
+        }
     }
 
     #[test]
