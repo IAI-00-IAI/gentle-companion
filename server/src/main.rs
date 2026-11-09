@@ -2,6 +2,7 @@ mod activity;
 mod usage;
 mod automation;
 mod assets;
+mod bridge;
 mod config;
 #[cfg(test)]
 mod tests;
@@ -78,6 +79,9 @@ struct AppState {
     /// Recent feed per session so reconnecting browsers can catch up.
     activity: Arc<RwLock<activity::ActivityStore>>,
     usage: Arc<Mutex<usage::Store>>,
+    /// Expiring tokens for proxied localhost servers (see bridge.rs).
+    bridge: Arc<Mutex<bridge::Registry>>,
+    bridge_client: bridge::BridgeClient,
     pairings: Arc<RwLock<HashMap<String, PairingInvite>>>,
     /// Times of recent wrong pairing-code attempts (brute-force brake).
     code_failures: Arc<Mutex<Vec<u64>>>,
@@ -108,6 +112,8 @@ impl AppState {
             files: Arc::new(RwLock::new(HashMap::new())),
             activity: Arc::new(RwLock::new(activity::ActivityStore::default())),
             usage: Arc::new(Mutex::new(usage::Store::default())),
+            bridge: Arc::new(Mutex::new(bridge::Registry::default())),
+            bridge_client: bridge::new_client(),
             pairings: Arc::new(RwLock::new(HashMap::new())),
             code_failures: Arc::new(Mutex::new(Vec::new())),
             devices: Arc::new(RwLock::new(devices)),
@@ -140,6 +146,9 @@ struct TempFile {
     mime: String,
     #[serde(rename = "createdAt")]
     created_at: u64,
+    /// Real path a bridged file was copied from. Never sent to browsers.
+    #[serde(skip)]
+    origin: Option<String>,
 }
 
 #[derive(Clone)]
@@ -307,7 +316,7 @@ async fn main() {
 }
 
 fn local_router(state: AppState) -> Router {
-    Router::new()
+    let guarded = Router::new()
         .merge(automation::router(false))
         .route("/api/context", get(local_context))
         .route("/api/sessions", get(list_sessions))
@@ -315,6 +324,8 @@ fn local_router(state: AppState) -> Router {
         .route("/api/sessions/{session_id}/activity", get(session_activity))
         .route("/api/sessions/{session_id}/files", get(list_files).post(upload_file))
         .route("/api/sessions/{session_id}/files/{file_id}", get(download_file_local).delete(delete_file_local))
+        .route("/api/sessions/{session_id}/bridge/file", post(bridge::fetch_file_local))
+        .route("/api/sessions/{session_id}/bridge/endpoint", post(bridge::open_endpoint_local))
         .route("/api/pairing/start", post(start_pairing))
         .route("/api/devices", get(list_devices))
         .route("/api/devices/{device_id}", delete(revoke_device))
@@ -325,13 +336,18 @@ fn local_router(state: AppState) -> Router {
         .route("/ws/bridge/{session_id}", get(bridge_ws))
         .fallback(get(assets::serve))
         .layer(middleware::from_fn_with_state(state.clone(), require_console_origin))
-        .layer(DefaultBodyLimit::max(body_limit()))
+        .layer(DefaultBodyLimit::max(body_limit()));
+    // Bridge proxy routes sit outside the Origin check: sandboxed frames send `Origin: null`
+    // and the unguessable endpoint token is their credential.
+    Router::new()
+        .merge(bridge::router(false))
+        .merge(guarded)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
 
 fn remote_router(state: AppState) -> Router {
-    Router::new()
+    let guarded = Router::new()
         .merge(automation::router(true).layer(middleware::from_fn_with_state(state.clone(), automation::authenticate)))
         .route("/api/context", get(remote_context))
         .route("/api/pairing/claim", post(claim_pairing))
@@ -340,10 +356,15 @@ fn remote_router(state: AppState) -> Router {
         .route("/api/sessions/{session_id}/activity", get(session_activity_remote))
         .route("/api/sessions/{session_id}/files", get(list_files_remote).post(upload_file_remote))
         .route("/api/sessions/{session_id}/files/{file_id}", get(download_file_remote).delete(delete_file_remote))
+        .route("/api/sessions/{session_id}/bridge/file", post(bridge::fetch_file_remote))
+        .route("/api/sessions/{session_id}/bridge/endpoint", post(bridge::open_endpoint_remote))
         .route("/ws/browser", get(browser_ws_remote))
         .fallback(get(assets::serve))
         .layer(middleware::from_fn_with_state(state.clone(), require_device_origin))
-        .layer(DefaultBodyLimit::max(body_limit()))
+        .layer(DefaultBodyLimit::max(body_limit()));
+    Router::new()
+        .merge(bridge::router(true))
+        .merge(guarded)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -451,12 +472,16 @@ async fn upload_policy(state: &AppState) -> Value {
     serde_json::json!({ "maxUploadMb": settings.max_upload_mb, "allowedUploadTypes": settings.allowed_upload_types })
 }
 
+async fn bridge_enabled(state: &AppState) -> bool {
+    state.settings.read().await.bridge_enabled
+}
+
 async fn local_context(State(state): State<AppState>) -> Json<Value> {
-    Json(serde_json::json!({ "remote": false, "version": VERSION, "pid": std::process::id(), "uploadPolicy": upload_policy(&state).await }))
+    Json(serde_json::json!({ "remote": false, "version": VERSION, "pid": std::process::id(), "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await }))
 }
 
 async fn remote_context(State(state): State<AppState>) -> Json<Value> {
-    Json(serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await }))
+    Json(serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await }))
 }
 
 /// Local-admin only. Used by the extension to replace an older daemon after a package upgrade.
@@ -902,6 +927,7 @@ async fn store_upload(state: &AppState, session_id: &str, mut multipart: Multipa
             size: size as u64,
             mime,
             created_at: now_secs(),
+            origin: None,
         };
         state.files.write().await.entry(session_id.to_string()).or_default().push(file.clone());
         notify_session_files(state, session_id).await;

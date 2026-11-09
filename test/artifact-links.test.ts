@@ -43,8 +43,8 @@ function actionFixture(href: string, options: Parameters<typeof previewLinks>[1]
   const link = { getAttribute: () => href, target: '', rel: '', referrerPolicy: '' };
   let handler: (event: MouseEvent) => void = () => {};
   const node = {
-    querySelectorAll: () => [link], contains: () => true,
-    addEventListener: (_name: string, listener: typeof handler) => { handler = listener; }, removeEventListener() {}
+    querySelectorAll: (selector: string) => selector === 'a[href]' ? [link] : [], contains: () => true,
+    addEventListener: (name: string, listener: typeof handler) => { if (name === 'click') handler = listener; }, removeEventListener() {}
   } as unknown as HTMLElement;
   const action = previewLinks(node, options);
   return {
@@ -102,3 +102,41 @@ test('fragment links retain in-document navigation instead of a blank target', (
     assert.equal(fixture.click(), false);
   } finally { fixture.close(); }
 });
+
+for (const [href, expected] of [
+  ['http://localhost:3000/dashboard', { kind: 'bridge-endpoint', sessionId: 'session-1', url: 'http://localhost:3000/dashboard' }],
+  ['http://127.0.0.1:8080', { kind: 'bridge-endpoint', sessionId: 'session-1', url: 'http://127.0.0.1:8080' }],
+  ['https://example.com/docs', { kind: 'link', url: 'https://example.com/docs' }],
+  ['/tmp/out/report.html', { kind: 'bridge-file', sessionId: 'session-1', reference: '/tmp/out/report.html' }],
+  ['docs/guide.md', { kind: 'bridge-file', sessionId: 'session-1', reference: 'docs/guide.md' }],
+  ['file:///work/app/report.html', { kind: 'bridge-file', sessionId: 'session-1', reference: 'file:///work/app/report.html' }]
+] as const) {
+  test(`agent link is routed to the right preview: ${href}`, async () => {
+    const targets: unknown[] = [];
+    let loads = 0;
+    const fixture = actionFixture(href, {
+      sessionId: 'session-1', files: [], loadFiles: async () => { loads++; return []; },
+      onpreview: (target) => targets.push(target), onerror: (message) => assert.fail(message)
+    });
+    try {
+      assert.equal(fixture.click(), true);
+      await nextTurn();
+      assert.deepEqual(targets, [expected]);
+      // Local servers never need the upload registry; files check it first.
+      assert.equal(loads, expected.kind === 'bridge-file' ? 1 : 0);
+    } finally { fixture.close(); }
+  });
+}
+
+for (const [href, sessionId] of [['mailto:someone@example.com', 'session-1'], ['javascript:alert(1)', 'session-1'], ['http://example.com', 'session-1'], ['http://localhost:3000', undefined], ['/tmp/report.html', undefined]] as const) {
+  test(`agent link that is not previewable reports an error: ${href} (session: ${sessionId})`, async () => {
+    const errors: string[] = [];
+    const fixture = actionFixture(href, { sessionId, files: [], onpreview: () => assert.fail('must not preview'), onerror: (message) => errors.push(message) });
+    try {
+      assert.equal(fixture.click(), true);
+      await nextTurn();
+      assert.equal(errors.length, 1);
+      assert.match(errors[0], /public HTTPS links, localhost servers and files/);
+    } finally { fixture.close(); }
+  });
+}

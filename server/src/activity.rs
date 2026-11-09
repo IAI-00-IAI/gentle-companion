@@ -69,6 +69,27 @@ impl ActivityLog {
     pub fn snapshot(&self) -> Value {
         json!({ "seq": self.seq, "messages": self.messages })
     }
+
+    /// Whether anything the agent or its tools produced contains `needle`. What people typed
+    /// into the companion is excluded, so a prompt cannot vouch for a path or URL.
+    pub fn mentions(&self, needle: &str) -> bool {
+        if needle.is_empty() {
+            return false;
+        }
+        self.messages
+            .iter()
+            .filter(|message| message.get("event").and_then(Value::as_str) != Some("user.message"))
+            .any(|message| contains_text(message, needle))
+    }
+}
+
+fn contains_text(value: &Value, needle: &str) -> bool {
+    match value {
+        Value::String(text) => text.contains(needle),
+        Value::Array(items) => items.iter().any(|item| contains_text(item, needle)),
+        Value::Object(fields) => fields.values().any(|field| contains_text(field, needle)),
+        _ => false,
+    }
 }
 
 #[derive(Default)]
@@ -87,6 +108,10 @@ impl ActivityStore {
 
     pub fn remove(&mut self, session_id: &str) {
         self.logs.remove(session_id);
+    }
+
+    pub fn mentions(&self, session_id: &str, needle: &str) -> bool {
+        self.logs.get(session_id).is_some_and(|log| log.mentions(needle))
     }
 }
 
@@ -132,6 +157,16 @@ mod tests {
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[1]["payload"]["delta"], "Hello");
         assert_eq!(messages[1]["seq"], 3);
+    }
+
+    #[test]
+    fn mentions_ignore_what_people_typed() {
+        let mut log = ActivityLog::default();
+        log.record(json!({"type":"event","event":"assistant.delta","payload":{"kind":"text","delta":"Wrote /work/report.html"}}));
+        log.record(json!({"type":"event","event":"user.message","payload":{"title":"You","text":"show /work/secret.txt"}}));
+        assert!(log.mentions("/work/report.html"));
+        assert!(!log.mentions("/work/secret.txt"));
+        assert!(!log.mentions(""));
     }
 
     #[test]

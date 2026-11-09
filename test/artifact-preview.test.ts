@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { filePreviewKind, HTML_PREVIEW_CSP, imagePreviewMime, MAX_PREVIEW_BYTES, previewLink } from '../ui/src/lib/artifact-preview.ts';
+import { codeBridgeReference, filePreviewKind, HTML_PREVIEW_CSP, imagePreviewMime, isBridgeTarget, linkBridgeReference, MAX_PREVIEW_BYTES, previewLink } from '../ui/src/lib/artifact-preview.ts';
 
 for (const value of [
   'https://example.com/report?view=1#details',
@@ -100,5 +100,72 @@ test('preview modal separates external consent from authenticated file loading a
   assert.match(source, /controller\.abort\(\)/);
   assert.match(source, /URL\.revokeObjectURL\(objectUrl\)/);
   assert.match(source, /<pre class="preview-text">\{content\}<\/pre>/);
+  assert.doesNotMatch(source, /\{@html/);
+});
+
+for (const [href, expected] of [
+  ['http://localhost:3000', { kind: 'endpoint', url: 'http://localhost:3000' }],
+  ['http://LOCALHOST/app?x=1#top', { kind: 'endpoint', url: 'http://LOCALHOST/app?x=1#top' }],
+  ['http://127.0.0.1:5173/', { kind: 'endpoint', url: 'http://127.0.0.1:5173/' }],
+  ['http://0.0.0.0:8000', { kind: 'endpoint', url: 'http://0.0.0.0:8000' }],
+  ['http://[::1]:8080/x', { kind: 'endpoint', url: 'http://[::1]:8080/x' }],
+  ['/tmp/report.html', { kind: 'file', reference: '/tmp/report.html' }],
+  ['~/notes.md', { kind: 'file', reference: '~/notes.md' }],
+  ['docs/guide.md', { kind: 'file', reference: 'docs/guide.md' }],
+  ['file:///work/app/report.html', { kind: 'file', reference: 'file:///work/app/report.html' }],
+  ['C:\\work\\report.html', { kind: 'file', reference: 'C:\\work\\report.html' }]
+] as const) {
+  test(`link reference is classified: ${href}`, () => {
+    assert.deepEqual(linkBridgeReference(href), expected);
+  });
+}
+
+for (const href of [
+  '', '#section', '?q=1', '//cdn.example/x.js', 'mailto:a@b.c', 'javascript:alert(1)', 'data:text/html,hi',
+  'https://example.com', 'http://example.com', 'http://localhost.evil.com', 'http://localhost@evil.com',
+  'http://192.168.1.5:3000', 'path with space.html', 'a\u0000b.html', '/' + 'a'.repeat(1100)
+]) {
+  test(`link reference is not classified: ${JSON.stringify(href.slice(0, 40))}`, () => {
+    assert.equal(linkBridgeReference(href), undefined);
+  });
+}
+
+for (const [text, expected] of [
+  ['/tmp/out/report.html', { kind: 'file', reference: '/tmp/out/report.html' }],
+  ['./dist/index.html', { kind: 'file', reference: './dist/index.html' }],
+  ['~/Documents/plan.pdf', { kind: 'file', reference: '~/Documents/plan.pdf' }],
+  ['http://localhost:3000', { kind: 'endpoint', url: 'http://localhost:3000' }]
+] as const) {
+  test(`inline code reference is classified: ${text}`, () => {
+    assert.deepEqual(codeBridgeReference(text), expected);
+  });
+}
+
+for (const text of [
+  'npm run dev', '/usr/bin', 'src/app.ts', 'app.ts', 'const x = 1', '/tmp/*.html', 'file.ts:42', '/tmp/a b.html',
+  'https://example.com/a.html', '/tmp/', 'http://example.com'
+]) {
+  test(`inline code is not mistaken for a reference: ${JSON.stringify(text)}`, () => {
+    assert.equal(codeBridgeReference(text), undefined);
+  });
+}
+
+test('bridge targets are recognised separately from artifact targets', () => {
+  assert.equal(isBridgeTarget({ kind: 'bridge-file', sessionId: 's', reference: '/tmp/a.html' }), true);
+  assert.equal(isBridgeTarget({ kind: 'bridge-endpoint', sessionId: 's', url: 'http://localhost:3000' }), true);
+  assert.equal(isBridgeTarget({ kind: 'link', url: 'https://example.com' }), false);
+  assert.equal(isBridgeTarget(null), false);
+});
+
+test('bridge modal asks before anything is fetched or relayed and keeps the frame opaque', () => {
+  const source = readFileSync(new URL('../ui/src/lib/BridgePreview.svelte', import.meta.url), 'utf8');
+  assert.match(source, /sandbox="allow-scripts allow-forms allow-modals"/);
+  assert.doesNotMatch(source, /allow-same-origin|allow-popups|allow-top-navigation|allow-downloads/);
+  assert.match(source, /Fetch this file from the computer running Pi\?/);
+  assert.match(source, /Open this local server through Companion\?/);
+  // Network calls happen only from the explicit confirm actions.
+  assert.equal(source.match(/companion\.bridge(?:File|Endpoint)\(/g)?.length, 2);
+  assert.match(source, /onclick=\{\(\) => fetchFile\(true\)\}/);
+  assert.match(source, /onclick=\{openEndpoint\}/);
   assert.doesNotMatch(source, /\{@html/);
 });
