@@ -108,17 +108,27 @@ struct Endpoint {
     connect_authority: String,
     port: u16,
     expires_at: u64,
+    /// Monotonic lease deadline; renewals update it for requests already in flight.
+    lease_deadline: watch::Sender<tokio::time::Instant>,
     /// Turns true when the token is revoked or expires, so responses already streaming stop too.
     revoked: watch::Sender<bool>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RevocationEpoch {
+    global: u64,
+    session: u64,
+    shared_session: u64,
+    device: u64,
 }
 
 #[derive(Default)]
 pub struct Registry {
     endpoints: HashMap<String, Endpoint>,
-    /// Counts bulk revocations (bridge off, unshare, stop, archive, device removal). A link
-    /// request records it before checking its permissions and is refused if it moved by the time
-    /// the token would be minted, so a request can never outlive a revocation it raced with.
-    generation: u64,
+    global_generation: u64,
+    session_generations: HashMap<String, u64>,
+    shared_session_generations: HashMap<String, u64>,
+    device_generations: HashMap<String, u64>,
 }
 
 impl Registry {
@@ -127,8 +137,21 @@ impl Registry {
         self.endpoints.len()
     }
 
-    pub fn generation(&self) -> u64 {
-        self.generation
+    fn epoch(&self, session_id: &str, caller: &Caller) -> RevocationEpoch {
+        let mut epoch = RevocationEpoch {
+            global: self.global_generation,
+            session: self.session_generations.get(session_id).copied().unwrap_or_default(),
+            ..RevocationEpoch::default()
+        };
+        if let Caller::Device(device_id) = caller {
+            epoch.shared_session = self.shared_session_generations.get(session_id).copied().unwrap_or_default();
+            epoch.device = self.device_generations.get(device_id).copied().unwrap_or_default();
+        }
+        epoch
+    }
+
+    fn epoch_is_current(&self, epoch: RevocationEpoch, session_id: &str, caller: &Caller) -> bool {
+        self.epoch(session_id, caller) == epoch
     }
 
     /// Remove every token matching `ended`, telling streams already using it to stop.
@@ -147,9 +170,9 @@ impl Registry {
         }
     }
 
-    /// Like `open`, but only if no bulk revocation happened since `generation` was read.
-    fn open_if_current(&mut self, generation: u64, session_id: &str, caller: &Caller, target: &Target, now: u64) -> Option<String> {
-        if self.generation != generation {
+    /// Like `open`, but only if a relevant revocation has not happened since checks began.
+    fn open_if_current(&mut self, epoch: RevocationEpoch, session_id: &str, caller: &Caller, target: &Target, now: u64) -> Option<String> {
+        if !self.epoch_is_current(epoch, session_id, caller) {
             return None;
         }
         Some(self.open(session_id, caller, target, now))
@@ -173,6 +196,7 @@ impl Registry {
                 connect_authority: target.connect_authority.clone(),
                 port: target.port,
                 expires_at: now + ENDPOINT_LEASE_SECS,
+                lease_deadline: watch::channel(tokio::time::Instant::now() + Duration::from_secs(ENDPOINT_LEASE_SECS)).0,
                 revoked: watch::channel(false).0,
             },
         );
@@ -198,25 +222,25 @@ impl Registry {
 
     /// Every token, for when the bridge is switched off.
     pub fn revoke_all(&mut self) {
-        self.generation += 1;
+        self.global_generation += 1;
         self.end_where(|_| true);
     }
 
     /// Every token for a session (it was archived, removed or its Pi stopped).
     pub fn revoke_session(&mut self, session_id: &str) {
-        self.generation += 1;
+        *self.session_generations.entry(session_id.to_string()).or_default() += 1;
         self.end_where(|endpoint| endpoint.session_id == session_id);
     }
 
     /// Device tokens for a session, when it stops being shared. Console tokens are unaffected.
     pub fn revoke_session_devices(&mut self, session_id: &str) {
-        self.generation += 1;
+        *self.shared_session_generations.entry(session_id.to_string()).or_default() += 1;
         self.end_where(|endpoint| matches!(endpoint.caller, Caller::Device(_)) && endpoint.session_id == session_id);
     }
 
     /// Every token a device holds, when it is revoked.
     pub fn revoke_device(&mut self, device_id: &str) {
-        self.generation += 1;
+        *self.device_generations.entry(device_id.to_string()).or_default() += 1;
         let holder = Caller::Device(device_id.to_string());
         self.end_where(|endpoint| endpoint.caller == holder);
     }
@@ -244,6 +268,7 @@ impl Registry {
         }
         if let Some(endpoint) = self.endpoints.get_mut(token) {
             endpoint.expires_at = now + ENDPOINT_LEASE_SECS;
+            endpoint.lease_deadline.send_replace(tokio::time::Instant::now() + Duration::from_secs(ENDPOINT_LEASE_SECS));
         }
         true
     }
@@ -493,8 +518,9 @@ pub async fn fetch_file_local(
     Path(session_id): Path<String>,
     Json(request): Json<FileRequest>,
 ) -> ApiResult<Json<TempFile>> {
-    let generation = current_generation(&state).await;
-    bridge_file(&state, &session_id, &request.reference, Caller::Admin, generation).await.map(Json)
+    let caller = Caller::Admin;
+    let generation = current_generation(&state, &session_id, &caller).await;
+    bridge_file(&state, &session_id, &request.reference, caller, generation).await.map(Json)
 }
 
 pub async fn fetch_file_remote(
@@ -503,10 +529,11 @@ pub async fn fetch_file_remote(
     headers: HeaderMap,
     Json(request): Json<FileRequest>,
 ) -> ApiResult<Json<TempFile>> {
-    let generation = current_generation(&state).await;
     let device_id = crate::authorize_device(&state, crate::bearer_token(&headers)?).await?;
+    let caller = Caller::Device(device_id);
+    let generation = current_generation(&state, &session_id, &caller).await;
     crate::require_remote_session(&state, &session_id).await?;
-    bridge_file(&state, &session_id, &request.reference, Caller::Device(device_id), generation).await.map(Json)
+    bridge_file(&state, &session_id, &request.reference, caller, generation).await.map(Json)
 }
 
 pub async fn open_endpoint_local(
@@ -514,8 +541,9 @@ pub async fn open_endpoint_local(
     Path(session_id): Path<String>,
     Json(request): Json<EndpointRequest>,
 ) -> ApiResult<Json<Value>> {
-    let generation = current_generation(&state).await;
-    open_endpoint(&state, &session_id, &request.url, Caller::Admin, generation).await.map(Json)
+    let caller = Caller::Admin;
+    let generation = current_generation(&state, &session_id, &caller).await;
+    open_endpoint(&state, &session_id, &request.url, caller, generation).await.map(Json)
 }
 
 pub async fn open_endpoint_remote(
@@ -524,16 +552,17 @@ pub async fn open_endpoint_remote(
     headers: HeaderMap,
     Json(request): Json<EndpointRequest>,
 ) -> ApiResult<Json<Value>> {
-    // Read before any check: a revocation that lands after this makes the mint below fail.
-    let generation = current_generation(&state).await;
     let device_id = crate::authorize_device(&state, crate::bearer_token(&headers)?).await?;
+    let caller = Caller::Device(device_id);
+    // Read before checks: a relevant revocation after this makes the mint fail.
+    let generation = current_generation(&state, &session_id, &caller).await;
     crate::require_remote_session(&state, &session_id).await?;
-    open_endpoint(&state, &session_id, &request.url, Caller::Device(device_id), generation).await.map(Json)
+    open_endpoint(&state, &session_id, &request.url, caller, generation).await.map(Json)
 }
 
 /// Copy a file the agent mentioned into the session sandbox so it can be previewed/downloaded.
-/// `generation` was read before any permission check; see `still_permitted`.
-async fn bridge_file(state: &AppState, session_id: &str, reference: &str, caller: Caller, generation: u64) -> ApiResult<TempFile> {
+/// The caller's revocation epoch is captured before permission checks and validated at commit.
+async fn bridge_file(state: &AppState, session_id: &str, reference: &str, caller: Caller, generation: RevocationEpoch) -> ApiResult<TempFile> {
     ensure_bridgeable_session(state, session_id).await?;
     let working_directory = session_working_directory(state, session_id).await?;
     let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from);
@@ -586,31 +615,45 @@ async fn bridge_file(state: &AppState, session_id: &str, reference: &str, caller
         created_at: crate::now_secs(),
         origin: Some(origin.clone()),
     };
-    let admission = admit_copy(&mut *state.files.write().await, session_id, &origin, file.clone(), COPY_QUOTA);
-    for old_path in admission.removed {
-        let _ = fs::remove_file(old_path).await;
-    }
-    if let Err(error) = admission.outcome {
+    // Recheck permissions before admission. Then hold the registry lock across the epoch check and
+    // the registry update so revocation cannot split validation from commit. Evicted files are not
+    // unlinked until the new copy is known to be admissible.
+    if let Err(error) = still_permitted(state, session_id, &caller).await {
         let _ = fs::remove_file(&disk_path).await;
+        if current_generation(state, session_id, &caller).await != generation {
+            return Err((StatusCode::CONFLICT, "Sharing or the bridge changed while this file was being fetched. Try again.".into()));
+        }
         return Err(error);
     }
-    // The copy took a while. It is recorded first and checked second, so that a passing check
-    // proves the permissions were still in force when it became visible; if they were withdrawn
-    // meanwhile (bridge off, unshared, Pi stopped, device removed) it is taken back out.
-    if let Err(error) = still_permitted(state, session_id, &caller, generation).await {
-        remove_copy(state, session_id, &file).await;
-        return Err(error);
+    let mut files = state.files.write().await;
+    let registry = state.bridge.lock().await;
+    if !registry.epoch_is_current(generation, session_id, &caller) {
+        drop(registry);
+        drop(files);
+        let _ = fs::remove_file(&disk_path).await;
+        return Err((StatusCode::CONFLICT, "Sharing or the bridge changed while this file was being fetched. Try again.".into()));
+    }
+    let admission = admit_copy(&mut *files, session_id, &origin, file.clone(), COPY_QUOTA);
+    let removed = match admission.outcome {
+        Ok(()) => admission.removed,
+        Err(error) => {
+            drop(registry);
+            drop(files);
+            let _ = fs::remove_file(&disk_path).await;
+            return Err(error);
+        }
+    };
+    drop(registry);
+    drop(files);
+    for old_path in removed {
+        let _ = fs::remove_file(old_path).await;
     }
     crate::notify_session_files(state, session_id).await;
     Ok(file)
 }
 
-/// Everything that allowed the request, checked again: no bulk revocation since `generation`, and the
-/// bridge, Pi connection, device and sharing are all still in place.
-async fn still_permitted(state: &AppState, session_id: &str, caller: &Caller, generation: u64) -> ApiResult<()> {
-    if current_generation(state).await != generation {
-        return Err((StatusCode::CONFLICT, "Sharing or the bridge changed while this file was being fetched. Try again.".into()));
-    }
+/// Recheck the permission state immediately before the epoch-checked commit.
+async fn still_permitted(state: &AppState, session_id: &str, caller: &Caller) -> ApiResult<()> {
     ensure_bridgeable_session(state, session_id).await?;
     if let Caller::Device(device_id) = caller {
         if !state.devices.read().await.contains_key(device_id) {
@@ -619,14 +662,6 @@ async fn still_permitted(state: &AppState, session_id: &str, caller: &Caller, ge
         crate::require_remote_session(state, session_id).await?;
     }
     Ok(())
-}
-
-/// Take a just-recorded copy back out, and delete it from disk.
-async fn remove_copy(state: &AppState, session_id: &str, file: &TempFile) {
-    if let Some(list) = state.files.write().await.get_mut(session_id) {
-        list.retain(|existing| existing.id != file.id);
-    }
-    let _ = fs::remove_file(&file.path).await;
 }
 
 /// The reference, or the path it resolved to, must appear in what the agent produced. A path
@@ -803,13 +838,18 @@ async fn session_working_directory(state: &AppState, session_id: &str) -> ApiRes
     Ok(canonical)
 }
 
-pub async fn current_generation(state: &AppState) -> u64 {
-    state.bridge.lock().await.generation()
+pub async fn current_generation(state: &AppState, session_id: &str, caller: &Caller) -> RevocationEpoch {
+    state.bridge.lock().await.epoch(session_id, caller)
 }
 
-/// Mint a link after every permission check. `generation` was read before those checks began.
-pub async fn open_endpoint(state: &AppState, session_id: &str, url: &str, caller: Caller, generation: u64) -> ApiResult<Value> {
+/// Mint a link after every permission check. The relevant revocation epoch was captured before checks began.
+pub async fn open_endpoint(state: &AppState, session_id: &str, url: &str, caller: Caller, generation: RevocationEpoch) -> ApiResult<Value> {
     ensure_bridgeable_session(state, session_id).await?;
+    if let Caller::Device(device_id) = &caller {
+        if !state.devices.read().await.contains_key(device_id) {
+            return Err((StatusCode::UNAUTHORIZED, "This device is no longer paired.".into()));
+        }
+    }
     let target = parse_loopback_url(url).map_err(bad_request)?;
     refuse_companion_port(target.port)?;
     let mentioned = state.activity.read().await.mentions(session_id, &target.origin, MentionKind::Origin);
@@ -1067,6 +1107,7 @@ async fn forward(state: &AppState, remote: bool, token: &str, request: Request) 
     // Revoking the token (preview closed, sharing off, device removed, Pi stopped) also ends this
     // exchange, whether it is still waiting for the server or already streaming the body.
     let mut revoked = endpoint.revoked.subscribe();
+    let mut lease_deadline = endpoint.lease_deadline.subscribe();
     let exchange = async {
         let unreachable = || (StatusCode::BAD_GATEWAY, format!("Could not reach {}. Is the server still running?", endpoint.origin));
         let sent = tokio::time::timeout(UPSTREAM_TIMEOUT, state.bridge_client.request(upstream_request)).await;
@@ -1076,11 +1117,12 @@ async fn forward(state: &AppState, remote: bool, token: &str, request: Request) 
                 tracing::debug!("bridge upstream failed: {error}");
                 unreachable()
             })?;
-        build_response(upstream, &endpoint, &prefix, permit, endpoint.revoked.subscribe()).await
+        build_response(upstream, &endpoint, &prefix, permit, endpoint.revoked.subscribe(), endpoint.lease_deadline.subscribe()).await
     };
     tokio::select! {
         biased;
         _ = until_revoked(&mut revoked) => Err((StatusCode::NOT_FOUND, "This bridge link has ended. Open it again from the session.".to_string())),
+        _ = until_lease_expired(&mut lease_deadline) => Err((StatusCode::NOT_FOUND, "This bridge link has expired. Open it again from the session.".to_string())),
         response = exchange => response,
     }
 }
@@ -1088,6 +1130,25 @@ async fn forward(state: &AppState, remote: bool, token: &str, request: Request) 
 /// Resolves once the token has been revoked (or is already). Also resolves if the registry is gone.
 async fn until_revoked(revoked: &mut watch::Receiver<bool>) {
     let _ = revoked.wait_for(|ended| *ended).await;
+}
+
+/// Resolve at the current lease deadline, but follow later deadlines sent by an authorized renewal.
+async fn until_lease_expired(deadline: &mut watch::Receiver<tokio::time::Instant>) {
+    loop {
+        let current_deadline = *deadline.borrow();
+        tokio::select! {
+            _ = tokio::time::sleep_until(current_deadline) => {
+                if tokio::time::Instant::now() >= *deadline.borrow() {
+                    return;
+                }
+            }
+            changed = deadline.changed() => {
+                if changed.is_err() {
+                    return;
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1121,6 +1182,7 @@ async fn build_response(
     prefix: &str,
     permit: OwnedSemaphorePermit,
     revoked: watch::Receiver<bool>,
+    lease_deadline: watch::Receiver<tokio::time::Instant>,
 ) -> ApiResult<Response> {
     let (parts, incoming) = upstream.into_parts();
     let rewrite = rewrite_kind(&parts.headers);
@@ -1145,7 +1207,7 @@ async fn build_response(
 
     let body = match rewrite {
         Some(kind) => rewritten_body(incoming, kind, prefix, endpoint).await?,
-        None => relay_body(incoming, permit, revoked),
+        None => relay_body(incoming, permit, revoked, lease_deadline),
     };
     let mut response = Response::new(body);
     *response.status_mut() = parts.status;
@@ -1217,13 +1279,19 @@ async fn rewritten_body(
 /// concurrency permit is held until the stream ends, so slow or endless upstreams cannot pile up.
 /// Hyper's pull-based body gives backpressure: nothing is read faster than the browser consumes.
 /// Revoking the link cuts the stream at the next opportunity, even mid-body.
-fn relay_body(incoming: hyper::body::Incoming, permit: OwnedSemaphorePermit, revoked: watch::Receiver<bool>) -> Body {
+fn relay_body(
+    incoming: hyper::body::Incoming,
+    permit: OwnedSemaphorePermit,
+    revoked: watch::Receiver<bool>,
+    lease_deadline: watch::Receiver<tokio::time::Instant>,
+) -> Body {
     struct Relay<S> {
         chunks: S,
         sent: usize,
         deadline: tokio::time::Instant,
         finished: bool,
         revoked: watch::Receiver<bool>,
+        lease_deadline: watch::Receiver<tokio::time::Instant>,
         _permit: OwnedSemaphorePermit,
     }
     let relay = Relay {
@@ -1232,6 +1300,7 @@ fn relay_body(incoming: hyper::body::Incoming, permit: OwnedSemaphorePermit, rev
         deadline: tokio::time::Instant::now() + MAX_RELAY_DURATION,
         finished: false,
         revoked,
+        lease_deadline,
         _permit: permit,
     };
     let stream = futures_util::stream::unfold(relay, |mut relay| async move {
@@ -1246,6 +1315,11 @@ fn relay_body(incoming: hyper::body::Incoming, permit: OwnedSemaphorePermit, rev
                 relay.finished = true;
                 let closed = io::Error::new(io::ErrorKind::ConnectionAborted, "The bridge link was closed.");
                 return Some((Err(closed), relay));
+            }
+            _ = until_lease_expired(&mut relay.lease_deadline) => {
+                relay.finished = true;
+                let expired = io::Error::new(io::ErrorKind::ConnectionAborted, "The bridge link expired.");
+                return Some((Err(expired), relay));
             }
             next = tokio::time::timeout(wait, relay.chunks.next()) => next,
         };
@@ -1733,26 +1807,50 @@ mod tests {
         assert!(!registry.renew(&token, "s1", &device, 100 + 4 * ENDPOINT_LEASE_SECS), "an expired link is not revived");
     }
 
-    #[test]
-    fn bulk_revocation_moves_the_generation_and_closing_one_preview_does_not() {
+    #[tokio::test(start_paused = true)]
+    async fn active_stream_lease_expires_and_owner_renewal_moves_its_deadline() {
         let target = parse_loopback_url("http://localhost:3000").unwrap();
         let mut registry = Registry::default();
-        let start = registry.generation();
+        let token = registry.open("s1", &Caller::Admin, &target, 0);
+        let mut deadline = registry.lookup(&token, 0).unwrap().lease_deadline.subscribe();
+        let expiry = tokio::spawn(async move { until_lease_expired(&mut deadline).await });
+        tokio::task::yield_now().await;
+
+        tokio::time::advance(Duration::from_secs(20)).await;
+        assert!(registry.renew(&token, "s1", &Caller::Admin, 20));
+        tokio::time::advance(Duration::from_secs(299)).await;
+        assert!(!expiry.is_finished(), "an explicit renewal extends an active stream");
+
+        tokio::time::advance(Duration::from_secs(1)).await;
+        expiry.await.unwrap();
+    }
+
+    #[test]
+    fn revocation_epochs_are_scoped_to_affected_callers_and_sessions() {
+        let target = parse_loopback_url("http://localhost:3000").unwrap();
+        let mut registry = Registry::default();
+        let admin_epoch = registry.epoch("s1", &Caller::Admin);
+        let device_epoch = registry.epoch("s1", &Caller::Device("d1".into()));
+        registry.revoke_session_devices("s1");
+        assert!(registry.epoch_is_current(admin_epoch, "s1", &Caller::Admin), "unsharing leaves console callers alone");
+        assert!(!registry.epoch_is_current(device_epoch, "s1", &Caller::Device("d1".into())));
+
+        let device_epoch = registry.epoch("s1", &Caller::Device("d1".into()));
+        registry.revoke_device("d2");
+        assert!(registry.epoch_is_current(device_epoch, "s1", &Caller::Device("d1".into())), "revoking another device is isolated");
+
+        let old_epoch = registry.epoch("s1", &Caller::Admin);
+        let other_session_epoch = registry.epoch("s2", &Caller::Admin);
+        registry.revoke_session("s1");
+        assert!(!registry.epoch_is_current(old_epoch, "s1", &Caller::Admin));
+        assert!(registry.epoch_is_current(other_session_epoch, "s2", &Caller::Admin), "session revocations are isolated");
         let token = registry.open("s1", &Caller::Admin, &target, 100);
         assert!(registry.revoke_token(&token, "s1", &Caller::Admin));
-        assert_eq!(registry.generation(), start, "a preview closing must not fail a concurrent open");
-        assert!(registry.open_if_current(start, "s1", &Caller::Admin, &target, 100).is_some());
-        for revoke in [
-            |registry: &mut Registry| registry.revoke_all(),
-            |registry: &mut Registry| registry.revoke_session("s1"),
-            |registry: &mut Registry| registry.revoke_session_devices("s1"),
-            |registry: &mut Registry| registry.revoke_device("d"),
-        ] {
-            let before = registry.generation();
-            revoke(&mut registry);
-            assert!(registry.generation() > before);
-            assert!(registry.open_if_current(before, "s1", &Caller::Admin, &target, 100).is_none(), "stale generation cannot mint");
-        }
+        let current = registry.epoch("s1", &Caller::Admin);
+        assert!(registry.open_if_current(current, "s1", &Caller::Admin, &target, 100).is_some(), "closing one preview does not invalidate an open request");
+        let before = registry.epoch("s1", &Caller::Device("d1".into()));
+        registry.revoke_all();
+        assert!(!registry.epoch_is_current(before, "s1", &Caller::Device("d1".into())), "global disable invalidates every caller");
     }
 
     #[test]

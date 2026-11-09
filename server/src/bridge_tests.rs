@@ -576,15 +576,34 @@ async fn a_link_request_that_raced_turning_the_bridge_off_and_on_cannot_mint() {
     agent_says(&state, "race-bridge", &format!("Serving {origin}")).await;
 
     // The request read the generation, passed every check, and was then overtaken by off -> on.
-    let generation = bridge::current_generation(&state).await;
+    let caller = bridge::Caller::Device(device_id.clone());
+    let generation = bridge::current_generation(&state, "race-bridge", &caller).await;
     set_bridge_enabled(&local, false).await;
     set_bridge_enabled(&local, true).await;
-    let raced = bridge::open_endpoint(&state, "race-bridge", &origin, bridge::Caller::Device(device_id.clone()), generation).await;
+    let raced = bridge::open_endpoint(&state, "race-bridge", &origin, caller.clone(), generation).await;
     assert_eq!(raced.unwrap_err().0, StatusCode::CONFLICT, "a token minted after the revocation would be live again");
     assert_eq!(state.bridge.lock().await.len(), 0);
 
-    let fresh = bridge::current_generation(&state).await;
+    let fresh = bridge::current_generation(&state, "race-bridge", &caller).await;
     assert!(bridge::open_endpoint(&state, "race-bridge", &origin, bridge::Caller::Device(device_id), fresh).await.is_ok());
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+#[tokio::test]
+async fn a_link_cannot_mint_when_device_revocation_precedes_epoch_capture() {
+    let Workspace { state, cwd, .. } = workspace("revoked-device", true).await;
+    let (device_id, _) = pair(&state).await;
+    let server = upstream().await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "revoked-device", &format!("Serving {origin}")).await;
+    state.devices.write().await.remove(&device_id);
+    state.bridge.lock().await.revoke_device(&device_id);
+
+    let caller = bridge::Caller::Device(device_id);
+    let epoch = bridge::current_generation(&state, "revoked-device", &caller).await;
+    let result = bridge::open_endpoint(&state, "revoked-device", &origin, caller, epoch).await;
+    assert_eq!(result.unwrap_err().0, StatusCode::UNAUTHORIZED);
+    assert_eq!(state.bridge.lock().await.len(), 0);
     let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
 }
 
@@ -598,13 +617,14 @@ async fn a_link_request_that_raced_unsharing_and_resharing_cannot_mint() {
     let origin = format!("http://127.0.0.1:{}", server.port());
     agent_says(&state, "race-share", &format!("Serving {origin}")).await;
 
-    let generation = bridge::current_generation(&state).await;
+    let caller = bridge::Caller::Device(device_id.clone());
+    let generation = bridge::current_generation(&state, "race-share", &caller).await;
     for shared in [false, true] {
         send_json(&mut pi, json!({ "type": "session.update", "session": { "remoteEnabled": shared } })).await;
         eventually("the share flag to land", async || state.sessions.read().await["race-share"].snapshot["remoteEnabled"] == json!(shared)).await;
     }
     // Sharing is on again, so every permission check would pass; only the generation catches it.
-    let raced = bridge::open_endpoint(&state, "race-share", &origin, bridge::Caller::Device(device_id), generation).await;
+    let raced = bridge::open_endpoint(&state, "race-share", &origin, caller, generation).await;
     assert_eq!(raced.unwrap_err().0, StatusCode::CONFLICT);
     assert_eq!(state.bridge.lock().await.len(), 0);
 }
@@ -704,6 +724,57 @@ async fn revoking_a_link_cuts_a_response_that_is_already_streaming() {
 }
 
 #[tokio::test]
+async fn an_existing_stream_ends_when_its_lease_expires_without_another_request() {
+    let Workspace { state, cwd, .. } = workspace("lease-stream", true).await;
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    let server = endless_stream().await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "lease-stream", &format!("Serving {origin}")).await;
+    let path = open_device_link(&remote, &token, "lease-stream", &origin).await;
+    // Start the stream after the lease has already aged, so the lease ends before the relay budget.
+    tokio::time::sleep(Duration::from_millis(1100)).await;
+    let response = remote.oneshot(get(&format!("{}/stream", path.trim_end_matches('/')), Some("null"), None)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let mut body = response.into_body().into_data_stream();
+    assert!(futures_util::StreamExt::next(&mut body).await.unwrap().is_ok());
+
+    tokio::time::pause();
+    tokio::time::advance(Duration::from_secs(bridge::ENDPOINT_LEASE_SECS - 1)).await;
+    let next = futures_util::StreamExt::next(&mut body).await;
+    assert!(next.is_some_and(|chunk| chunk.is_err()), "the stream must end when its lease expires without another lookup");
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+#[tokio::test]
+async fn an_upstream_wait_ends_when_the_lease_expires() {
+    let Workspace { state, cwd, .. } = workspace("lease-wait", true).await;
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    let started = std::sync::Arc::new(tokio::sync::Notify::new());
+    let upstream_started = started.clone();
+    let app = Router::new().route("/wait", route_get(move || {
+        let started = upstream_started.clone();
+        async move {
+            started.notify_one();
+            std::future::pending::<String>().await
+        }
+    }));
+    let server = serve(app).await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "lease-wait", &format!("Serving {origin}")).await;
+    let path = open_device_link(&remote, &token, "lease-wait", &origin).await;
+    let pending = tokio::spawn(async move {
+        remote.oneshot(get(&format!("{}/wait", path.trim_end_matches('/')), Some("null"), None)).await.unwrap()
+    });
+    started.notified().await;
+    tokio::time::pause();
+    tokio::time::advance(Duration::from_secs(bridge::ENDPOINT_LEASE_SECS)).await;
+    assert_eq!(pending.await.unwrap().status(), StatusCode::NOT_FOUND);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}
+
+#[tokio::test]
 async fn open_previews_renew_their_lease_and_only_the_opener_can() {
     let Workspace { state, cwd, .. } = workspace("lease", true).await;
     let local = local_router(state.clone());
@@ -759,10 +830,11 @@ async fn fetch_held_before_recording(
     session_id: &str,
 ) -> (tokio::sync::OwnedRwLockWriteGuard<HashMap<String, Vec<TempFile>>>, tokio::task::JoinHandle<(StatusCode, HeaderMap, String)>) {
     let held = state.files.clone().write_owned().await;
-    let pending = tokio::spawn(async move { send(&router, request).await });
     let session_dir = state.temp_root.join(session_id);
+    let existing = std::fs::read_dir(&session_dir).map(|entries| entries.count()).unwrap_or(0);
+    let pending = tokio::spawn(async move { send(&router, request).await });
     eventually("the copy to reach the disk", async || {
-        std::fs::read_dir(&session_dir).map(|entries| entries.count() > 0).unwrap_or(false)
+        std::fs::read_dir(&session_dir).map(|entries| entries.count() > existing).unwrap_or(false)
     })
     .await;
     (held, pending)
@@ -770,6 +842,57 @@ async fn fetch_held_before_recording(
 
 async fn files_on_disk(state: &AppState, session_id: &str) -> usize {
     std::fs::read_dir(state.temp_root.join(session_id)).map(|entries| entries.count()).unwrap_or(0)
+}
+
+#[tokio::test]
+async fn a_revoked_refetch_preserves_the_previously_shared_copy() {
+    let Workspace { state, cwd, .. } = workspace("rollback", false).await;
+    let local = local_router(state.clone());
+    let file = cwd.join("report.txt");
+    write_file(&file, "original").await;
+    agent_says(&state, "rollback", &format!("Wrote {}", file.display())).await;
+    let request = || bridge_post(None, None, "/api/sessions/rollback/bridge/file", json!({ "reference": file.to_string_lossy() }));
+    assert_eq!(send(&local, request()).await.0, StatusCode::OK);
+    let previous = session_files(&state, "rollback").await[0].clone();
+
+    write_file(&file, "replacement").await;
+    let (held, pending) = fetch_held_before_recording(&state, local.clone(), request(), "rollback").await;
+    // Hold the epoch lock until the copy has passed its final permission check and acquired the
+    // files lock. Revocation then wins immediately before the atomic admission check.
+    let mut registry = state.bridge.lock().await;
+    drop(held);
+    eventually("the copy to reach admission", async || state.files.try_read().is_err()).await;
+    registry.revoke_all();
+    drop(registry);
+
+    let (status, _, body) = pending.await.unwrap();
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    let current = session_files(&state, "rollback").await;
+    assert_eq!(current.len(), 1);
+    assert_eq!(current[0].id, previous.id);
+    assert_eq!(fs::read_to_string(&previous.path).await.unwrap(), "original");
+    assert_eq!(files_on_disk(&state, "rollback").await, 1);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+    let _ = fs::remove_dir_all(&state.temp_root).await;
+}
+
+#[tokio::test]
+async fn an_unrelated_session_revocation_does_not_abort_a_file_copy() {
+    let Workspace { state, cwd, .. } = workspace("copy-a", false).await;
+    add_session_in(&state, "copy-b", &cwd, false).await;
+    let local = local_router(state.clone());
+    let file = cwd.join("report.txt");
+    write_file(&file, "report").await;
+    agent_says(&state, "copy-a", &format!("Wrote {}", file.display())).await;
+    let request = bridge_post(None, None, "/api/sessions/copy-a/bridge/file", json!({ "reference": file.to_string_lossy() }));
+    let (held, pending) = fetch_held_before_recording(&state, local, request, "copy-a").await;
+    state.bridge.lock().await.revoke_session("copy-b");
+    drop(held);
+    let (status, _, body) = pending.await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(session_files(&state, "copy-a").await.len(), 1);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+    let _ = fs::remove_dir_all(&state.temp_root).await;
 }
 
 #[tokio::test]
