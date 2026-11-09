@@ -177,7 +177,8 @@ test('bridge modal asks before anything is fetched or relayed and keeps the fram
   assert.match(source, /onclick=\{\(\) => fetchFile\(true\)\}/);
   assert.match(source, /onclick=\{openEndpoint\}/);
   // Closing the dialog, or leaving the page, ends the relay link once.
-  assert.match(source, /companion\.bridgeRevoke\(target\.sessionId, frame\.path\)/);
-  assert.equal(source.match(/releaseLink\(\);/g)?.length, 2);
+  assert.match(source, /companion\.bridgeRevoke\(target\.sessionId, path\)/);
+  assert.equal(source.match(/lease\.end\(\);/g)?.length, 2);
+  assert.match(source, /frame = lease\.accept\(link\)/);
   assert.doesNotMatch(source, /\{@html/);
 });

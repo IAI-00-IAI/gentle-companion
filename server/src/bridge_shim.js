@@ -1,7 +1,8 @@
 // Injected into proxied HTML pages. __PREFIX__ and __PORT__ are replaced by the daemon.
 // Sends runtime requests through the bridge: root-relative URLs (which would otherwise reach
 // Companion itself), Request objects, and absolute URLs to the bridged server on any loopback name.
-// WebSockets are not proxied and are left untouched.
+// WebSockets are not proxied and are left untouched. Workers are not supported: the sandboxed
+// frame has an opaque origin, so browsers refuse to start a worker from a bridge URL.
 (function () {
   var PREFIX = __PREFIX__;
   var PORT = String(__PORT__);
@@ -56,8 +57,6 @@
     window[name] = Wrapped;
   }
   wrapConstructor('EventSource');
-  wrapConstructor('Worker');
-  wrapConstructor('SharedWorker');
 
   var nativeBeacon = navigator.sendBeacon;
   if (nativeBeacon) {

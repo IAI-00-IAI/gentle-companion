@@ -527,3 +527,22 @@ async fn relays_are_capped_and_loopback_alias_redirects_stay_in_the_bridge() {
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
     let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
 }
+
+#[tokio::test]
+async fn two_previews_of_one_server_do_not_share_a_link() {
+    let Workspace { state, cwd, .. } = workspace("tabs", true).await;
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    let server = upstream().await;
+    let origin = format!("http://127.0.0.1:{}", server.port());
+    agent_says(&state, "tabs", &format!("Serving {origin}")).await;
+    let first = open_device_link(&remote, &token, "tabs", &origin).await;
+    let second = open_device_link(&remote, &token, "tabs", &origin).await;
+    assert_ne!(first, second, "each preview mints its own link");
+
+    let revoke = bridge_post(Some(DEVICE_ORIGIN), Some(&token), "/api/sessions/tabs/bridge/endpoint/revoke", json!({ "path": first }));
+    assert_eq!(send(&remote, revoke).await.0, StatusCode::NO_CONTENT);
+    assert_eq!(send(&remote, get(&first, Some("null"), None)).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(send(&remote, get(&second, Some("null"), None)).await.0, StatusCode::OK, "closing one tab leaves the other working");
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+}

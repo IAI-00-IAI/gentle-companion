@@ -53,6 +53,9 @@ const MAX_ENDPOINTS_PER_SESSION: usize = 16;
 const MAX_REWRITE_BYTES: usize = 5 * 1024 * 1024;
 const MAX_REQUEST_BYTES: usize = 50 * 1024 * 1024;
 const UPSTREAM_TIMEOUT: Duration = Duration::from_secs(30);
+/// Collecting a page to rewrite: it must arrive within this time, and not stall between chunks.
+const REWRITE_TOTAL_TIMEOUT: Duration = Duration::from_secs(30);
+const REWRITE_IDLE_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_REFERENCE_CHARS: usize = 1024;
 /// Responses being relayed at once, across every token. Each holds a permit until its body ends.
 pub const MAX_CONCURRENT_RELAYS: usize = 32;
@@ -103,17 +106,13 @@ impl Registry {
         self.endpoints.len()
     }
 
-    /// Reuse a live token for the same target, otherwise mint one.
+    /// Mint a token for one preview. Every call gets its own token, even for the same server, so
+    /// closing one preview (which revokes its token) never breaks another that is still open.
+    /// Each caller holds at most `MAX_ENDPOINTS_PER_SESSION` tokens per session; the least recently
+    /// used one is dropped to make room.
     fn open(&mut self, session_id: &str, caller: &Caller, target: &Target, now: u64) -> String {
         self.endpoints.retain(|_, endpoint| endpoint.expires_at > now);
-        let existing = self.endpoints.iter_mut().find(|(_, endpoint)| {
-            endpoint.session_id == session_id && &endpoint.caller == caller && endpoint.origin == target.origin
-        });
-        if let Some((token, endpoint)) = existing {
-            endpoint.expires_at = now + ENDPOINT_IDLE_SECS;
-            return token.clone();
-        }
-        self.evict_oldest(session_id);
+        self.evict_oldest(session_id, caller);
         let token = Uuid::new_v4().simple().to_string() + &Uuid::new_v4().simple().to_string();
         self.endpoints.insert(
             token.clone(),
@@ -130,12 +129,12 @@ impl Registry {
         token
     }
 
-    fn evict_oldest(&mut self, session_id: &str) {
+    fn evict_oldest(&mut self, session_id: &str, caller: &Caller) {
         loop {
             let mut mine: Vec<(&String, u64)> = self
                 .endpoints
                 .iter()
-                .filter(|(_, endpoint)| endpoint.session_id == session_id)
+                .filter(|(_, endpoint)| endpoint.session_id == session_id && &endpoint.caller == caller)
                 .map(|(token, endpoint)| (token, endpoint.expires_at))
                 .collect();
             if mine.len() < MAX_ENDPOINTS_PER_SESSION {
@@ -942,6 +941,40 @@ async fn build_response(
     Ok(response)
 }
 
+#[derive(Debug, PartialEq)]
+enum CollectFailure {
+    TooLarge,
+    Stalled,
+    Broken,
+}
+
+/// Read a whole body, but never more than `max_bytes`, never longer than `total`, and never wait
+/// longer than `idle` for the next chunk. A server that sends headers and then goes quiet fails
+/// here instead of holding a relay slot forever.
+async fn collect_bounded<S, E>(stream: S, max_bytes: usize, total: Duration, idle: Duration) -> Result<Vec<u8>, CollectFailure>
+where
+    S: futures_util::Stream<Item = Result<axum::body::Bytes, E>>,
+{
+    let mut stream = std::pin::pin!(stream);
+    let deadline = tokio::time::Instant::now() + total;
+    let mut collected: Vec<u8> = Vec::new();
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let wait = remaining.min(idle);
+        let next = tokio::time::timeout(wait, stream.next()).await.map_err(|_| CollectFailure::Stalled)?;
+        match next {
+            None => return Ok(collected),
+            Some(Err(_)) => return Err(CollectFailure::Broken),
+            Some(Ok(chunk)) => {
+                if collected.len() + chunk.len() > max_bytes {
+                    return Err(CollectFailure::TooLarge);
+                }
+                collected.extend_from_slice(&chunk);
+            }
+        }
+    }
+}
+
 async fn rewritten_body(
     incoming: hyper::body::Incoming,
     kind: Rewrite,
@@ -949,17 +982,21 @@ async fn rewritten_body(
     endpoint: &Endpoint,
 ) -> ApiResult<Body> {
     let origin = &endpoint.origin;
-    let too_large = || (StatusCode::BAD_GATEWAY, format!("{origin} sent a page too large to bridge (over 5 MiB)."));
-    let collected = Limited::new(incoming, MAX_REWRITE_BYTES).collect().await.map_err(|_| too_large())?;
-    let bytes = collected.to_bytes();
+    let stream = incoming.into_data_stream();
+    let collected = collect_bounded(stream, MAX_REWRITE_BYTES, REWRITE_TOTAL_TIMEOUT, REWRITE_IDLE_TIMEOUT).await;
+    let bytes = collected.map_err(|failure| match failure {
+        CollectFailure::TooLarge => (StatusCode::BAD_GATEWAY, format!("{origin} sent a page too large to bridge (over 5 MiB).")),
+        CollectFailure::Stalled => (StatusCode::GATEWAY_TIMEOUT, format!("{origin} stalled while sending a page.")),
+        CollectFailure::Broken => (StatusCode::BAD_GATEWAY, format!("{origin} closed the connection while sending a page.")),
+    })?;
     // Anything that is not UTF-8 text is passed through untouched rather than corrupted.
-    let Ok(text) = String::from_utf8(bytes.to_vec()) else {
+    let Ok(text) = String::from_utf8(bytes.clone()) else {
         return Ok(Body::from(bytes));
     };
     let rewritten = match kind {
         Rewrite::Html => rewrite_html(&text, prefix, endpoint.port),
-        Rewrite::Css => rewrite_css(&text, prefix),
-        Rewrite::Script => rewrite_script(&text, prefix),
+        Rewrite::Css => rewrite_css(&text, prefix, endpoint.port),
+        Rewrite::Script => rewrite_script(&text, prefix, endpoint.port),
     };
     Ok(Body::from(rewritten))
 }
@@ -1032,7 +1069,8 @@ pub fn rewrite_location(location: &str, bridged_port: u16, prefix: &str) -> Stri
 // Root-relative URL rewriting
 //
 // A page served at /bridge/{token}/ that links to "/app.js" would escape to the Companion app.
-// These helpers prefix such URLs. They are heuristics for common dev-server output, not a parser.
+// These helpers prefix such URLs, and turn absolute URLs to the bridged port
+// (`http://localhost:3000/app.js`) into bridge URLs. They are heuristics for common dev-server output, not a parser.
 // ---------------------------------------------------------------------------------------------
 
 struct Marker {
@@ -1062,8 +1100,17 @@ fn is_identifier_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'$' || byte == b'.'
 }
 
-/// Index of the `/` that starts a root-relative URL right after `marker`, if there is one.
-fn root_after_marker(bytes: &[u8], index: usize, marker: &Marker, prefix: &str) -> Option<usize> {
+/// Part of the source to swap for the bridge prefix. Root-relative URLs only gain the prefix
+/// (`start == end`); absolute loopback URLs lose their `http://host:port` and gain it instead.
+struct Replacement {
+    start: usize,
+    end: usize,
+    /// The URL named only the server (`http://localhost:3000`), so the prefix needs a `/` after it.
+    trailing_slash: bool,
+}
+
+/// Where the URL begins right after `marker` (past whitespace and an opening quote), if the marker is here.
+fn url_start_after_marker(bytes: &[u8], index: usize, marker: &Marker) -> Option<usize> {
     let end = index + marker.text.len();
     if end > bytes.len() || !bytes[index..end].eq_ignore_ascii_case(marker.text.as_bytes()) {
         return None;
@@ -1081,24 +1128,66 @@ fn root_after_marker(bytes: &[u8], index: usize, marker: &Marker, prefix: &str) 
     } else if marker.quote_required {
         return None;
     }
-    let is_root = bytes.get(cursor) == Some(&b'/') && bytes.get(cursor + 1) != Some(&b'/');
-    let already_prefixed = bytes[cursor.min(bytes.len())..].starts_with(prefix.as_bytes());
-    if is_root && !already_prefixed { Some(cursor) } else { None }
+    Some(cursor)
 }
 
-fn prefix_root_urls(source: &str, markers: &[Marker], prefix: &str) -> String {
+fn root_replacement(bytes: &[u8], cursor: usize, prefix: &str) -> Option<Replacement> {
+    let is_root = bytes.get(cursor) == Some(&b'/') && bytes.get(cursor + 1) != Some(&b'/');
+    let already_prefixed = bytes[cursor.min(bytes.len())..].starts_with(prefix.as_bytes());
+    if is_root && !already_prefixed {
+        return Some(Replacement { start: cursor, end: cursor, trailing_slash: false });
+    }
+    None
+}
+
+fn ends_url_authority(byte: u8) -> bool {
+    byte.is_ascii_whitespace() || matches!(byte, b'/' | b'?' | b'#' | b'"' | b'\'' | b'`' | b')' | b'(' | b'\\' | b'<' | b'>' | b',' | b';')
+}
+
+/// `http://localhost:3000/x`, `//127.0.0.1:3000/x` and the like, when they name the bridged port.
+/// Left in a page, the browser would ask its own localhost (often the phone's) for them.
+fn loopback_replacement(bytes: &[u8], cursor: usize, bridged_port: u16) -> Option<Replacement> {
+    let rest = bytes.get(cursor..)?;
+    let scheme_length = if rest.len() >= 7 && rest[..7].eq_ignore_ascii_case(b"http://") {
+        7
+    } else if rest.starts_with(b"//") {
+        2
+    } else {
+        return None;
+    };
+    let authority_start = cursor + scheme_length;
+    let authority_length = bytes[authority_start..].iter().position(|byte| ends_url_authority(*byte)).unwrap_or(bytes.len() - authority_start);
+    let authority_end = authority_start + authority_length;
+    let authority = std::str::from_utf8(&bytes[authority_start..authority_end]).ok()?;
+    let target = parse_loopback_url(&format!("http://{authority}")).ok()?;
+    if target.port != bridged_port {
+        return None;
+    }
+    let trailing_slash = bytes.get(authority_end) != Some(&b'/');
+    Some(Replacement { start: cursor, end: authority_end, trailing_slash })
+}
+
+fn replacement_after_marker(bytes: &[u8], index: usize, marker: &Marker, prefix: &str, port: u16) -> Option<Replacement> {
+    let cursor = url_start_after_marker(bytes, index, marker)?;
+    root_replacement(bytes, cursor, prefix).or_else(|| loopback_replacement(bytes, cursor, port))
+}
+
+fn prefix_root_urls(source: &str, markers: &[Marker], prefix: &str, port: u16) -> String {
     let bytes = source.as_bytes();
     let mut output = String::with_capacity(source.len() + 256);
     let mut copied = 0;
     let mut index = 0;
     while index < bytes.len() {
-        let root = markers.iter().find_map(|marker| root_after_marker(bytes, index, marker, prefix));
-        match root {
-            Some(root_index) => {
-                output.push_str(&source[copied..root_index]);
+        let found = markers.iter().find_map(|marker| replacement_after_marker(bytes, index, marker, prefix, port));
+        match found {
+            Some(replacement) => {
+                output.push_str(&source[copied..replacement.start]);
                 output.push_str(prefix);
-                copied = root_index;
-                index = root_index + 1;
+                if replacement.trailing_slash {
+                    output.push('/');
+                }
+                copied = replacement.end;
+                index = replacement.end.max(replacement.start + 1);
             }
             None => index += 1,
         }
@@ -1107,17 +1196,17 @@ fn prefix_root_urls(source: &str, markers: &[Marker], prefix: &str) -> String {
     output
 }
 
-pub fn rewrite_css(css: &str, prefix: &str) -> String {
-    prefix_root_urls(css, &CSS_MARKERS, prefix)
+pub fn rewrite_css(css: &str, prefix: &str, port: u16) -> String {
+    prefix_root_urls(css, &CSS_MARKERS, prefix, port)
 }
 
-pub fn rewrite_script(script: &str, prefix: &str) -> String {
-    prefix_root_urls(script, &SCRIPT_MARKERS, prefix)
+pub fn rewrite_script(script: &str, prefix: &str, port: u16) -> String {
+    prefix_root_urls(script, &SCRIPT_MARKERS, prefix, port)
 }
 
 /// Prefix root-relative attributes, then add the request shim as early as possible.
 pub fn rewrite_html(html: &str, prefix: &str, port: u16) -> String {
-    let rewritten = prefix_root_urls(html, &HTML_MARKERS, prefix);
+    let rewritten = prefix_root_urls(html, &HTML_MARKERS, prefix, port);
     let shim = request_shim(prefix, port);
     let lowered = rewritten.to_ascii_lowercase();
     for opening in ["<head", "<html"] {
@@ -1131,8 +1220,8 @@ pub fn rewrite_html(html: &str, prefix: &str, port: u16) -> String {
 
 const SHIM_TEMPLATE: &str = include_str!("bridge_shim.js");
 
-/// Runtime requests (`fetch`, XHR, `Request`, workers, EventSource, absolute URLs to the bridged
-/// server) are sent through the bridge. WebSockets are not proxied.
+/// Runtime requests (`fetch`, XHR, `Request`, EventSource, `sendBeacon`, absolute URLs to the
+/// bridged server) are sent through the bridge. WebSockets and workers are not supported.
 fn request_shim(prefix: &str, port: u16) -> String {
     let quoted_prefix = serde_json::to_string(prefix).unwrap_or_default();
     let script = SHIM_TEMPLATE.replace("__PREFIX__", &quoted_prefix).replace("__PORT__", &port.to_string());
@@ -1304,20 +1393,106 @@ mod tests {
     }
 
     #[test]
-    fn registry_reuses_expires_and_caps_tokens() {
+    fn every_preview_gets_its_own_token_and_closing_one_leaves_the_others() {
         let target = parse_loopback_url("http://localhost:3000").unwrap();
         let mut registry = Registry::default();
         let first = registry.open("s1", &Caller::Admin, &target, 100);
-        assert_eq!(registry.open("s1", &Caller::Admin, &target, 200), first);
-        assert_ne!(registry.open("s1", &Caller::Device("d".into()), &target, 200), first);
-        assert!(registry.touch(&first, 200 + ENDPOINT_IDLE_SECS - 1).is_some());
-        assert!(registry.touch(&first, 200 + 2 * ENDPOINT_IDLE_SECS).is_none());
-        for port in 4000..4000 + MAX_ENDPOINTS_PER_SESSION as u16 + 5 {
-            let other = parse_loopback_url(&format!("http://localhost:{port}")).unwrap();
-            registry.open("s2", &Caller::Admin, &other, 1_000_000);
+        let second = registry.open("s1", &Caller::Admin, &target, 200);
+        let device = registry.open("s1", &Caller::Device("d".into()), &target, 200);
+        assert!(first != second && second != device && first != device);
+        assert!(registry.revoke_token(&first, "s1", &Caller::Admin));
+        assert!(registry.touch(&first, 201).is_none(), "the closed preview's link is gone");
+        assert!(registry.touch(&second, 201).is_some(), "the other tab keeps working");
+        assert!(registry.touch(&device, 201).is_some());
+    }
+
+    #[test]
+    fn tokens_expire_and_each_caller_is_capped_without_evicting_others() {
+        let target = parse_loopback_url("http://localhost:3000").unwrap();
+        let mut registry = Registry::default();
+        let device = Caller::Device("d".into());
+        let kept = registry.open("s2", &device, &target, 1_000_000);
+        for _ in 0..MAX_ENDPOINTS_PER_SESSION + 5 {
+            registry.open("s2", &Caller::Admin, &target, 1_000_000);
         }
-        let count = registry.endpoints.values().filter(|endpoint| endpoint.session_id == "s2").count();
-        assert_eq!(count, MAX_ENDPOINTS_PER_SESSION);
+        let admin_count = registry.endpoints.values().filter(|endpoint| endpoint.session_id == "s2" && endpoint.caller == Caller::Admin).count();
+        assert_eq!(admin_count, MAX_ENDPOINTS_PER_SESSION);
+        assert!(registry.touch(&kept, 1_000_001).is_some(), "one caller cannot evict another's preview");
+
+        let old = registry.open("s3", &Caller::Admin, &target, 100);
+        assert!(registry.touch(&old, 100 + ENDPOINT_IDLE_SECS - 1).is_some());
+        assert!(registry.touch(&old, 100 + 2 * ENDPOINT_IDLE_SECS).is_none());
+    }
+
+    #[tokio::test]
+    async fn collecting_a_page_gives_up_on_stalls_overruns_and_broken_bodies() {
+        use axum::body::Bytes;
+        let chunk = |text: &'static str| Ok::<_, io::Error>(Bytes::from_static(text.as_bytes()));
+        let total = Duration::from_millis(400);
+        let idle = Duration::from_millis(80);
+
+        let finished = futures_util::stream::iter(vec![chunk("<p>"), chunk("hi</p>")]);
+        assert_eq!(collect_bounded(finished, 1024, total, idle).await.unwrap(), b"<p>hi</p>");
+
+        // Headers arrived, then nothing: the idle timeout fires long before the total one.
+        let silent = futures_util::stream::iter(vec![chunk("<p>")]).chain(futures_util::stream::pending());
+        let started = tokio::time::Instant::now();
+        assert_eq!(collect_bounded(silent, 1024, total, idle).await, Err(CollectFailure::Stalled));
+        assert!(started.elapsed() < Duration::from_millis(300));
+
+        // A trickle that never ends hits the total deadline even though no gap is idle for long.
+        let trickle = futures_util::stream::unfold((), |()| async {
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            Some((chunk("x"), ()))
+        });
+        assert_eq!(collect_bounded(trickle, 1024 * 1024, total, idle).await, Err(CollectFailure::Stalled));
+
+        let large = futures_util::stream::iter(vec![chunk("0123456789"), chunk("0123456789")]);
+        assert_eq!(collect_bounded(large, 15, total, idle).await, Err(CollectFailure::TooLarge));
+
+        let broken = futures_util::stream::iter(vec![chunk("<p>"), Err(io::Error::other("reset"))]);
+        assert_eq!(collect_bounded(broken, 1024, total, idle).await, Err(CollectFailure::Broken));
+    }
+
+    #[test]
+    fn absolute_loopback_urls_to_the_bridged_port_become_bridge_urls() {
+        let html = rewrite_html(
+            concat!(
+                r#"<script src="http://localhost:3000/app.js"></script>"#,
+                r#"<img src='http://127.0.0.1:3000/logo.png?v=1#x'>"#,
+                r#"<link href="HTTP://[::1]:3000/a.css"><a href="//localhost:3000/x">x</a>"#,
+                r#"<a href="http://localhost:3000">home</a><a href="http://0.0.0.0:3000?q=1">q</a>"#,
+                r#"<a href="http://localhost:3001/other">other port</a><a href="http://localhost:30001/">longer port</a>"#,
+                r#"<a href="https://example.com/x">remote</a><a href="http://localhost.evil.com:3000/">lookalike</a>"#,
+                r#"<style>a{background:url(http://localhost:3000/bg.png)} b{background:url("http://127.0.0.1:3000/f.woff2")}</style>"#,
+            ),
+            PREFIX,
+            3000,
+        );
+        for expected in [
+            r#"src="/bridge/abc/app.js""#,
+            r#"src='/bridge/abc/logo.png?v=1#x'"#,
+            r#"href="/bridge/abc/a.css""#,
+            r#"href="/bridge/abc/x""#,
+            r#"href="/bridge/abc/">home"#,
+            r#"href="/bridge/abc/?q=1""#,
+            "url(/bridge/abc/bg.png)",
+            r#"url("/bridge/abc/f.woff2")"#,
+        ] {
+            assert!(html.contains(expected), "{expected} missing from {html}");
+        }
+        for untouched in [
+            r#"href="http://localhost:3001/other""#,
+            r#"href="http://localhost:30001/""#,
+            r#"href="https://example.com/x""#,
+            r#"href="http://localhost.evil.com:3000/""#,
+        ] {
+            assert!(html.contains(untouched), "{untouched} must stay as written");
+        }
+        let css = rewrite_css("@import 'http://localhost:3000/base.css'; a{background:url(http://localhost:4000/x.png)}", PREFIX, 3000);
+        assert_eq!(css, "@import '/bridge/abc/base.css'; a{background:url(http://localhost:4000/x.png)}");
+        // Running the rewrite again changes nothing.
+        assert_eq!(rewrite_css(&css, PREFIX, 3000), css);
     }
 
     #[test]
@@ -1383,13 +1558,14 @@ mod tests {
 
     #[test]
     fn css_and_script_imports_are_prefixed() {
-        let css = rewrite_css(r#"@import "/base.css"; a{background:url('/x.png')} b{background:url(data:image/png;base64,AAA)}"#, PREFIX);
+        let css = rewrite_css(r#"@import "/base.css"; a{background:url('/x.png')} b{background:url(data:image/png;base64,AAA)}"#, PREFIX, 3000);
         assert!(css.contains(r#"@import "/bridge/abc/base.css""#));
         assert!(css.contains("url('/bridge/abc/x.png')"));
         assert!(css.contains("url(data:image/png"));
         let script = rewrite_script(
             r#"import a from "/src/a.js"; import"/side.js"; const m = import('/lazy.js'); Array.from("/not"); import b from "./rel.js";"#,
             PREFIX,
+            3000,
         );
         assert!(script.contains(r#"from "/bridge/abc/src/a.js""#));
         assert!(script.contains(r#"import"/bridge/abc/side.js""#));

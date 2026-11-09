@@ -2,6 +2,7 @@
   import Icon from './Icon.svelte';
   import { companion } from './companion.svelte.ts';
   import { errorMessage } from './toast.svelte.ts';
+  import { BridgeLease, type BridgeLink } from './bridge-lease.ts';
   import type { BridgeTarget } from './artifact-preview.ts';
   import type { TempFile } from './types.ts';
 
@@ -9,10 +10,13 @@
   let dialog = $state<HTMLDialogElement | null>(null);
   let busy = $state(false);
   let error = $state('');
-  let frame = $state<{ path: string; origin: string } | undefined>();
+  let frame = $state<BridgeLink | undefined>();
   let closing = false;
   let disposed = false;
-  let released = false;
+  /** Revokes the link when the preview ends, even if that happens before the link has arrived. */
+  const lease = new BridgeLease(async (path) => {
+    if (target.kind === 'bridge-endpoint') await companion.bridgeRevoke(target.sessionId, path);
+  });
 
   const subject = $derived(target.kind === 'bridge-file' ? target.reference : target.url);
   const title = $derived.by(() => {
@@ -28,23 +32,16 @@
     return () => {
       disposed = true;
       closing = true;
-      releaseLink();
+      lease.end();
       element.close();
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
   });
 
-  /** Ends the relay link as soon as the preview goes away, so a closed preview leaves nothing reachable. */
-  function releaseLink() {
-    if (released || !frame || target.kind !== 'bridge-endpoint') return;
-    released = true;
-    void companion.bridgeRevoke(target.sessionId, frame.path).catch(() => {});
-  }
-
   function close() {
     if (closing) return;
     closing = true;
-    releaseLink();
+    lease.end();
     dialog?.close();
     onclose();
   }
@@ -71,7 +68,9 @@
     busy = true;
     error = '';
     try {
-      frame = await companion.bridgeEndpoint(target.sessionId, target.url);
+      const link = await companion.bridgeEndpoint(target.sessionId, target.url);
+      // Closed while the request was in flight: the lease revokes the new link instead of showing it.
+      frame = lease.accept(link);
     } catch (cause) {
       if (!disposed) error = errorMessage(cause);
     } finally {

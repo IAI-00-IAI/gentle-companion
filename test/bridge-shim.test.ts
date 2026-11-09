@@ -64,10 +64,8 @@ for (const [input, expected] of REWRITTEN) {
     await fetchIt(new URL(input, PAGE));
     new FakeXhr().open('GET', input);
     new (window.EventSource as new (url: string) => unknown)(input);
-    new (window.Worker as new (url: string) => unknown)(input);
-    new (window.SharedWorker as new (url: string) => unknown)(input);
     navigator.sendBeacon(input);
-    assert.deepEqual(sent.map(entry => entry.api), ['fetch', 'fetch', 'fetch', 'xhr', 'EventSource', 'Worker', 'SharedWorker', 'beacon']);
+    assert.deepEqual(sent.map(entry => entry.api), ['fetch', 'fetch', 'fetch', 'xhr', 'EventSource', 'beacon']);
     for (const entry of sent) assert.equal(pathOf(entry.url), expected, `${entry.api}: ${entry.url}`);
   });
 }
@@ -84,4 +82,12 @@ for (const input of UNCHANGED) {
 test('shim does not wrap WebSocket, which the bridge does not proxy', () => {
   assert.doesNotMatch(template, /wrapConstructor\('WebSocket'\)/);
   assert.match(template, /WebSockets are not proxied/);
+});
+
+test('workers are not wrapped: an opaque-origin frame cannot start one from a bridge URL', () => {
+  const { window, sent } = browser();
+  new (window.Worker as new (url: string) => unknown)('/worker.js');
+  new (window.SharedWorker as new (url: string) => unknown)('/worker.js');
+  assert.deepEqual(sent, [{ api: 'Worker', url: '/worker.js' }, { api: 'SharedWorker', url: '/worker.js' }]);
+  assert.doesNotMatch(template, /wrapConstructor\('(?:Shared)?Worker'\)/);
 });
