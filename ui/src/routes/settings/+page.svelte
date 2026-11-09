@@ -33,7 +33,7 @@
   }
 
   let data = $state<SettingsResponse | null>(null);
-  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [] });
+  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [], bridgeEnabled: true });
   /** Comma or newline separated MIME patterns, edited as text. */
   let typesText = $state('');
   let saving = $state(false);
@@ -51,6 +51,7 @@
       (draft.publicUrl.trim() !== data!.settings.publicUrl ||
         Number(draft.pairingTtlMinutes) !== data!.settings.pairingTtlMinutes ||
         Number(draft.maxUploadMb) !== data!.settings.maxUploadMb ||
+        draft.bridgeEnabled !== data!.settings.bridgeEnabled ||
         parseTypes(typesText).join(',') !== (data!.settings.allowedUploadTypes ?? []).join(','))
   );
 
@@ -67,7 +68,8 @@
       maxUploadMb: Number(response.settings?.maxUploadMb ?? 25),
       allowedUploadTypes: Array.isArray(response.settings?.allowedUploadTypes)
         ? response.settings.allowedUploadTypes
-        : []
+        : [],
+      bridgeEnabled: response.settings?.bridgeEnabled ?? true
     };
     data = { ...response, settings };
     draft = { ...settings };
@@ -103,7 +105,8 @@
           publicUrl: draft.publicUrl.trim(),
           pairingTtlMinutes: Number(draft.pairingTtlMinutes),
           maxUploadMb: Number(draft.maxUploadMb),
-          allowedUploadTypes: parseTypes(typesText)
+          allowedUploadTypes: parseTypes(typesText),
+          bridgeEnabled: draft.bridgeEnabled
         })
       );
       toasts.show('Settings saved.', 'success');
@@ -201,6 +204,17 @@
         </div>
       </section>
 
+      <section class="card tile section" aria-labelledby="bridge">
+        <div class="section-copy">
+          <h2 id="bridge">Bridge</h2>
+          <p class="muted">Lets a paired device use what the agent mentions, after a prompt on that device.</p>
+        </div>
+        <div class="fields">
+          <label class="check-field"><input type="checkbox" bind:checked={draft.bridgeEnabled} aria-describedby="bridge-hint" />Open agent-mentioned files and localhost servers on devices</label>
+          <span class="hint" id="bridge-hint">Files: only those inside the session’s working directory or Companion’s temp folder, never credential files. Servers: only <code>http://localhost</code> ports the agent mentioned, relayed through Companion in a sandboxed frame. Turning this off also ends open bridge links.</span>
+        </div>
+      </section>
+
       <!-- Appears only with unsaved edits (or a save error), docked at the bottom in thumb reach. -->
       {#if dirty || error}
         <div class="savebar" role="region" aria-label="Unsaved changes">
@@ -281,6 +295,13 @@
 </div>
 
 <style>
+  .check-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+  }
+
   .narrow {
     width: min(920px, 100%);
   }

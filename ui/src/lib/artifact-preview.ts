@@ -1,9 +1,21 @@
 import DOMPurify from 'dompurify';
 import type { TempFile } from './types.ts';
 
-export type PreviewTarget =
+/** Opens in ArtifactPreview: a public HTTPS site, or a file already registered with the session. */
+export type ArtifactTarget =
   | { kind: 'link'; url: string }
   | { kind: 'file'; sessionId: string; file: TempFile };
+
+/** Opens in BridgePreview after the person confirms: a file on, or a server running on, the computer running Pi. */
+export type BridgeTarget =
+  | { kind: 'bridge-file'; sessionId: string; reference: string }
+  | { kind: 'bridge-endpoint'; sessionId: string; url: string };
+
+export type PreviewTarget = ArtifactTarget | BridgeTarget;
+
+export function isBridgeTarget(target: PreviewTarget | null | undefined): target is BridgeTarget {
+  return target?.kind === 'bridge-file' || target?.kind === 'bridge-endpoint';
+}
 
 export type FilePreviewKind = 'html' | 'image' | 'text';
 export const MAX_PREVIEW_BYTES = 2 * 1024 * 1024;
@@ -50,6 +62,57 @@ export function previewLink(value: string, baseOrigin?: string): string | undefi
   const validLabels = hostname.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
   if (!validLabels) return undefined;
   return url.href;
+}
+
+const MAX_REFERENCE_LENGTH = 1024;
+const LOOPBACK_HTTP = /^http:\/\/(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|\[::1?\])(?::\d{1,5})?(?:[/?#]\S*)?$/i;
+const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+const WINDOWS_DRIVE = /^[a-z]:[\\/]/i;
+/** Inline code that is clearly a file: absolute, home, or dot-relative, ending in an extension. */
+const CODE_FILE_PATH = /^(?:file:\/\/|\/|~\/|\.{1,2}\/|[a-z]:[\\/])[\w@%+=.,~\-/\\: ()[\]]*[\w)\]-]\.[a-z0-9]{1,8}$/i;
+
+export type BridgeReference = { kind: 'endpoint'; url: string } | { kind: 'file'; reference: string };
+
+/** Spaces are allowed (`/Users/me/My Documents/a.pdf`); control characters and tabs/newlines are not. */
+function isPlainReference(value: string) {
+  return value.length > 0 && value.length <= MAX_REFERENCE_LENGTH && !/[\u0000-\u001f\u007f]/.test(value);
+}
+
+/**
+ * A markdown link writes spaces as %20. The daemon receives the decoded path and also accepts the
+ * encoded form as the agent's mention. `file://` links stay encoded; the daemon decodes those.
+ */
+function decodedPath(value: string) {
+  if (!/%[0-9a-f]{2}/i.test(value)) return value;
+  try {
+    const decoded = decodeURIComponent(value);
+    return isPlainReference(decoded) ? decoded : value;
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * What a link the agent wrote may refer to on the computer running Pi. This only classifies text;
+ * the daemon decides whether the file or server is actually reachable.
+ */
+export function linkBridgeReference(href: string): BridgeReference | undefined {
+  const value = href.trim();
+  if (!isPlainReference(value)) return undefined;
+  if (LOOPBACK_HTTP.test(value)) return { kind: 'endpoint', url: value };
+  if (/^file:\/\//i.test(value)) return { kind: 'file', reference: value };
+  if (WINDOWS_DRIVE.test(value)) return { kind: 'file', reference: decodedPath(value) };
+  if (HAS_SCHEME.test(value) || value.startsWith('#') || value.startsWith('?') || value.startsWith('//')) return undefined;
+  return { kind: 'file', reference: decodedPath(value) };
+}
+
+/** Inline `code` is only treated as a reference when it unmistakably is one. */
+export function codeBridgeReference(text: string): BridgeReference | undefined {
+  const value = text.trim();
+  if (!isPlainReference(value)) return undefined;
+  if (LOOPBACK_HTTP.test(value)) return { kind: 'endpoint', url: value };
+  if (CODE_FILE_PATH.test(value)) return { kind: 'file', reference: value };
+  return undefined;
 }
 
 function extension(name: string) {

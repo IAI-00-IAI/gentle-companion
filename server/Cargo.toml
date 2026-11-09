@@ -1,12 +1,15 @@
 [package]
 name = "pi-companion-server"
-version = "0.3.14"
+version = "0.4.0"
 edition = "2024"
 license = "MIT"
 
 [dependencies]
 axum = { version = "0.8", features = ["ws", "multipart"] }
 futures-util = "0.3"
+http-body-util = "0.1"
+hyper = "1"
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
 chrono = "0.4"
 chrono-tz = "0.10"
 libc = "0.2"
@@ -23,6 +26,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
-http-body-util = "0.1"
+tokio = { version = "1", features = ["test-util"] }
 tokio-tungstenite = "0.29"
 tower = { version = "0.5", features = ["util"] }

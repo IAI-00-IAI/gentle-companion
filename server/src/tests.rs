@@ -21,6 +21,8 @@ use super::*;
 mod archive_tests;
 #[path = "automation_tests.rs"]
 mod automation_tests;
+#[path = "bridge_tests.rs"]
+mod bridge_tests;
 #[path = "usage_tests.rs"]
 mod usage_tests;
 

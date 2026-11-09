@@ -144,7 +144,14 @@ try {
   assert.ok(websiteRequests > 0);
   await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Local app', exact: true }).click();
-  assert.equal(await page.locator('dialog[open]').count(), 0, 'host-local app is not embedded');
+  await dialog.getByRole('heading', { name: 'Open this local server through Companion?' }).waitFor();
+  assert.equal(await dialog.locator('iframe').count(), 0, 'localhost is not relayed before the person confirms');
+  await dialog.getByRole('button', { name: 'Open server' }).click();
+  const bridgeFrame = dialog.locator('iframe');
+  await bridgeFrame.waitFor();
+  assert.equal(await bridgeFrame.getAttribute('sandbox'), 'allow-scripts allow-forms allow-modals');
+  assert.match(await bridgeFrame.getAttribute('src'), /^\/bridge\/[0-9a-f]{64}\/$/, 'frame loads a same-origin bridge path, never the localhost address');
+  await page.keyboard.press('Escape');
   assert.ok(page.url().endsWith('/sessions/' + sessionId));
 
   const invitation = await api('/api/pairing/start', { method: 'POST' });
