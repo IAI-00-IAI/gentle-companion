@@ -749,3 +749,97 @@ async fn simultaneous_file_copies_are_capped() {
     let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
     let _ = fs::remove_dir_all(&state.temp_root).await;
 }
+
+/// Start a file fetch and hold it at the last step: the file has been copied to disk but is not yet
+/// recorded, because the test holds the files lock. Returns the pending request.
+async fn fetch_held_before_recording(
+    state: &AppState,
+    router: Router,
+    request: HttpRequest<Body>,
+    session_id: &str,
+) -> (tokio::sync::OwnedRwLockWriteGuard<HashMap<String, Vec<TempFile>>>, tokio::task::JoinHandle<(StatusCode, HeaderMap, String)>) {
+    let held = state.files.clone().write_owned().await;
+    let pending = tokio::spawn(async move { send(&router, request).await });
+    let session_dir = state.temp_root.join(session_id);
+    eventually("the copy to reach the disk", async || {
+        std::fs::read_dir(&session_dir).map(|entries| entries.count() > 0).unwrap_or(false)
+    })
+    .await;
+    (held, pending)
+}
+
+async fn files_on_disk(state: &AppState, session_id: &str) -> usize {
+    std::fs::read_dir(state.temp_root.join(session_id)).map(|entries| entries.count()).unwrap_or(0)
+}
+
+#[tokio::test]
+async fn a_file_copy_in_flight_when_the_bridge_is_turned_off_is_not_kept() {
+    let Workspace { state, cwd, .. } = workspace("late-off", false).await;
+    let local = local_router(state.clone());
+    let file = cwd.join("report.txt");
+    write_file(&file, "report").await;
+    agent_says(&state, "late-off", &format!("Wrote {}", file.display())).await;
+    let fetch = bridge_post(None, None, "/api/sessions/late-off/bridge/file", json!({ "reference": file.to_string_lossy() }));
+    let (held, pending) = fetch_held_before_recording(&state, local.clone(), fetch, "late-off").await;
+
+    // Off, then on again: the permissions look fine by the time the copy finishes, but it started
+    // before the withdrawal and must not survive it.
+    set_bridge_enabled(&local, false).await;
+    set_bridge_enabled(&local, true).await;
+    drop(held);
+    let (status, _, body) = pending.await.unwrap();
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert!(session_files(&state, "late-off").await.is_empty(), "no registered file");
+    assert_eq!(files_on_disk(&state, "late-off").await, 0, "no copy left on disk");
+
+    // Turned off for good while a copy is in flight: also refused.
+    let fetch = bridge_post(None, None, "/api/sessions/late-off/bridge/file", json!({ "reference": file.to_string_lossy() }));
+    let (held, pending) = fetch_held_before_recording(&state, local.clone(), fetch, "late-off").await;
+    set_bridge_enabled(&local, false).await;
+    drop(held);
+    assert_eq!(pending.await.unwrap().0, StatusCode::CONFLICT);
+    assert!(session_files(&state, "late-off").await.is_empty());
+    assert_eq!(files_on_disk(&state, "late-off").await, 0);
+    let _ = fs::remove_dir_all(cwd.parent().unwrap()).await;
+    let _ = fs::remove_dir_all(&state.temp_root).await;
+}
+
+#[tokio::test]
+async fn a_file_copy_in_flight_when_the_session_is_unshared_or_pi_stops_is_not_kept() {
+    let state = test_state();
+    let addr = serve(local_router(state.clone())).await;
+    let remote = remote_router(state.clone());
+    let (_, token) = pair(&state).await;
+    let root = scratch("late-share");
+    fs::create_dir_all(&root).await.unwrap();
+    let root = fs::canonicalize(&root).await.unwrap();
+    let file = root.join("report.txt");
+    write_file(&file, "report").await;
+    let mut pi = bridge(addr, "late-share", true).await;
+    send_json(&mut pi, json!({ "type": "session.update", "session": { "cwd": root.to_string_lossy() } })).await;
+    eventually("cwd", async || state.sessions.read().await["late-share"].snapshot["cwd"] == json!(root.to_string_lossy())).await;
+    agent_says(&state, "late-share", &format!("Wrote {}", file.display())).await;
+    let fetch = || bridge_post(Some(DEVICE_ORIGIN), Some(&token), "/api/sessions/late-share/bridge/file", json!({ "reference": file.to_string_lossy() }));
+
+    // Unshared while the copy runs, and shared again before it finishes.
+    let (held, pending) = fetch_held_before_recording(&state, remote.clone(), fetch(), "late-share").await;
+    for shared in [false, true] {
+        send_json(&mut pi, json!({ "type": "session.update", "session": { "remoteEnabled": shared } })).await;
+        eventually("the share flag", async || state.sessions.read().await["late-share"].snapshot["remoteEnabled"] == json!(shared)).await;
+    }
+    drop(held);
+    assert_eq!(pending.await.unwrap().0, StatusCode::CONFLICT);
+    assert!(session_files(&state, "late-share").await.is_empty());
+    assert_eq!(files_on_disk(&state, "late-share").await, 0, "resharing must not expose a copy made while unshared");
+
+    // Pi stops while the copy runs.
+    let (held, pending) = fetch_held_before_recording(&state, remote.clone(), fetch(), "late-share").await;
+    drop(pi);
+    eventually("the session to stop", async || state.sessions.read().await["late-share"].snapshot["status"] == json!("stopped")).await;
+    drop(held);
+    assert_eq!(pending.await.unwrap().0, StatusCode::CONFLICT);
+    assert!(session_files(&state, "late-share").await.is_empty());
+    assert_eq!(files_on_disk(&state, "late-share").await, 0);
+    let _ = fs::remove_dir_all(&root).await;
+    let _ = fs::remove_dir_all(&state.temp_root).await;
+}
