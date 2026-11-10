@@ -16,13 +16,13 @@
     "developer-tools",
     "mobile"
   ],
-  "homepage": "https://github.com/ygrip/pi-companion#readme",
+  "homepage": "https://github.com/IAI-00-IAI/gentle-companion#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ygrip/pi-companion.git"
+    "url": "git+https://github.com/IAI-00-IAI/gentle-companion.git"
   },
   "bugs": {
-    "url": "https://github.com/ygrip/pi-companion/issues"
+    "url": "https://github.com/IAI-00-IAI/gentle-companion/issues"
   },
   "author": "ygrip <yunaz.gilang@gmail.com>",
   "license": "MIT",
@@ -62,7 +62,7 @@
     "skills": [
       "./skills"
     ],
-    "image": "https://raw.githubusercontent.com/ygrip/pi-companion/main/docs/dashboard.png"
+    "image": "https://raw.githubusercontent.com/IAI-00-IAI/gentle-companion/main/docs/dashboard.png"
   },
   "dependencies": {
     "ws": "^8.18.3"

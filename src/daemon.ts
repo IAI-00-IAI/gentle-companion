@@ -20,7 +20,7 @@ import { resolveCompanionHome } from "./home.ts";
 const execFileAsync = promisify(execFile);
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const EXE = process.platform === "win32" ? "pi-companion-server.exe" : "pi-companion-server";
-const REPO = "ygrip/pi-companion";
+const REPO = "IAI-00-IAI/gentle-companion";
 const LOCK_STALE_MS = 20_000;
 const DOWNLOAD_RETRY_MS = 10 * 60_000;
 let lastDownloadFailure: { at: number; error: Error } | null = null;
