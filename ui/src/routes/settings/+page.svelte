@@ -1,8 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHero from '#lib/PageHero.svelte';
-  import PullToRefresh from '#lib/PullToRefresh.svelte';
-  import { devicePermissions } from '#lib/device-permissions.svelte.ts';
   import clayIcon from '../../assets/clay/bulb.webp';
   import Icon, { type IconName } from '#lib/Icon.svelte';
   import { companion } from '#lib/companion.svelte.ts';
@@ -85,17 +83,6 @@
     }
   });
 
-  async function refreshSettings() {
-    await Promise.all([companion.refresh(), devicePermissions.refresh(), (async () => {
-      if (!companion.isAdmin) return;
-      const response = await companion.getSettings();
-      if (dirty || saving) { toasts.show('Settings refreshed. Your unsaved edits are preserved.', 'info'); }
-      else apply(response);
-      loadError = '';
-    })()]);
-    usageNow = Date.now();
-  }
-
   async function save() {
     error = '';
     saving = true;
@@ -121,7 +108,6 @@
 <svelte:head><title>Settings · Pi Companion</title></svelte:head>
 
 <div class="page narrow automation-workspace">
-  <PullToRefresh onrefresh={refreshSettings} />
   <PageHero icon={clayIcon} eyebrow="MAKE YOURSELF AT HOME" title="Settings" subtitle="Your look, your alerts, your rhythm. Make Companion feel like you." />
 
   <div class="settings-tabs" role="tablist" aria-label="Settings sections">
@@ -240,7 +226,7 @@
       <div class="section-copy">
         <h2 id="provider-usage-heading">Saved usage snapshots</h2>
         <p class="muted">Weekly and 5-hour percentages show how much of your provider account allowance was used when last checked—not usage from a single session.</p>
-        <p class="subtle">Snapshots are saved on your computer. Closing or archiving a session does not erase them. Account limits refresh about every 5 minutes while a shared Pi session is running; pull to refresh to reload saved reports.</p>
+        <p class="subtle">Snapshots are saved on your computer. Closing or archiving a session does not erase them. Account limits refresh about every 5 minutes while a shared Pi session is running.</p>
         <p class="subtle">“Not reported” means the provider supplied no window, not 0% used. Weekly tokens and estimated cost accumulate observed usage across retained sessions, from Monday 00:00 UTC. The first saved report includes that session’s known totals; later reports add only new usage. These estimates are not your bill.</p>
       </div>
       {#if companion.connection !== 'online'}

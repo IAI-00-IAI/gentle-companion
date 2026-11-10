@@ -52,7 +52,7 @@ export function previewLinks(node: HTMLElement, initial: PreviewLinksOptions) {
   let disposed = false;
   function hardenLinks() {
     for (const link of node.querySelectorAll<HTMLAnchorElement>('a[href]')) {
-      if (link.getAttribute('href')?.startsWith('#')) continue;
+      if (link.getAttribute('href')?.startsWith('#') && !link.hasAttribute(REFERENCE_ATTRIBUTE)) continue;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       link.referrerPolicy = 'no-referrer';
@@ -72,7 +72,7 @@ export function previewLinks(node: HTMLElement, initial: PreviewLinksOptions) {
   function referenceAt(source: EventTarget | null): string | undefined {
     const element = source as Element | null;
     const link = element?.closest<HTMLAnchorElement>('a[href]');
-    if (link && node.contains(link)) return link.getAttribute('href') ?? '';
+    if (link && node.contains(link)) return link.getAttribute(REFERENCE_ATTRIBUTE) ?? link.getAttribute('href') ?? '';
     const code = element?.closest<HTMLElement>(`code[${REFERENCE_ATTRIBUTE}]`);
     if (code && node.contains(code)) return code.getAttribute(REFERENCE_ATTRIBUTE) ?? '';
     return undefined;

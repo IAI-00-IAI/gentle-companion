@@ -21,6 +21,7 @@
   let { target, onfile, onclose }: { target: BridgeTarget; onfile: (file: TempFile) => void; onclose: () => void } = $props();
   let dialog = $state<HTMLDialogElement | null>(null);
   let busy = $state(false);
+  let downloading = $state(false);
   let error = $state('');
   let frame = $state<BridgeLink | undefined>();
   let fullscreen = $state(false);
@@ -74,6 +75,7 @@
     if (target.kind !== 'bridge-file' || busy) return;
     const { sessionId, reference } = target;
     busy = true;
+    downloading = download;
     error = '';
     try {
       const file = await companion.bridgeFile(sessionId, reference);
@@ -145,9 +147,19 @@
       <a class="btn" href={frame.path} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Open in new tab<Icon name="chevron" size={16} /></a>
       <button type="button" class="btn btn-primary" onclick={close}>Close</button>
     {:else if target.kind === 'bridge-file'}
-      <button type="button" class="btn" disabled={busy} onclick={close}>Cancel</button>
-      <button type="button" class="btn" disabled={busy} onclick={() => fetchFile(true)}><Icon name="download" size={16} />Fetch and download</button>
-      <button type="button" class="btn btn-primary" disabled={busy} onclick={() => fetchFile(false)}>{#if busy}Fetching…{:else}Fetch and preview{/if}</button>
+      <div class="file-actions">
+        <button type="button" class="btn btn-primary file-action" disabled={busy} onclick={() => fetchFile(false)}>
+          <Icon name="file" size={20} />
+          <span><strong>{#if busy && !downloading}Fetching…{:else}Preview{/if}</strong><small>View supported files</small></span>
+          <Icon name="chevron" size={18} />
+        </button>
+        <button type="button" class="btn file-action" disabled={busy} onclick={() => fetchFile(true)}>
+          <Icon name="download" size={20} />
+          <span><strong>{#if busy && downloading}Downloading…{:else}Download{/if}</strong><small>Save a copy to this device</small></span>
+          <Icon name="chevron" size={18} />
+        </button>
+        <button type="button" class="btn file-cancel" disabled={busy} onclick={close}>Cancel</button>
+      </div>
     {:else}
       <button type="button" class="btn" disabled={busy} onclick={close}>Cancel</button>
       <button type="button" class="btn btn-primary" disabled={busy} onclick={openEndpoint}><Icon name="link" size={16} />{#if busy}Opening…{:else}Open server{/if}</button>
@@ -174,6 +186,12 @@
   .bridge-address { display: block; max-width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-sunken); overflow-wrap: anywhere; font-size: .8rem; user-select: text; }
   .bridge-error { display: flex; align-items: center; gap: 8px; color: var(--danger); }
   .bridge-footer { justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--border); background: var(--surface-2); }
+  .file-actions { display: grid; gap: 8px; width: min(100%, 440px); margin-inline: auto; }
+  .file-actions .file-action { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; width: 100%; min-height: 64px; padding: 12px 16px; text-align: left; border-radius: var(--radius-lg); white-space: normal; }
+  .file-action span { display: grid; gap: 3px; min-width: 0; }
+  .file-action strong { font-size: .95rem; }
+  .file-action small { font-size: .75rem; line-height: 1.35; opacity: .85; }
+  .file-cancel { width: 100%; }
   .bridge-preview .btn { min-width: 44px; min-height: 44px; }
   .bridge-header .btn { flex: none; }
   .bridge-actions { display: flex; align-items: center; gap: 4px; flex: none; }

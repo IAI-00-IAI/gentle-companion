@@ -10,7 +10,7 @@ The detail workspace is a single-column bento layout with a clay back button and
 
 Choose **Edit automation** to reveal the editor at the top of Summary, automatically scroll it into view, and focus its name field. This keeps the routine context nearby without navigating to another page. Nothing changes until you save. Desktop console editing remains required.
 
-Overview, Sessions, Automations, and Settings support pull-to-refresh from the top of the page and an accessible **Refresh** button. Pull down on non-interactive page content, then release when prompted. Nested scroll regions and form controls keep their own gestures. Settings refresh never discards unsaved edits.
+Overview, Sessions, and Automations support pull-to-refresh from the top of the page. Pull down on non-interactive page content, then release when prompted. Nested scroll regions and form controls keep their own gestures. Settings does not use pull-to-refresh.
 
 The job editor separates name, enablement, cron and timezone choice, optional retry policy, preconditions, actions, and post-actions. Each step is a reorderable JSON DSL object with Command/Pi templates. Saving validates the definition, cron ranges, action types, arguments, absolute directories, timeouts, step count, and retry bounds; the daemon validates again before persistence. Only computer desktop administrators can author definitions.
 

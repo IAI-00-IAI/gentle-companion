@@ -40,7 +40,7 @@ function actionFixture(href: string, options: Parameters<typeof previewLinks>[1]
   const oldObserver = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
   Object.defineProperty(globalThis, 'location', { configurable: true, value: { origin } });
   Object.defineProperty(globalThis, 'MutationObserver', { configurable: true, value: class { observe() {} disconnect() {} } });
-  const link = { getAttribute: () => href, target: '', rel: '', referrerPolicy: '' };
+  const link = { getAttribute: (name: string) => name === 'href' ? href : null, hasAttribute: (name: string) => name === 'href', target: '', rel: '', referrerPolicy: '' };
   let handler: (event: MouseEvent) => void = () => {};
   const node = {
     querySelectorAll: (selector: string) => selector === 'a[href]' ? [link] : [], contains: () => true,
