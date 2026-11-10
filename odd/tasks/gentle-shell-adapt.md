@@ -58,4 +58,7 @@ Feature: `gentle-shell-adapt`. Make the `pi-companion` package usable under the 
   - `9d6843a` feat(extension): resolve companion home from gentle-shell agent home
   - `b6b9df3` docs: add gentle-shell install path and companion home reference
   - `eccce0d` feat(ui): restyle with gentle-shell dark-rose theme and rebrand to Gentle Companion
+- `f46364c` feat(ui): use gentle-shell brand logo and hero imagery
 - Push / PR / merge remain the user's decisions.
+
+Slice note: `f46364c` includes large binary PNG assets (gentle-logo.png 1.1 MB, hero-shell.png, hero-changes.png + regenerated icons), pushing the slice past ~400 authored lines; image bytes are excluded from the line-count heuristic.
