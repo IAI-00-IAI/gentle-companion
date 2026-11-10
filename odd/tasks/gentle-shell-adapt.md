@@ -24,6 +24,7 @@ Feature: `gentle-shell-adapt`. Make the `pi-companion` package usable under the 
 - T3 — Restyle web UI with gentle-shell dark-rose tokens. Route: `ui/src/app.css`, `ui/src/lib/theme.svelte.ts`. Covers S3. Commit: `style: adopt gentle-shell dark-rose theme`.
 - T4 — Rebrand UI to "Gentle Companion" (title, manifest, logo). Route: `ui/src/routes/+layout.svelte`, `ui/static/manifest.webmanifest`, `ui/src/assets/morph/logo.svg`. Covers S4. Commit: `feat: rebrand UI to Gentle Companion`.
 - T5 — Build, test, smoke. Route: `npm run check`, `npm run test`, `npm run test:smoke`. Covers S1-S4 verification. Commit: none (verification).
+- T6 — Replace pi-companion logo/images with gentle-shell brand assets (brand logo + hero images). Route: `ui/src/assets/` (new gentle-logo.png, hero-shell.png, hero-changes.png), `ui/src/routes/+layout.svelte`, `ui/src/routes/+page.svelte`, `ui/static/favicon.png`, `ui/static/pwa-*.png`, `ui/static/apple-touch-icon.png`. Covers S4 (brand assets). Commit: `feat(ui): use gentle-shell brand logo and hero imagery`.
 
 ## Risk
 - T1: high-ish — changes where companion state lives; wrong precedence could drop existing state. Mitigation: preserve `~/.pi/agent/pi-companion` fallback and `PI_COMPANION_HOME` top priority; Rust test asserts precedence.
@@ -42,6 +43,7 @@ Feature: `gentle-shell-adapt`. Make the `pi-companion` package usable under the 
 - T3 — Restyle web UI with gentle-shell dark-rose tokens. DONE. Route: `ui/src/app.css`, `ui/src/lib/theme.svelte.ts`, `ui/src/routes/settings/+page.svelte`. Commit: `eccce0d`. Covers S3.
 - T4 — Rebrand UI to "Gentle Companion". DONE. Route: `+layout.svelte`, `manifest.webmanifest`, `app.html`, `logo.svg`, PWA icons, `service-worker.js`, all UI brand strings. Commit: `eccce0d` (with T3). Covers S4.
 - T5 — Build, test, smoke. DONE. Verification evidence below.
+- T6 — Replace pi-companion logo/images with gentle-shell brand assets. DONE. Route: `ui/src/assets/gentle-logo.png` (new, from gentle-shell), `ui/src/assets/hero-shell.png`, `ui/src/assets/hero-changes.png` (new, from gentle-shell feature screenshots), `ui/src/routes/+layout.svelte` (brand logo import), `ui/src/routes/+page.svelte` (hero DotField images + label), `ui/static/favicon.png`, `ui/static/pwa-192.png`, `ui/static/pwa-512.png`, `ui/static/pwa-maskable-512.png`, `ui/static/apple-touch-icon.png` (regenerated from gentle-shell logo). Covers S4 (brand assets). Commit: pending.
 
 ## Verification evidence (T5)
 - UI build: `npm run ui:build` — ✓ wrote `server/web-dist`; dark-rose tokens present in built CSS, old amber palette absent, "Gentle Companion" present in built HTML/manifest.

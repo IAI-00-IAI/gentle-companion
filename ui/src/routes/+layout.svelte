@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { beforeNavigate, goto } from '$app/navigation';
   import { page, updated } from '$app/state';
-  import logo from '../assets/pi-companion.webp';
+  import logo from '../assets/gentle-logo.png';
   import AboutSheet from '#lib/AboutSheet.svelte';
   import ConnectionNotice from '#lib/ConnectionNotice.svelte';
   import Icon, { type IconName } from '#lib/Icon.svelte';

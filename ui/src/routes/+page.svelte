@@ -1,9 +1,8 @@
 <script lang="ts">
   import { onMount, type Component } from 'svelte';
-  import logoArt from '../assets/morph/logo.svg';
-  import computerArt from '../assets/morph/computer.svg';
-  import phoneArt from '../assets/morph/phone.svg';
-  import terminalArt from '../assets/morph/terminal.svg';
+  import gentleLogo from '../assets/gentle-logo.png';
+  import heroShell from '../assets/hero-shell.png';
+  import heroChanges from '../assets/hero-changes.png';
   import bulbClay from '../assets/clay/bulb.webp';
   import chatBubbleClay from '../assets/clay/chat-bubble.webp';
   import computerClay from '../assets/clay/computer.webp';
@@ -19,7 +18,7 @@
   import { companion } from '#lib/companion.svelte.ts';
 
   // The dot field opens on the Gentle Companion mark, then cycles computer → phone → terminal.
-  const art = [logoArt, computerArt, phoneArt, terminalArt];
+  const art = [gentleLogo, heroShell, heroChanges];
   let visual = $state<HTMLDivElement | null>(null);
   let DotField = $state<Component<any> | null>(null);
 
@@ -101,7 +100,7 @@
         images={art}
         anchor={visual}
         className="hero-field"
-        label="Dots forming the Gentle Companion logo, then a computer, a phone and a terminal window" />
+        label="Gentle Shell mark and workspace views" />
     {/if}
     <div class="hero-copy">
       <span class="eyebrow">{companion.isAdmin ? 'Gentle Companion' : 'Linked to your computer'}</span>
