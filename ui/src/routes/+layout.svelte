@@ -121,7 +121,7 @@
 </script>
 
 <svelte:head>
-  <title>Pi Companion</title>
+  <title>Gentle Companion</title>
   <meta name="description" content="Follow and steer your Pi sessions from your browser or phone." />
 </svelte:head>
 
@@ -136,7 +136,7 @@
       <a class="brand" href="/">
         <img src={logo} alt="" width="36" height="36" />
         <span>
-          <strong>Pi Companion</strong>
+          <strong>Gentle Companion</strong>
           <small>{companion.remote ? 'Paired device' : 'This computer'}</small>
         </span>
       </a>
@@ -179,7 +179,7 @@
       <header class="topbar">
         <a class="brand" href="/">
           <img src={logo} alt="" width="30" height="30" />
-          <strong>Pi Companion</strong>
+          <strong>Gentle Companion</strong>
         </a>
         <div class="topbar-actions">
           <button class="status compact status-trigger" aria-haspopup="dialog" aria-label="Connection: {connectionLabel}. Open connection details" onclick={() => (aboutOpen = true)} title={connectionLabel}>
@@ -193,7 +193,7 @@
       {#if insecureContext}
         <div class="banner danger" role="alert">
           <Icon name="alert" />
-          <span>Install and offline features require HTTPS. Open Pi Companion through its secure remote URL instead of a LAN HTTP address.</span>
+          <span>Install and offline features require HTTPS. Open Gentle Companion through its secure remote URL instead of a LAN HTTP address.</span>
         </div>
       {/if}
       {#if companion.connection === 'disconnected'}
@@ -215,7 +215,7 @@
       {#if updated.current}
         <div class="banner" role="status">
           <Icon name="sparkle" />
-          <span>A new version of Pi Companion is ready.</span>
+          <span>A new version of Gentle Companion is ready.</span>
           <button class="btn btn-sm btn-primary" onclick={() => location.reload()}>Reload</button>
         </div>
       {/if}
@@ -226,7 +226,7 @@
         {:else}
           <div class="page connection-placeholder" role="status">
             <h1>{companion.bootError ? 'Workspace unavailable' : 'Connecting to workspace…'}</h1>
-            <p>{companion.bootError ? 'Your sessions will appear when the connection is restored.' : 'Waiting for Pi Companion to respond.'}</p>
+            <p>{companion.bootError ? 'Your sessions will appear when the connection is restored.' : 'Waiting for Gentle Companion to respond.'}</p>
           </div>
         {/if}
       </main>

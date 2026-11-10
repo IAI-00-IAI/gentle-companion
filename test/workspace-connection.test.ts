@@ -57,7 +57,7 @@ test('DNS/network failure and offline messages do not falsely assert tunnel clos
 
 test('stale tunnel URL, captive portal and malformed JSON are actionable', async () => {
   for (const [body, type, expected] of [
-    ['<html>portal</html>', 'text/html', /current Pi Companion URL/],
+    ['<html>portal</html>', 'text/html', /current Gentle Companion URL/],
     ['not json', 'application/json', /unreadable response/]
   ] as const) {
     await withFetch(async () => new Response(body, { headers: { 'content-type': type } }), async () => {

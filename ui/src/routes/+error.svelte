@@ -6,7 +6,7 @@
   const error = $derived(pageError(page.status, page.error?.message));
 </script>
 
-<svelte:head><title>{page.status} · {error.title} · Pi Companion</title></svelte:head>
+<svelte:head><title>{page.status} · {error.title} · Gentle Companion</title></svelte:head>
 
 <div class="page error-page">
   <section class="error-card" aria-labelledby="error-title">

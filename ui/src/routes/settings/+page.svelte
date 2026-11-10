@@ -115,7 +115,7 @@
   }
 </script>
 
-<svelte:head><title>Settings · Pi Companion</title></svelte:head>
+<svelte:head><title>Settings · Gentle Companion</title></svelte:head>
 
 <div class="page narrow automation-workspace">
   <PullToRefresh onrefresh={refreshSettings} />
@@ -420,18 +420,18 @@
   }
 
   .swatch.light {
-    background: #f6f4ef;
-    color: #925800;
+    background: #f8f5f7;
+    color: #A8517E;
   }
 
   .swatch.dark {
-    background: #141417;
-    color: #f8bf4f;
+    background: #060407;
+    color: #FFB1DD;
   }
 
   .swatch.system {
-    background: linear-gradient(135deg, #f6f4ef 0 50%, #141417 50% 100%);
-    color: #f5b027;
+    background: linear-gradient(135deg, #f8f5f7 0 50%, #060407 50% 100%);
+    color: #F095C8;
   }
 
   .savebar {

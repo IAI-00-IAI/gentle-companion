@@ -45,7 +45,7 @@
   <div class="sheet-grip" aria-hidden="true"></div>
   <header class="sheet-head">
     <div class="head-copy">
-      <span class="eyebrow">Pi Companion</span>
+      <span class="eyebrow">Gentle Companion</span>
       <h2 id="about-title">Connection details</h2>
     </div>
     <button class="btn btn-ghost btn-icon" aria-label="Close connection details" onclick={close}><Icon name="close" /></button>

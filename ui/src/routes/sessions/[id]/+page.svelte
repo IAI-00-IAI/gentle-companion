@@ -483,7 +483,7 @@
 </script>
 
 <svelte:window onkeydown={menuKey} onpointerdown={closeMenuOutside} />
-<svelte:head><title>{session ? sessionTitle(session) : 'Session'} · Pi Companion</title></svelte:head>
+<svelte:head><title>{session ? sessionTitle(session) : 'Session'} · Gentle Companion</title></svelte:head>
 
 {#if !session}
   <div class="page">

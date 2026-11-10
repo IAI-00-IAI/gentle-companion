@@ -27,7 +27,7 @@
   let error = $state('');
   let stepErrors = $state<Record<number, string>>({});
   function add(stage: Stage, type: 'command' | 'pi') {
-    stages[stage].push({ id: nextId++, text: JSON.stringify(type === 'command' ? { type, command: 'echo', args: ['Hello from Pi Companion'] } : { type, prompt: 'Summarize this repository without changing files.', cwd: '/absolute/project' }, null, 2) });
+    stages[stage].push({ id: nextId++, text: JSON.stringify(type === 'command' ? { type, command: 'echo', args: ['Hello from Gentle Companion'] } : { type, prompt: 'Summarize this repository without changing files.', cwd: '/absolute/project' }, null, 2) });
   }
   function move(stage: Stage, index: number, delta: number) {
     const list = [...stages[stage]];

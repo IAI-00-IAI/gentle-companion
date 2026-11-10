@@ -18,7 +18,7 @@
   import SessionTable from '#lib/SessionTable.svelte';
   import { companion } from '#lib/companion.svelte.ts';
 
-  // The dot field opens on the Pi Companion mark, then cycles computer → phone → terminal.
+  // The dot field opens on the Gentle Companion mark, then cycles computer → phone → terminal.
   const art = [logoArt, computerArt, phoneArt, terminalArt];
   let visual = $state<HTMLDivElement | null>(null);
   let DotField = $state<Component<any> | null>(null);
@@ -91,7 +91,7 @@
   });
 </script>
 
-<svelte:head><title>Overview · Pi Companion</title></svelte:head>
+<svelte:head><title>Overview · Gentle Companion</title></svelte:head>
 
 <div class="page">
   <PullToRefresh onrefresh={refreshOverview} />
@@ -101,10 +101,10 @@
         images={art}
         anchor={visual}
         className="hero-field"
-        label="Dots forming the Pi Companion logo, then a computer, a phone and a terminal window" />
+        label="Dots forming the Gentle Companion logo, then a computer, a phone and a terminal window" />
     {/if}
     <div class="hero-copy">
-      <span class="eyebrow">{companion.isAdmin ? 'Pi Companion' : 'Linked to your computer'}</span>
+      <span class="eyebrow">{companion.isAdmin ? 'Gentle Companion' : 'Linked to your computer'}</span>
       <h1>Go grab a coffee.<br /><span class="accent">Pi’ll ping you.</span></h1>
       <p>
         Pi keeps chipping away on your computer while you’re off doing other stuff. Check in from your phone, answer

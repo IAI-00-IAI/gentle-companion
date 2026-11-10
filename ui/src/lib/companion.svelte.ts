@@ -116,7 +116,7 @@ class Companion {
     try {
       const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy }>('/api/context');
       if (!context || typeof context.remote !== 'boolean' || typeof context.version !== 'string') {
-        throw new WorkspaceConnectionError('This address is not responding as a Pi Companion workspace. Check the current tunnel URL.');
+        throw new WorkspaceConnectionError('This address is not responding as a Gentle Companion workspace. Check the current tunnel URL.');
       }
       this.setUploadPolicy(context.uploadPolicy);
       this.remote = context.remote;

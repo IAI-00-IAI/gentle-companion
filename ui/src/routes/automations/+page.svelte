@@ -46,7 +46,7 @@
     } finally { saving = false; }
   }
 </script>
-<svelte:head><title>Automations · Pi Companion</title></svelte:head>
+<svelte:head><title>Automations · Gentle Companion</title></svelte:head>
 <div class="page automation-workspace">
   <PullToRefresh onrefresh={load} />
   <header class="automation-hero"><div class="hero-copy"><img class="clay-icon" src={clayIcon} alt="" /><div><span class="eyebrow">YOUR WORK, ON AUTOPILOT</span><h1>Automations</h1><p class="subtle">Small routines. More room for the work that matters.</p></div></div>{#if canEdit}<button class="btn btn-primary" aria-expanded={creating} onclick={() => creating = !creating}><Icon name="plus" />{creating ? 'Close editor' : 'Create automation'}</button>{/if}</header>

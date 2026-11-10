@@ -116,7 +116,7 @@
       <h2 id="artifact-preview-title">{title}</h2>
       <p id="artifact-preview-description" class="preview-description">
         {#if target.kind === 'file'}Session-shared file · read-only preview
-        {:else}External website · isolated from Pi Companion{/if}
+        {:else}External website · isolated from Gentle Companion{/if}
       </p>
     </div>
     <button type="button" class="btn btn-ghost btn-icon" aria-label="Close preview" onclick={close}><Icon name="close" /></button>

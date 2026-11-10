@@ -39,7 +39,7 @@
   });
 </script>
 
-<svelte:head><title>Sessions · Pi Companion</title></svelte:head>
+<svelte:head><title>Sessions · Gentle Companion</title></svelte:head>
 
 <div class="page automation-workspace">
   <PullToRefresh onrefresh={() => companion.refresh()} />

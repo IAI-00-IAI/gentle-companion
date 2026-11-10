@@ -1,4 +1,4 @@
-<svelte:head><title>Terms · Pi Companion</title></svelte:head>
+<svelte:head><title>Terms · Gentle Companion</title></svelte:head>
 
 <div class="page info-page">
   <header class="page-head">
@@ -8,7 +8,7 @@
   <section class="bento" aria-label="Terms of use">
     <article class="tile">
       <h2>License</h2>
-      <p>Pi Companion is made available under the MIT License. The source and license are available at <a href="https://github.com/ygrip/pi-companion" rel="noreferrer">github.com/ygrip/pi-companion</a>.</p>
+      <p>Gentle Companion is made available under the MIT License. The source and license are available at <a href="https://github.com/ygrip/pi-companion" rel="noreferrer">github.com/ygrip/pi-companion</a>.</p>
     </article>
     <article class="tile">
       <h2>Provided as-is</h2>

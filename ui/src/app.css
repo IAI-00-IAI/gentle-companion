@@ -1,5 +1,5 @@
 /*
- * Pi Companion design system.
+ * Gentle Companion design system.
  * Warm amber on graphite (dark) or paper (light), matching the logo.
  * Layout rule: the window never scrolls. Each region owns its scrolling:
  *   sidebar · page content · feeds/lists/code blocks inside panels.
@@ -8,62 +8,69 @@
 :root,
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0c0c0e;
-  --bg-sunken: #09090b;
-  --surface: #141417;
-  --surface-2: #1b1b1f;
-  --surface-3: #232328;
-  --border: #26262c;
-  --border-strong: #35353d;
-  --text: #f3f0e9;
-  --text-2: #b2ada3;
-  --text-3: #8d897f;
-  --accent: #f5b027;
-  --accent-hover: #ffc247;
-  --accent-ink: #1b1303;
-  --accent-text: #f8bf4f;
-  --accent-soft: rgb(245 176 39 / 0.12);
-  --accent-line: rgb(245 176 39 / 0.38);
+  --bg: #060407;
+  --bg-sunken: #0a060c;
+  --surface: #100A0F;
+  --surface-2: #170c15;
+  --surface-3: #1e1120;
+  --border: #563040;
+  --border-strong: #7a4558;
+  --text: #F6EFF3;
+  --text-2: #A78E9B;
+  --text-3: #76616B;
+  --accent: #F095C8;
+  --accent-hover: #FFB1DD;
+  --accent-ink: #28121E;
+  --accent-text: #FFB1DD;
+  --deep-pink: #C96AA2;
+  --active-pink: #FFB1DD;
+  --warning: #F2B86D;
+  --warning-soft: rgb(242 184 109 / 0.14);
+  --accent-soft: rgb(240 149 200 / 0.12);
+  --accent-line: rgb(240 149 200 / 0.38);
+  --selection: #28121E;
+  --tool-pending-bg: #100A0F;
   --ok: #4fc58c;
   --ok-soft: rgb(79 197 140 / 0.14);
-  --danger: #f0756b;
-  --danger-soft: rgb(240 117 107 / 0.12);
-  --code-bg: #0f0f12;
+  --danger: #FF718F;
+  --danger-soft: rgb(255 113 143 / 0.12);
+  --code-bg: #0f0c12;
   --diff-add: rgb(79 197 140 / 0.12);
-  --diff-del: rgb(240 117 107 / 0.12);
+  --diff-del: rgb(255 113 143 / 0.12);
   --shadow-sm: 0 1px 0 rgb(255 255 255 / 0.03) inset;
   --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 18px 40px -18px rgb(0 0 0 / 0.6);
   --overlay: rgb(0 0 0 / 0.55);
-  --dot-color: #f5b027;
+  --dot-color: #F095C8;
   --grid-line: color-mix(in srgb, var(--accent) 11%, transparent);
   --ambient-dot: color-mix(in srgb, var(--accent) 14%, transparent);
   --dot-field-ambient: 0.13;
   --dot-field-strength: 1.05;
+  --glow: 0 10px 30px #f095c84d;
 }
 
 [data-theme='light'] {
   color-scheme: light;
-  --bg: #f6f4ef;
-  --bg-sunken: #efece5;
+  --bg: #f8f5f7;
+  --bg-sunken: #f0eae0;
   --surface: #ffffff;
-  --surface-2: #f7f5f0;
-  --surface-3: #eeebe4;
-  --border: #e5e1d8;
-  --border-strong: #d4cfc4;
-  --text: #1a1815;
-  --text-2: #57524a;
-  --text-3: #736d63;
-  --accent: #f5ad1f;
-  --accent-hover: #e89c00;
-  --accent-ink: #1b1303;
-  --accent-text: #925800;
-  --accent-soft: rgb(245 173 31 / 0.16);
-  --accent-line: rgb(190 120 0 / 0.4);
+  --surface-2: #f7f3f5;
+  --surface-3: #efe8ec;
+  --border: #e0d3dc;
+  --border-strong: #c9b0c0;
+  --text: #1a161a;
+  --text-2: #6d5f6a;
+  --text-3: #90818c;
+  --accent: #C96AA2;
+  --accent-hover: #F095C8;
+  --accent-ink: #28121E;
+  --accent-text: #A8517E;
+  --accent-soft: rgb(201 106 162 / 0.14);
+  --accent-line: rgb(201 106 162 / 0.4);
   --ok: #17824f;
   --ok-soft: rgb(23 130 79 / 0.1);
   --danger: #c2372d;
   --danger-soft: rgb(194 55 45 / 0.08);
-  --code-bg: #fbfaf7;
+  --code-bg: #fbf9fb;
   --diff-add: rgb(23 130 79 / 0.1);
   --diff-del: rgb(194 55 45 / 0.08);
   --shadow-sm: 0 1px 2px rgb(26 24 21 / 0.05);
@@ -77,11 +84,13 @@
 }
 
 :root {
-  --font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
-  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  --font: Inter, "SF Pro Text", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "IosevkaTerm NF", "Iosevka Term", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, "DejaVu Sans Mono", monospace;
   --radius-sm: 8px;
+  --radius-md: 12px;
   --radius: 12px;
-  --radius-lg: 18px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
   --radius-bento: 20px;
   --sidebar: 244px;
   --tabbar: 64px;
@@ -883,8 +892,8 @@ kbd {
   --clay-soft: 0 5px 12px -6px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.07),
     inset 0 -2px 5px rgb(0 0 0 / 0.32);
   --clay-pressed: inset 0 3px 8px rgb(0 0 0 / 0.5), inset 0 -1px 0 rgb(255 255 255 / 0.05);
-  --clay-accent: 0 10px 20px -10px rgb(245 176 39 / 0.6), inset 0 2px 1px rgb(255 255 255 / 0.35),
-    inset 0 -4px 7px rgb(140 80 0 / 0.4);
+  --clay-accent: 0 10px 20px -10px rgb(240 149 200 / 0.6), inset 0 2px 1px rgb(255 255 255 / 0.35),
+    inset 0 -4px 7px rgb(95 35 65 / 0.4);
 }
 
 [data-theme='light'] {
@@ -893,8 +902,8 @@ kbd {
   --clay-soft: 0 6px 12px -7px rgb(120 90 40 / 0.35), inset 0 1px 1px rgb(255 255 255 / 0.95),
     inset 0 -2px 5px rgb(150 120 70 / 0.14);
   --clay-pressed: inset 0 3px 7px rgb(150 120 70 / 0.24), inset 0 -1px 0 rgb(255 255 255 / 0.85);
-  --clay-accent: 0 10px 20px -10px rgb(200 130 0 / 0.55), inset 0 2px 1px rgb(255 255 255 / 0.55),
-    inset 0 -4px 7px rgb(160 95 0 / 0.3);
+  --clay-accent: 0 10px 20px -10px rgb(201 106 162 / 0.5), inset 0 2px 1px rgb(255 255 255 / 0.55),
+    inset 0 -4px 7px rgb(120 60 100 / 0.3);
 }
 
 .clay {

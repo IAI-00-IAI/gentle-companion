@@ -104,7 +104,7 @@
   }
 </script>
 
-<svelte:head><title>Devices · Pi Companion</title></svelte:head>
+<svelte:head><title>Devices · Gentle Companion</title></svelte:head>
 
 <div class="page automation-workspace">
   <PageHero icon={clayIcon} eyebrow="YOUR WORK, WHEREVER YOU ARE" title="Devices" subtitle="One workspace. Your favorite screens. Pair once, check in anywhere.">

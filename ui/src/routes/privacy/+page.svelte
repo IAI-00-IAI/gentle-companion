@@ -1,4 +1,4 @@
-<svelte:head><title>Privacy · Pi Companion</title></svelte:head>
+<svelte:head><title>Privacy · Gentle Companion</title></svelte:head>
 
 <script lang="ts">
   import Icon from '#lib/Icon.svelte';
@@ -6,7 +6,7 @@
 
 <div class="page info-page">
   <header class="page-head">
-    <div><span class="eyebrow">Your data</span><h1>Privacy</h1><p>Pi Companion keeps its dashboard and session data on your computer.</p></div>
+    <div><span class="eyebrow">Your data</span><h1>Privacy</h1><p>Gentle Companion keeps its dashboard and session data on your computer.</p></div>
   </header>
 
   <section class="bento" aria-label="Privacy details">
@@ -14,12 +14,12 @@
       <span class="topic-icon"><Icon name="home" /></span>
       <span class="badge ok">Local-first</span>
       <h2>Stored on your computer</h2>
-      <p>Pi Companion runs locally. Settings and paired-device records are stored in the daemon’s data directory. Paired-device credentials are stored as token hashes, not plaintext tokens. Temporary uploads are kept for their session and deleted when that session ends.</p>
+      <p>Gentle Companion runs locally. Settings and paired-device records are stored in the daemon’s data directory. Paired-device credentials are stored as token hashes, not plaintext tokens. Temporary uploads are kept for their session and deleted when that session ends.</p>
     </article>
     <article class="tile">
       <span class="topic-icon"><Icon name="activity" /></span>
       <h2>No analytics</h2>
-      <p>Pi Companion does not send telemetry or analytics to third parties.</p>
+      <p>Gentle Companion does not send telemetry or analytics to third parties.</p>
     </article>
     <article class="tile">
       <span class="topic-icon"><Icon name="devices" /></span>

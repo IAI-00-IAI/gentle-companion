@@ -102,7 +102,7 @@
     finally { busy = false; }
   }
 </script>
-<svelte:head><title>{automation?.name ?? 'Automation'} · Pi Companion</title></svelte:head>
+<svelte:head><title>{automation?.name ?? 'Automation'} · Gentle Companion</title></svelte:head>
 <div class="page automation-workspace automation-detail">
   <a class="automation-back btn btn-ghost" href="/automations"><Icon name="back" size={16} />All automations</a>
   {#if loading}

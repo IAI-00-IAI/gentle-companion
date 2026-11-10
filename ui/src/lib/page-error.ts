@@ -13,7 +13,7 @@ export function pageError(status: number, message?: string): { title: string; me
   };
   if (status === 401 || status === 403) return {
     title: 'Access unavailable',
-    message: 'This device does not have permission to open this page. Check its access from the computer running Pi Companion.'
+    message: 'This device does not have permission to open this page. Check its access from the computer running Gentle Companion.'
   };
   if (status >= 500) return {
     title: 'Could not open this page',
@@ -21,6 +21,6 @@ export function pageError(status: number, message?: string): { title: string; me
   };
   return {
     title: 'Page unavailable',
-    message: 'Pi Companion could not load this page. Reload to try again, or return to Overview.'
+    message: 'Gentle Companion could not load this page. Reload to try again, or return to Overview.'
   };
 }

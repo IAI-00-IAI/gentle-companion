@@ -11,7 +11,7 @@
 
   async function archive() {
     if (busy || session.status !== 'stopped') return;
-    if (!confirm(`Archive “${sessionTitle(session)}” from Pi Companion?\n\nThis removes only the ended session from the daemon. Your local Pi session and history are not deleted.`)) return;
+    if (!confirm(`Archive “${sessionTitle(session)}” from Gentle Companion?\n\nThis removes only the ended session from the daemon. Your local Pi session and history are not deleted.`)) return;
     busy = true;
     try {
       await companion.archiveSession(session.id);

@@ -26,18 +26,18 @@
   }
 
   async function testNotification() {
-    const shown = await devicePermissions.notify('Test from Pi Companion', 'This is how session alerts will look on this device.', { tag: 'pi-companion-test' });
+    const shown = await devicePermissions.notify('Test from Gentle Companion', 'This is how session alerts will look on this device.', { tag: 'pi-companion-test' });
     if (!shown) toasts.show('Could not show a notification on this device.', 'error');
   }
 
   function hint(kind: 'notifications' | 'camera', state: PermissionValue) {
     if (kind === 'camera' && devicePermissions.cameraError) return devicePermissions.cameraError;
     if (state === 'policy') return 'The page or proxy blocks camera access. Open Companion directly over HTTPS. In your proxy’s Permissions-Policy, use camera=(self), not camera=(). Restart Companion after upgrading and reload. Manual-code pairing still works.';
-    if (state === 'insecure') return 'Open Pi Companion through its HTTPS link to use this. Camera access is unavailable on plain HTTP phone/LAN links.';
+    if (state === 'insecure') return 'Open Gentle Companion through its HTTPS link to use this. Camera access is unavailable on plain HTTP phone/LAN links.';
     if (state === 'denied') return 'Blocked by your browser. Open the site settings (the icon next to the address) and set it to Allow, then reload.';
     if (kind === 'notifications') {
       if (state === 'unsupported') return devicePermissions.needsInstall
-        ? 'On iPhone and iPad, add Pi Companion to your Home Screen first, then open it from there.'
+        ? 'On iPhone and iPad, add Gentle Companion to your Home Screen first, then open it from there.'
         : 'This browser cannot show notifications.';
       return 'Get an alert when Pi asks a question, finishes a task or ends a session.';
     }

@@ -31,14 +31,14 @@
   }
 </script>
 
-<svelte:head><title>Help · Pi Companion</title></svelte:head>
+<svelte:head><title>Help · Gentle Companion</title></svelte:head>
 
 <div class="page info-page">
   <header class="page-head">
     <div>
       <span class="eyebrow">Guide</span>
       <h1>How it works</h1>
-      <p>Pi Companion lets you check on Pi from your phone or any browser, so you don’t have to babysit the terminal. Here’s the quick version.</p>
+      <p>Gentle Companion lets you check on Pi from your phone or any browser, so you don’t have to babysit the terminal. Here’s the quick version.</p>
     </div>
   </header>
 
@@ -87,7 +87,7 @@
       <p>Want a buzz when Pi needs you? Turn on notifications in <a href="/settings">Settings</a>. You’ll hear about it when Pi asks something, wraps up a task or a session ends.</p>
       <p>The camera is only for scanning the pairing QR code. Nothing gets recorded or sent anywhere.</p>
       <dl>
-        <dt>iPhone or iPad</dt><dd>Add Pi Companion to your Home Screen first (see below), open it from there, then turn notifications on. Apple only allows them that way.</dd>
+        <dt>iPhone or iPad</dt><dd>Add Gentle Companion to your Home Screen first (see below), open it from there, then turn notifications on. Apple only allows them that way.</dd>
         <dt>Said no by accident?</dt><dd>Tap the icon next to the web address, find Notifications or Camera, and switch it to Allow. Then reload.</dd>
       </dl>
     </article>

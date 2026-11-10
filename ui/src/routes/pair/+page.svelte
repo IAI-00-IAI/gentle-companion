@@ -111,7 +111,7 @@
       stopCamera();
       void claim({ invite: token });
     } catch {
-      cameraError = 'That QR code is not a valid Pi Companion pairing link.';
+      cameraError = 'That QR code is not a valid Gentle Companion pairing link.';
     }
   }
 
@@ -172,11 +172,11 @@
   }
 </script>
 
-<svelte:head><title>Pair this device · Pi Companion</title></svelte:head>
+<svelte:head><title>Pair this device · Gentle Companion</title></svelte:head>
 
 <div class="wrap">
   <section class="card pair">
-    <img src={logo} alt="Pi Companion" width="64" height="64" />
+    <img src={logo} alt="Gentle Companion" width="64" height="64" />
 
     {#if companion.connection === 'revoked' && !invite}
       <span class="eyebrow">Access removed</span>
@@ -185,7 +185,7 @@
     {:else}
       <span class="eyebrow">{invite ? 'Pair this device' : 'Not paired yet'}</span>
       <h1>{invite ? 'Connect to your computer' : 'Connect this device'}</h1>
-      <p class="muted">Scan a pairing QR code or enter the unique code shown in Pi Companion on your computer.</p>
+      <p class="muted">Scan a pairing QR code or enter the unique code shown in Gentle Companion on your computer.</p>
 
       {#if !invite}
         <section class="scanner" aria-label="QR code scanner">
@@ -198,7 +198,7 @@
                 <Icon name="devices" size={24} />
                 <div>
                   <strong>Allow camera access?</strong>
-                  <p class="subtle">Pi Companion uses the camera only to scan the pairing QR code. Your browser will ask for permission next.</p>
+                  <p class="subtle">Gentle Companion uses the camera only to scan the pairing QR code. Your browser will ask for permission next.</p>
                 </div>
                 <div class="camera-actions">
                   <button class="btn btn-primary" type="button" onclick={allowCamera} disabled={cameraPending}>{cameraPending ? 'Requesting camera…' : 'Allow camera'}</button>
