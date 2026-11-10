@@ -2,10 +2,11 @@ import { spawn, execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, open, rename, rm, stat, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { resolveCompanionHome } from "./home.ts";
 
 /**
  * Zero-config daemon lifecycle.
@@ -65,7 +66,7 @@ function packageVersion() {
 }
 
 function cacheDir(version: string) {
-  return join(homedir(), ".pi", "agent", "pi-companion", "bin", version);
+  return join(resolveCompanionHome(), "bin", version);
 }
 
 function releaseAsset() {
