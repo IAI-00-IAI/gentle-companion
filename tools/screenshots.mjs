@@ -302,7 +302,7 @@ try {
   // Phone screens, dark.
   {
     const { context, page } = await open(browser, { width: 390, height: 844, theme: 'dark', mobile: true });
-    for (const [path, endpoint] of [['/', '/api/automations'], ['/sessions', '/api/sessions'], ['/automations', '/api/automations'], ['/settings', '/api/settings']]) await checkPullToRefresh(page, path, endpoint);
+    for (const [path, endpoint] of [['/', '/api/automations'], ['/sessions', '/api/sessions'], ['/automations', '/api/automations']]) await checkPullToRefresh(page, path, endpoint);
     await page.goto(BASE + '/sessions');
     await settle(page);
     await shot(page, 'session-list');

@@ -1,16 +1,31 @@
 import DOMPurify from 'dompurify';
 import type { HLJSApi } from 'highlight.js';
-import { marked } from 'marked';
+import { Marked } from 'marked';
 import type { Mermaid } from 'mermaid';
 
 /**
  * Pi's replies are Markdown. Render them to sanitized HTML; code highlighting and Mermaid
  * diagrams are applied afterwards by the `prettify` action, loading their libraries lazily.
  */
-marked.setOptions({ gfm: true, breaks: true });
+const markdown = new Marked({
+  gfm: true,
+  breaks: true,
+  renderer: {
+    link(token) {
+      if (!/^file:\/\//i.test(token.href)) return false;
+      // DOMPurify removes file: hrefs. Keep the reference as inert data so Companion's
+      // delegated handler can request explicit confirmation through the scoped bridge.
+      const reference = token.href.replace(/[&<>"']/g, character => {
+        const escapes: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        return escapes[character];
+      });
+      return `<a href="#" data-bridge-ref="${reference}">${this.parser.parseInline(token.tokens)}</a>`;
+    }
+  }
+});
 
 export function renderMarkdown(text: string) {
-  return DOMPurify.sanitize(marked.parse(text, { async: false }));
+  return DOMPurify.sanitize(markdown.parse(text, { async: false }));
 }
 
 type Hljs = HLJSApi;

@@ -2,7 +2,7 @@
 // Like screenshots.mjs, accepts PLAYWRIGHT module path and CHROME executable.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,6 +18,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT ? pathToFileURL(process
 const admin = await reservePort();
 const device = await reservePort();
 const home = await mkdtemp(join(tmpdir(), 'companion-preview-smoke-'));
+const workspace = await mkdtemp(join(tmpdir(), 'companion-preview-workspace-'));
 await admin.close();
 await device.close();
 const base = `http://127.0.0.1:${admin.port}`;
@@ -72,8 +73,10 @@ try {
   ]);
   bridge = new WebSocket(`ws://127.0.0.1:${admin.port}/ws/bridge/${sessionId}`);
   await new Promise((resolve, reject) => { bridge.onopen = resolve; bridge.onerror = reject; });
-  bridge.send(JSON.stringify({ type: 'register', session: { id: sessionId, cwd: '/fixture', pid: process.pid, shortTitle: 'Preview security checks', status: 'idle', remoteEnabled: true, connectedAt: new Date().toISOString(), asks: [] } }));
+  bridge.send(JSON.stringify({ type: 'register', session: { id: sessionId, cwd: workspace, pid: process.pid, shortTitle: 'Preview security checks', status: 'idle', remoteEnabled: true, connectedAt: new Date().toISOString(), asks: [] } }));
   await sleep(100);
+  const localFiles = ['file url.txt', 'relative file.txt', 'absolute file.txt'];
+  for (const name of localFiles) await writeFile(join(workspace, name), `Fixture ${name}`);
   await upload('report.html', 'text/html', `<!doctype html><html><head>
     <meta http-equiv="refresh" content="0;url=${exfil}/refresh">
     <base href="${exfil}/"><style>body{color:rgb(12,34,56);background-image:url('${exfil}/css')}</style>
@@ -86,7 +89,7 @@ try {
   await upload('source.svg', 'image/svg+xml', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
   bridge.send(JSON.stringify({ type: 'event', event: 'assistant.delta', payload: { kind: 'text', delta: '[Shared report](report.html)' } }));
   bridge.send(JSON.stringify({ type: 'event', event: 'agent.end', payload: {} }));
-  bridge.send(JSON.stringify({ type: 'event', event: 'assistant.delta', payload: { kind: 'text', delta: `[Public website](${website}) · [Local app](http://localhost:3000)` } }));
+  bridge.send(JSON.stringify({ type: 'event', event: 'assistant.delta', payload: { kind: 'text', delta: `[Public website](${website}) · [Local app](http://localhost:3000) · [File URL](${pathToFileURL(join(workspace, localFiles[0])).href}) · [Relative file](relative%20file.txt) · [Absolute file](${encodeURI(join(workspace, localFiles[2]))}) · [Unsafe link](javascript:alert(1)) <img alt="Unsafe image" src="file:///etc/passwd">` } }));
   const definition = { name: 'Manual preview check', enabled: false, schedule: null, preconditions: [], actions: [{ type: 'command', command: 'echo', args: ['hello'] }], postActions: [] };
   const manual = await api('/api/automations', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(definition) });
   const paused = await api('/api/automations', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...definition, name: 'Paused preview check', schedule: '0 9 * * *' }) });
@@ -109,6 +112,19 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(`${base}/sessions/${sessionId}`);
+  const fileUrlLink = page.getByRole('link', { name: 'File URL', exact: true });
+  assert.equal(await fileUrlLink.getAttribute('href'), '#', 'file URLs are inert until the bridge confirms them');
+  assert.equal(await fileUrlLink.getAttribute('data-bridge-ref'), pathToFileURL(join(workspace, localFiles[0])).href);
+  assert.equal(await page.getByText('Unsafe link', { exact: true }).getAttribute('href'), null, 'unsafe schemes remain stripped');
+  assert.equal(await page.getByAltText('Unsafe image').getAttribute('src'), null, 'file URLs are not allowed as image sources');
+  for (const [label, name] of [['File URL', localFiles[0]], ['Relative file', localFiles[1]], ['Absolute file', localFiles[2]]]) {
+    await page.getByRole('link', { name: label, exact: true }).click();
+    const fileDialog = page.locator('dialog[open]');
+    await fileDialog.getByRole('heading', { name: 'Fetch this file from the computer running Pi?' }).waitFor();
+    await fileDialog.getByRole('button', { name: /Preview/ }).click();
+    await fileDialog.getByText(`Fixture ${name}`, { exact: true }).waitFor();
+    await page.keyboard.press('Escape');
+  }
   const reportLink = page.getByRole('link', { name: 'Shared report', exact: true });
   await reportLink.click();
   const dialog = page.locator('dialog[open]');
@@ -228,6 +244,16 @@ try {
 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto(`${base}/sessions/${sessionId}`);
+  await page.getByRole('link', { name: 'File URL', exact: true }).click();
+  const fileDialog = page.locator('dialog[open]');
+  await fileDialog.getByRole('heading', { name: 'Fetch this file from the computer running Pi?' }).waitFor();
+  const previewAction = await fileDialog.getByRole('button', { name: /Preview/ }).boundingBox();
+  const downloadAction = await fileDialog.getByRole('button', { name: /Download/ }).boundingBox();
+  const cancelAction = await fileDialog.getByRole('button', { name: 'Cancel' }).boundingBox();
+  assert.ok(previewAction.y + previewAction.height <= downloadAction.y && downloadAction.y + downloadAction.height <= cancelAction.y, 'file actions stack in one column');
+  await noHorizontalOverflow(page);
+  await page.screenshot({ path: join(tmpdir(), 'companion-file-actions-mobile.png') });
+  await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Shared report', exact: true }).click();
   await page.locator('dialog[open] iframe').waitFor();
   await noHorizontalOverflow(page);
@@ -251,4 +277,5 @@ try {
   daemon.kill();
   await daemonExit;
   await rm(home, { recursive: true, force: true });
+  await rm(workspace, { recursive: true, force: true });
 }

@@ -26,7 +26,7 @@ When a session is shared, Companion fetches OpenAI Codex and Anthropic subscript
 
 Filename search is case-insensitive. New browser uploads are marked **You**; local agent uploads can declare **Agent** by posting to `/api/sessions/{session_id}/files?source=agent`. This query is honored only on the local admin endpoint; remote uploads always remain user uploads. Older files without provenance show **Unknown**. Source badges describe upload provenance, not file-content authorship.
 
-**New in 0.3.2:** responsive automation and run-history tables, rounded status chips, matching clay-icon headers, and a single-column automation workspace with full-width mobile controls. **Edit automation** scrolls to and focuses the inline editor. Pull to refresh Overview, Sessions, Automations, or Settings—with a gesture; unsaved settings stay intact. Camera-policy guidance now explains HTTPS proxy configuration. Existing rich results, staged job editing, optional retries, and answers-only automation sessions are retained. See [automations](docs/automations.md).
+**New in 0.3.2:** responsive automation and run-history tables, rounded status chips, matching clay-icon headers, and a single-column automation workspace with full-width mobile controls. **Edit automation** scrolls to and focuses the inline editor. Pull to refresh Overview, Sessions, or Automations with a gesture. Camera-policy guidance now explains HTTPS proxy configuration. Existing rich results, staged job editing, optional retries, and answers-only automation sessions are retained. See [automations](docs/automations.md).
 
 Pi Companion is deliberately not another agent runtime. Pi owns execution and conversation state. A single Rust daemon owns session discovery, pairing, temporary file exchange, browser fan-out, and the embedded web UI.
 
@@ -179,7 +179,7 @@ Custom popups use the local terminal's rendered width (scroll horizontally on na
 
 ## Refreshing your workspace
 
-On Overview, Sessions, Automations, and Settings, pull down from the top of the page and release when prompted to refresh current data. Each page also provides a keyboard-accessible **Refresh** button with progress and error feedback. This refreshes data without reloading the app; Settings preserves unsaved edits. Gestures inside inputs and nested scrollable lists are left alone.
+On Overview, Sessions, and Automations, pull down from the top of the page and release when prompted to refresh current data without reloading the app. Gestures inside inputs and nested scrollable lists are left alone. Settings does not use pull-to-refresh.
 
 The Sessions, Devices, and Settings pages now share the automation page’s clay-icon header style. See [device management](docs/devices.webp), [settings](docs/settings.webp), and [mobile settings](docs/settings-mobile.webp).
 

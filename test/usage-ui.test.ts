@@ -101,6 +101,7 @@ test('mobile usage has compact cards and pull-to-refresh has no redundant button
   assert.match(settings, /class="usage-cards"/);
   assert.match(settings, /Weekly tokens/);
   assert.match(settings, /Weekly cost estimate/);
+  assert.doesNotMatch(settings, /PullToRefresh|refreshSettings|pull to refresh/i);
   const refresh = readFileSync(new URL('../ui/src/lib/PullToRefresh.svelte', import.meta.url), 'utf8');
   assert.doesNotMatch(refresh, /<button/);
   assert.match(refresh, /touchend/);
