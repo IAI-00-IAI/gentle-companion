@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import { companion } from './companion.svelte.ts';
   import { errorMessage } from './toast.svelte.ts';
-  import { filePreviewKind, htmlSnapshot, imagePreviewMime, MAX_PREVIEW_BYTES, previewLink, type FilePreviewKind, type PreviewTarget } from './artifact-preview.ts';
+  import { blocksEmbedding, filePreviewKind, htmlSnapshot, imagePreviewMime, MAX_PREVIEW_BYTES, previewLink, type FilePreviewKind, type PreviewTarget } from './artifact-preview.ts';
 
   let { target, onclose }: { target: PreviewTarget; onclose: () => void } = $props();
   let dialog = $state<HTMLDialogElement | null>(null);
@@ -13,6 +13,7 @@
   let content = $state('');
   let imageUrl = $state('');
   let websiteRequested = $state(false);
+  let fullscreen = $state(false);
   let closing = false;
   let disposed = false;
   const safeUrl = $derived.by(() => {
@@ -20,11 +21,14 @@
     if (typeof location === 'undefined') return undefined;
     return previewLink(target.url, location.origin);
   });
+  const embeddingBlocked = $derived(safeUrl ? blocksEmbedding(safeUrl) : false);
   const title = $derived.by(() => {
     if (target.kind === 'file') return target.file.name;
     if (safeUrl) return new URL(safeUrl).hostname;
     return 'Website preview unavailable';
   });
+
+  const showFullscreenToggle = $derived((target.kind === 'link' && websiteRequested) || fileKind === 'html' || fileKind === 'image');
 
   $effect(() => {
     if (!dialog) return;
@@ -109,7 +113,7 @@
   }
 </script>
 
-<dialog class="artifact-preview" bind:this={dialog} aria-labelledby="artifact-preview-title" aria-describedby="artifact-preview-description" onclose={close} oncancel={(event) => { event.preventDefault(); close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>
+<dialog class="artifact-preview" class:fullscreen bind:this={dialog} aria-labelledby="artifact-preview-title" aria-describedby="artifact-preview-description" onclose={close} oncancel={(event) => { event.preventDefault(); if (fullscreen) fullscreen = false; else close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>
   <header class="preview-header">
     <div class="preview-heading">
       <span class="eyebrow">Preview</span>
@@ -119,7 +123,12 @@
         {:else}External website · isolated from Pi Companion{/if}
       </p>
     </div>
-    <button type="button" class="btn btn-ghost btn-icon" aria-label="Close preview" onclick={close}><Icon name="close" /></button>
+    <div class="preview-actions">
+      {#if showFullscreenToggle}
+        <button type="button" class="btn btn-ghost btn-icon" aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'} aria-pressed={fullscreen} onclick={() => fullscreen = !fullscreen}><Icon name={fullscreen ? 'minimize' : 'maximize'} /></button>
+      {/if}
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Close preview" onclick={close}><Icon name="close" /></button>
+    </div>
   </header>
   <div class="preview-body">
     {#if target.kind === 'link'}
@@ -127,9 +136,14 @@
         <div class="website-controls">
           <code class="preview-address">{safeUrl}</code>
           <p class="preview-note">Your browser contacts this website directly. The site may receive your IP address and existing cookies. Companion does not open or control the host browser.</p>
-          {#if !websiteRequested}<button type="button" class="btn btn-primary" onclick={() => websiteRequested = true}><Icon name="link" size={16} />Load website preview</button>{/if}
-          <p class="preview-note">Some sites block embedding or require features this sandbox disables. A blank or incomplete frame does not mean the site is unavailable.</p>
-          <a class="btn" href={safeUrl} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Open in new tab<Icon name="chevron" size={16} /></a>
+          {#if embeddingBlocked}
+            <p class="preview-note">This site does not allow itself to be shown inside another page, so a preview would stay blank. Open it in your browser instead.</p>
+            <a class="btn btn-primary" href={safeUrl} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"><Icon name="link" size={16} />Open in browser</a>
+          {:else}
+            {#if !websiteRequested}<button type="button" class="btn btn-primary" onclick={() => websiteRequested = true}><Icon name="link" size={16} />Load website preview</button>{/if}
+            <p class="preview-note">Some sites block embedding or require features this sandbox disables. A blank or incomplete frame does not mean the site is unavailable.</p>
+            <a class="btn" href={safeUrl} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Open in new tab<Icon name="chevron" size={16} /></a>
+          {/if}
         </div>
         {#if websiteRequested}
           <iframe class="preview-frame" title={'Website preview: ' + title} src={safeUrl} sandbox="allow-scripts" referrerpolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'; payment 'none'; usb 'none'"></iframe>
@@ -183,6 +197,10 @@
   .preview-footer { justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--border); background: var(--surface-2); }
   .artifact-preview .btn { min-width: 44px; min-height: 44px; }
   .preview-header .btn { flex: none; }
+  .preview-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+  .artifact-preview.fullscreen { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; }
+  .artifact-preview.fullscreen .preview-body { flex: 1; display: flex; flex-direction: column; overflow: auto; }
+  .artifact-preview.fullscreen .preview-frame { flex: 1; min-height: 60dvh; }
   @media (max-width: 600px) {
     .artifact-preview { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: var(--radius-lg); }
     .preview-header, .preview-footer, .website-controls { padding: 16px; gap: 12px; }

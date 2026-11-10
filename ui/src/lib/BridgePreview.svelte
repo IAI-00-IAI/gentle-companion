@@ -23,6 +23,7 @@
   let busy = $state(false);
   let error = $state('');
   let frame = $state<BridgeLink | undefined>();
+  let fullscreen = $state(false);
   let closing = false;
   let disposed = false;
   /**
@@ -101,7 +102,7 @@
   }
 </script>
 
-<dialog class="bridge-preview" bind:this={dialog} aria-labelledby="bridge-preview-title" onclose={close} oncancel={(event) => { event.preventDefault(); close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>
+<dialog class="bridge-preview" class:fullscreen bind:this={dialog} aria-labelledby="bridge-preview-title" onclose={close} oncancel={(event) => { event.preventDefault(); if (fullscreen) fullscreen = false; else close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>
   <header class="bridge-header">
     <div class="bridge-heading">
       <span class="eyebrow">Companion bridge</span>
@@ -110,7 +111,12 @@
         {#if target.kind === 'bridge-file'}File on the computer running Pi{:else}Server on the computer running Pi{/if}
       </p>
     </div>
-    <button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onclick={close}><Icon name="close" /></button>
+    <div class="bridge-actions">
+      {#if frame}
+        <button type="button" class="btn btn-ghost btn-icon" aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'} aria-pressed={fullscreen} onclick={() => fullscreen = !fullscreen}><Icon name={fullscreen ? 'minimize' : 'maximize'} /></button>
+      {/if}
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onclick={close}><Icon name="close" /></button>
+    </div>
   </header>
 
   <div class="bridge-body">
@@ -170,6 +176,10 @@
   .bridge-footer { justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--border); background: var(--surface-2); }
   .bridge-preview .btn { min-width: 44px; min-height: 44px; }
   .bridge-header .btn { flex: none; }
+  .bridge-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+  .bridge-preview.fullscreen { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; }
+  .bridge-preview.fullscreen .bridge-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .bridge-preview.fullscreen .bridge-frame { flex: 1; height: auto; min-height: 0; }
   @media (max-width: 600px) {
     .bridge-preview { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: var(--radius-lg); }
     .bridge-header, .bridge-footer { padding: 16px; gap: 12px; }
