@@ -379,7 +379,7 @@ async fn device_origins(state: &AppState) -> Vec<String> {
 }
 
 fn forbidden_origin() -> Response {
-    (StatusCode::FORBIDDEN, "Origin not allowed. Open Pi Companion from its own address.").into_response()
+    (StatusCode::FORBIDDEN, "Origin not allowed. Open Gentle Companion from its own address.").into_response()
 }
 
 /// `None`: no Origin header; `Some(None)`: present but unusable (`null`, non-http).

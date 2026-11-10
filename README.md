@@ -1,8 +1,8 @@
-# Pi Companion
+# Gentle Companion
 
 Lightweight, local-first remote control for Pi sessions.
 
-[![Watch the Pi Companion walkthrough (2 min)](docs/pi-companion-promo.webp)](docs/pi-companion-promo.mp4)
+[![Watch the Gentle Companion walkthrough (2 min)](docs/pi-companion-promo.webp)](docs/pi-companion-promo.mp4)
 
 **[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Pi session shared with `/remote-control`, a phone paired from the dashboard, Pi's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
 
@@ -26,11 +26,11 @@ Filename search is case-insensitive. New browser uploads are marked **You**; loc
 
 **New in 0.3.2:** responsive automation and run-history tables, rounded status chips, matching clay-icon headers, and a single-column automation workspace with full-width mobile controls. **Edit automation** scrolls to and focuses the inline editor. Pull to refresh Overview, Sessions, Automations, or Settings—with a gesture; unsaved settings stay intact. Camera-policy guidance now explains HTTPS proxy configuration. Existing rich results, staged job editing, optional retries, and answers-only automation sessions are retained. See [automations](docs/automations.md).
 
-Pi Companion is deliberately not another agent runtime. Pi owns execution and conversation state. A single Rust daemon owns session discovery, pairing, temporary file exchange, browser fan-out, and the embedded web UI.
+Gentle Companion is deliberately not another agent runtime. Pi owns execution and conversation state. A single Rust daemon owns session discovery, pairing, temporary file exchange, browser fan-out, and the embedded web UI.
 
 The UI is a static SvelteKit application. There is no Node runtime in production and no Tauri shell. Rust embeds the generated frontend into the daemon binary.
 
-![Pi Companion overview, dark theme](docs/dashboard.webp)
+![Gentle Companion overview, dark theme](docs/dashboard.webp)
 
 <p>
   <img src="docs/session-light.webp" alt="Session detail, light theme" width="68%" />
@@ -88,7 +88,7 @@ You do **not** need to run `pi-companion-server` manually for a normal npm insta
          |
          +---- same daemon
 
-The local administration surface and paired-device surface are separate listeners. If you expose Pi Companion through a tunnel, target only port 43722. Never expose port 43721.
+The local administration surface and paired-device surface are separate listeners. If you expose Gentle Companion through a tunnel, target only port 43722. Never expose port 43721.
 
 ## Install the web app on your phone
 
@@ -138,7 +138,9 @@ Companion stores its state, settings, pairing registry and daemon cache under a 
    - `PI_CODING_AGENT_DIR`, when set (Pi agent home)
    - `~/.pi/agent`, otherwise
 
-So under Gentle Shell, Companion defaults to `<GENTLE_PI_AGENT_HOME>/pi-companion` instead of `~/.pi/agent/pi-companion`, while `PI_COMPANION_HOME` always wins. Pairing state, settings, the service folder and the daemon binary cache all follow the same home., first set `PI_COMPANION_SERVICE=0` for Pi, then disable the per-user service: macOS `launchctl bootout gui/$(id -u)/dev.pi-companion.daemon` and remove `~/Library/LaunchAgents/dev.pi-companion.daemon.plist`; Linux `systemctl --user disable --now pi-companion.service` and remove `~/.config/systemd/user/pi-companion.service`; Windows `schtasks /End /TN "Pi Companion"` then `schtasks /Delete /TN "Pi Companion" /F`. Package removal alone does not uninstall an OS service. The supervisor/configuration lives under the daemon home directory's `service/` folder.
+So under Gentle Shell, Companion defaults to `<GENTLE_PI_AGENT_HOME>/pi-companion` instead of `~/.pi/agent/pi-companion`, while `PI_COMPANION_HOME` always wins. Pairing state, settings, the service folder and the daemon binary cache all follow the same home.
+
+To stop the daemon and remove the OS service, first set `PI_COMPANION_SERVICE=0` for Pi, then disable the per-user service: macOS `launchctl bootout gui/$(id -u)/dev.pi-companion.daemon` and remove `~/Library/LaunchAgents/dev.pi-companion.daemon.plist`; Linux `systemctl --user disable --now pi-companion.service` and remove `~/.config/systemd/user/pi-companion.service`; Windows `schtasks /End /TN "Pi Companion"` then `schtasks /Delete /TN "Pi Companion" /F`. Package removal alone does not uninstall an OS service. The supervisor/configuration lives under the daemon home directory's `service/` folder.
 
 Optional environment variables (none are required):
 
@@ -214,7 +216,7 @@ For a terminal-only host, run `npm run --silent pair` from the Companion package
 Pairing is daemon-wide rather than session-specific. Everything lives on the **Devices** page of the local console (port 43721):
 
 1. Choose **Pair a device**. The daemon creates a single-use invitation (5 minutes by default, configurable in Settings) and shows it as a QR code, a copyable link and a short code (`XXXX-XXXX`).
-2. On the phone, open the paired-device address. An unpaired device gets a connect screen: scan the QR code with the in-app camera (HTTPS required), use the phone's camera app to open the invitation link, or type the short code shown beside the QR, then give the device a name. Pi Companion explains why camera access is needed before triggering the browser permission prompt.
+2. On the phone, open the paired-device address. An unpaired device gets a connect screen: scan the QR code with the in-app camera (HTTPS required), use the phone's camera app to open the invitation link, or type the short code shown beside the QR, then give the device a name. Gentle Companion explains why camera access is needed before triggering the browser permission prompt.
 3. The daemon issues a long random credential and stores only its SHA-256 hash.
 
 Typed codes are short, so wrong ones are counted: after ten misses within ten minutes every open invitation is withdrawn and code entry is refused (HTTP 429) until the window passes.
@@ -276,7 +278,7 @@ Each session has an isolated temporary directory beneath the operating system te
 
     <temp>/pi-companion/<session-id>/
 
-On Unix the daemon attempts to set the Pi Companion and session directories to mode 0700.
+On Unix the daemon attempts to set the Gentle Companion and session directories to mode 0700.
 
 The browser can upload a file using the composer’s attachment button, or from **Shared files** in the session menu. Composer attachments show previews, file names, sizes and upload status; validation and upload failures appear beside the file. Image thumbnails are limited to safe raster image types. Removing a preview removes that attachment from the draft; deleting a shared upload remains an explicit action. The current daemon upload policy is checked before selection is uploaded, and the daemon remains authoritative. Current constraints:
 
@@ -300,7 +302,7 @@ which returns the sandbox file paths available to the agent, and:
 
 which destroys one temporary file by opaque id.
 
-This means the agent can consume uploaded artifacts using its normal file capabilities while Pi Companion retains ownership of upload placement and cleanup.
+This means the agent can consume uploaded artifacts using its normal file capabilities while Gentle Companion retains ownership of upload placement and cleanup.
 
 ### Preview agent links and shared files
 
@@ -396,7 +398,7 @@ Design notes:
 - installable PWA: scoped manifest with explicit 192×192 and 512×512 PNG icons plus a maskable icon, standalone display mode, Apple home-screen metadata, and a service worker that caches only the public shell and static assets; API/session traffic and uploads are never cached
 - mobile: bottom tab bar, safe-area insets, 44px touch targets, 16px inputs (no iOS zoom), Enter inserts a newline on touch keyboards
 - accessibility: skip link, visible focus rings, labeled controls and table metadata, accessible session menus, live regions for the feed and questions, reduced-motion support
-- the dot field is Raksara's component, loaded when the browser is idle, paused when hidden, and static under reduced motion. It opens on the Pi Companion mark, then morphs through a computer, a phone and a terminal
+- the dot field is Raksara's component, loaded when the browser is idle, paused when hidden, and static under reduced motion. It opens on the Gentle Companion mark, then morphs through a computer, a phone and a terminal
 - dropping a file anywhere outside the Shared files drop zone is ignored. Without this, the browser tries to open the file itself (Firefox reports this as "may not load or link to file:///")
 
 ### Caching and updates
@@ -431,7 +433,7 @@ There is deliberately no arbitrary shell, arbitrary tool invocation, or arbitrar
 
 ## Running locally from source
 
-Use this only when developing Pi Companion itself. A published install does not require these steps.
+Use this only when developing Gentle Companion itself. A published install does not require these steps.
 
 Requirements: Node 22.19+ (matching Pi 1.4.0) and stable Rust.
 
@@ -442,7 +444,7 @@ Clone the repository, then:
 
 `npm run serve` builds the embedded Svelte UI and starts the Rust daemon in the foreground. It prints:
 
-      Pi Companion v0.3.2
+      Gentle Companion v0.3.14
 
       Console          http://127.0.0.1:43721
       Paired devices   http://127.0.0.1:43722
