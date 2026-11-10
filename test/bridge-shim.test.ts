@@ -25,10 +25,22 @@ function browser() {
     window[name] = class { constructor(url: string) { sent.push({ api: name, url: String(url) }); } };
   }
   const navigator = { sendBeacon: (url: string) => { sent.push({ api: 'beacon', url: String(url) }); return true; } };
+  class FakeElement {
+    attributes: Record<string, string> = {};
+    setAttribute(name: string, value: string) { this.attributes[name] = String(value); }
+  }
+  class FakeIframe extends FakeElement {
+    private current = '';
+    get src() { return this.current; }
+    set src(value: string) { this.current = String(value); }
+  }
+  window.Element = FakeElement;
+  window.HTMLIFrameElement = FakeIframe;
+  window.open = function (url: string) { sent.push({ api: 'open', url: String(url) }); };
   const context = { window, Request: FakeRequest, XMLHttpRequest: FakeXhr, URL, location: { href: PAGE }, navigator };
   const script = template.split('__PREFIX__').join(JSON.stringify(PREFIX)).split('__PORT__').join(String(PORT));
   vm.runInNewContext(script, context);
-  return { window, sent, FakeRequest, navigator, FakeXhr };
+  return { window, sent, FakeRequest, navigator, FakeXhr, FakeElement, FakeIframe };
 }
 
 const REWRITTEN = [
@@ -90,4 +102,19 @@ test('workers are not wrapped: an opaque-origin frame cannot start one from a br
   new (window.SharedWorker as new (url: string) => unknown)('/worker.js');
   assert.deepEqual(sent, [{ api: 'Worker', url: '/worker.js' }, { api: 'SharedWorker', url: '/worker.js' }]);
   assert.doesNotMatch(template, /wrapConstructor\('(?:Shared)?Worker'\)/);
+});
+
+test('shim keeps scripted frame sources, attributes and window.open inside the bridge', () => {
+  const { window, sent, FakeElement, FakeIframe } = browser();
+  const frame = new FakeIframe();
+  frame.src = '/artifact/key/index.html?x=1';
+  assert.equal(frame.src, PREFIX + '/artifact/key/index.html?x=1');
+  frame.src = 'about:blank';
+  assert.equal(frame.src, 'about:blank');
+  const element = new FakeElement();
+  element.setAttribute('src', '/app.js');
+  element.setAttribute('data-note', '/untouched');
+  assert.deepEqual(element.attributes, { src: PREFIX + '/app.js', 'data-note': '/untouched' });
+  (window.open as (url: string) => void)('/doc');
+  assert.deepEqual(sent, [{ api: 'open', url: PREFIX + '/doc' }]);
 });

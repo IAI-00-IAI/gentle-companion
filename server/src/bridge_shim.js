@@ -58,6 +58,56 @@
   }
   wrapConstructor('EventSource');
 
+  // Scripts that assign `iframe.src = '/page'` or call `setAttribute('src', '/page')` after load
+  // would otherwise leave the bridge and load Companion's own app, which refuses to be framed.
+  var URL_PROPERTIES = [
+    ['HTMLIFrameElement', 'src'],
+    ['HTMLScriptElement', 'src'],
+    ['HTMLImageElement', 'src'],
+    ['HTMLSourceElement', 'src'],
+    ['HTMLMediaElement', 'src'],
+    ['HTMLLinkElement', 'href'],
+    ['HTMLAnchorElement', 'href'],
+    ['HTMLFormElement', 'action']
+  ];
+  var URL_ATTRIBUTES = { src: true, href: true, action: true, formaction: true, poster: true };
+
+  function wrapUrlProperty(constructorName, property) {
+    var Native = window[constructorName];
+    if (typeof Native !== 'function') return;
+    var descriptor = Object.getOwnPropertyDescriptor(Native.prototype, property);
+    if (!descriptor || !descriptor.set) return;
+    Object.defineProperty(Native.prototype, property, {
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      get: descriptor.get,
+      set: function (value) {
+        descriptor.set.call(this, rewrite(value));
+      }
+    });
+  }
+  URL_PROPERTIES.forEach(function (entry) {
+    wrapUrlProperty(entry[0], entry[1]);
+  });
+
+  var NativeElement = window.Element;
+  if (typeof NativeElement === 'function' && NativeElement.prototype.setAttribute) {
+    var nativeSetAttribute = NativeElement.prototype.setAttribute;
+    NativeElement.prototype.setAttribute = function (name, value) {
+      if (URL_ATTRIBUTES[String(name).toLowerCase()] === true) value = rewrite(value);
+      return nativeSetAttribute.call(this, name, value);
+    };
+  }
+
+  var nativeWindowOpen = window.open;
+  if (typeof nativeWindowOpen === 'function') {
+    window.open = function (url) {
+      var args = Array.prototype.slice.call(arguments);
+      if (url !== undefined && url !== null) args[0] = rewrite(url);
+      return nativeWindowOpen.apply(this, args);
+    };
+  }
+
   var nativeBeacon = navigator.sendBeacon;
   if (nativeBeacon) {
     navigator.sendBeacon = function (url, data) {

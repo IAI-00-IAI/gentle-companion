@@ -64,6 +64,14 @@ export function previewLink(value: string, baseOrigin?: string): string | undefi
   return url.href;
 }
 
+/** Sites known to refuse framing (`X-Frame-Options` or `frame-ancestors`), so a preview would only show an error. */
+const FRAME_BLOCKING_DOMAINS = ['github.com', 'linkedin.com', 'google.com', 'x.com', 'twitter.com', 'facebook.com', 'instagram.com', 'reddit.com'];
+
+export function blocksEmbedding(url: string): boolean {
+  const hostname = new URL(url).hostname.toLowerCase();
+  return FRAME_BLOCKING_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+}
+
 const MAX_REFERENCE_LENGTH = 1024;
 const LOOPBACK_HTTP = /^http:\/\/(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|\[::1?\])(?::\d{1,5})?(?:[/?#]\S*)?$/i;
 const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
