@@ -41,11 +41,11 @@ Screenshots use demo sessions, not private conversation data, and are regenerate
 
 ## Install
 
-    pi install npm:@yunazgr/pi-companion
+    gentle-shell install npm:@yunazgr/pi-companion
 
 or straight from git:
 
-    pi install git:github.com/ygrip/pi-companion
+    gentle-shell install git:github.com/IAI-00-IAI/gentle-companion
 
 With Gentle Shell (a Pi fork), install the same standard Pi package:
 
@@ -102,9 +102,9 @@ After an online visit, the public app shell and visited immutable assets are cac
 
 For a normal install:
 
-    pi install npm:@yunazgr/pi-companion
+    gentle-shell install npm:@yunazgr/pi-companion
 
-Start Pi normally; daemon availability is automatic. Sessions stay private until `/remote-control` enables sharing. Updating the package and reloading Pi upgrades the daemon to the matching release; older Pi processes do not downgrade a newer daemon.
+Start Gentle Shell normally; daemon availability is automatic. Sessions stay private until `/remote-control` enables sharing. Updating the package and reloading Gentle Shell upgrades the daemon to the matching release; older Gentle Shell processes do not downgrade a newer daemon.
 
 The lifecycle is:
 
@@ -465,9 +465,9 @@ Optional browser regressions run with `npm run test:previews`. Like the screensh
 
 UI modules import shared code through the `#lib/*` subpath import declared in `ui/package.json` (SvelteKit 3 replaced `$lib`). Subpath imports do not guess extensions, so always write the full file name: `#lib/format.ts`, `#lib/companion.svelte.ts`, `#lib/Icon.svelte`. `ui/tsconfig.json` extends SvelteKit's generated `$app/tsconfig`.
 
-Then, in another shell, start Pi with the extension from this checkout:
+Then, in another shell, start Gentle Shell with the extension from this checkout:
 
-    pi -e ./src/index.ts
+    gentle-shell -e ./src/index.ts
 
 After you run `/companion`, the extension detects the development daemon already listening on port 43721 and does not launch another daemon.
 
@@ -477,7 +477,7 @@ For hot-reloading UI work, keep the daemon running and use:
 
 which proxies /api and /ws to the daemon on 43721.
 
-If you start Pi from the checkout without running `npm run serve`, running `/companion` can still auto-start a local daemon build if one exists under `server/target/debug` or `server/target/release`. For predictable UI work, prefer `npm run serve` in one terminal and `pi -e ./src/index.ts` in another.
+If you start Gentle Shell from the checkout without running `npm run serve`, running `/companion` can still auto-start a local daemon build if one exists under `server/target/debug` or `server/target/release`. For predictable UI work, prefer `npm run serve` in one terminal and `gentle-shell -e ./src/index.ts` in another.
 
 To regenerate the README screenshots from demo sessions (your running daemon is left alone; the demo daemon uses ports 43731/43732 and a throwaway data folder):
 
@@ -490,9 +490,9 @@ It needs Playwright and `cwebp`. Set `PLAYWRIGHT=/path/to/node_modules/playwrigh
 
 To test the same behavior as a published install, stop any development daemon first and install the package normally:
 
-    pi install npm:@yunazgr/pi-companion
+    gentle-shell install npm:@yunazgr/pi-companion
 
-Then start Pi. Extension startup ensures the released daemon is available; use `/remote-control` only for sessions you want to share.
+Then start Gentle Shell. Extension startup ensures the released daemon is available; use `/remote-control` only for sessions you want to share.
 
 ## Releases
 
@@ -504,7 +504,7 @@ A tag matching vX.Y.Z triggers both the CI and release workflows.
 
 Before publishing, the workflow requires X.Y.Z to match both package.json and server/Cargo.toml. It then runs TypeScript and Rust checks, builds native daemon archives for Linux x86_64, macOS arm64, macOS x86_64, and Windows x86_64, generates SHA-256 checksums, and creates a GitHub Release.
 
-Only after the GitHub Release exists, the same tag publishes @yunazgr/pi-companion to npm with provenance through npm Trusted Publishing (GitHub OIDC). No long-lived NPM_TOKEN is required. The trusted publisher should point to GitHub owner ygrip, repository pi-companion, workflow release.yml. Git installs need no npm credential.
+Only after the GitHub Release exists, the same tag publishes @yunazgr/pi-companion to npm with provenance through npm Trusted Publishing (GitHub OIDC). No long-lived NPM_TOKEN is required. The trusted publisher should point to GitHub owner IAI-00-IAI, repository gentle-companion, workflow release.yml. Git installs need no npm credential.
 
 On extension load, Companion downloads `pi-companion-server-<os>-<arch>` for its own package version (`releases/download/v<version>/`) if needed, verifies `SHA256SUMS` and the binary version, and caches it under `~/.pi/agent/pi-companion/bin/<version>/`. Upgrades prepare the replacement before gracefully stopping the older daemon. Git installs ahead of the newest release must provide a matching local build; missing releases never trigger a downgrade or shutdown.
 
