@@ -10,6 +10,8 @@
     "remote-control",
     "remote-agent",
     "companion",
+    "gentle-shell",
+    "gentle-pi",
     "session-dashboard",
     "developer-tools",
     "mobile"

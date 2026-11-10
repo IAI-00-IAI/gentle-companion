@@ -47,7 +47,11 @@ or straight from git:
 
     pi install git:github.com/ygrip/pi-companion
 
-Then start Pi as usual. When the extension loads, it checks the local daemon and starts it if needed, downloading the matching sha256-verified release into `~/.pi/agent/pi-companion/bin/<version>/`. Daemon startup does **not** share your session.
+With Gentle Shell (a Pi fork), install the same standard Pi package:
+
+    gentle-shell install npm:@yunazgr/pi-companion
+
+Gentle Shell uses Pi's native package command, so the same `pi` manifest, extension and skill loading apply. When the extension loads, it checks the local daemon and starts it if needed, downloading the matching sha256-verified release into `~/.pi/agent/pi-companion/bin/<version>/`. Daemon startup does **not** share your session.
 
 Use `/remote-control` in any session to toggle sharing; `/remote-control on` and `/remote-control off` are explicit alternatives. No `/companion` prerequisite. `/companion` and `/companion off` remain compatibility aliases.
 
@@ -120,11 +124,21 @@ The daemon binary is resolved in this order:
 |---|---|
 | 1 | PI_COMPANION_SERVER (explicit path override) |
 | 2 | a cargo build inside the package checkout: newest of server/target/release and server/target/debug |
-| 3 | cached download: ~/.pi/agent/pi-companion/bin/<version>/ |
+| 3 | cached download: <companion home>/bin/<version>/ |
 | 4 | pi-companion-server on PATH |
 | 5 | download of the GitHub release matching the package version, verified against SHA256SUMS, then cached |
 
-To remove background startup, first set `PI_COMPANION_SERVICE=0` for Pi, then disable the per-user service: macOS `launchctl bootout gui/$(id -u)/dev.pi-companion.daemon` and remove `~/Library/LaunchAgents/dev.pi-companion.daemon.plist`; Linux `systemctl --user disable --now pi-companion.service` and remove `~/.config/systemd/user/pi-companion.service`; Windows `schtasks /End /TN "Pi Companion"` then `schtasks /Delete /TN "Pi Companion" /F`. Package removal alone does not uninstall an OS service. The supervisor/configuration lives under the daemon home directory's `service/` folder.
+### Companion data home
+
+Companion stores its state, settings, pairing registry and daemon cache under a companion home. The home is resolved in this order:
+
+1. `PI_COMPANION_HOME`, when set (the full override, unchanged behavior)
+2. `<agent home>/pi-companion`, where `<agent home>` comes from:
+   - `GENTLE_PI_AGENT_HOME`, when set (Gentle Shell launcher default)
+   - `PI_CODING_AGENT_DIR`, when set (Pi agent home)
+   - `~/.pi/agent`, otherwise
+
+So under Gentle Shell, Companion defaults to `<GENTLE_PI_AGENT_HOME>/pi-companion` instead of `~/.pi/agent/pi-companion`, while `PI_COMPANION_HOME` always wins. Pairing state, settings, the service folder and the daemon binary cache all follow the same home., first set `PI_COMPANION_SERVICE=0` for Pi, then disable the per-user service: macOS `launchctl bootout gui/$(id -u)/dev.pi-companion.daemon` and remove `~/Library/LaunchAgents/dev.pi-companion.daemon.plist`; Linux `systemctl --user disable --now pi-companion.service` and remove `~/.config/systemd/user/pi-companion.service`; Windows `schtasks /End /TN "Pi Companion"` then `schtasks /Delete /TN "Pi Companion" /F`. Package removal alone does not uninstall an OS service. The supervisor/configuration lives under the daemon home directory's `service/` folder.
 
 Optional environment variables (none are required):
 
@@ -138,6 +152,8 @@ Optional environment variables (none are required):
 | PI_COMPANION_PUBLIC_URL | daemon-side: public URL embedded in pairing QR codes |
 | PI_COMPANION_ALLOWED_ORIGINS | daemon-side: extra comma-separated browser origins accepted besides the loopback addresses and the public URL |
 | PI_COMPANION_ADMIN_ADDR, PI_COMPANION_DEVICE_ADDR | daemon-side: loopback listen addresses (default `127.0.0.1:43721` / `127.0.0.1:43722`), for running a second daemon next to the usual one, e.g. for screenshots. The extension still looks for 43721 unless `PI_COMPANION_URL` points elsewhere |
+| GENTLE_PI_AGENT_HOME | Companion data home becomes `<GENTLE_PI_AGENT_HOME>/pi-companion`; Gentle Shell sets this. Overridden by `PI_COMPANION_HOME` |
+| PI_CODING_AGENT_DIR | Companion data home becomes `<PI_CODING_AGENT_DIR>/pi-companion`; Pi agent home. Overridden by `PI_COMPANION_HOME`, `GENTLE_PI_AGENT_HOME` |
 
 Local admin:
 
