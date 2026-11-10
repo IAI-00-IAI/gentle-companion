@@ -35,5 +35,25 @@ Feature: `gentle-shell-adapt`. Make the `pi-companion` package usable under the 
 - L2 (decisions): Integration = "Paquete Pi estándar". Identity = "Gentle Companion, tema rosa oscuro".
 - L3 (evidence): gentle-shell agent home = `GENTLE_PI_AGENT_HOME || PI_CODING_AGENT_DIR || ~/.pi/agent`; launcher sets `PI_CODING_AGENT_DIR`+`GENTLE_PI_AGENT_HOME` to home. pi-companion data dir currently `PI_COMPANION_HOME || ~/.pi/agent/pi-companion`. Pi version aligned at 1.4.0. gentle-shell default look = Gentleman-Cute dark rose.
 
-## Progress
-- T1..T5 pending.
+## Progress — complete
+- T1 — Resolve companion data home from gentle-shell home env vars. DONE. Route: `server/src/config.rs` + Rust test. Commit: `9d8f6ab`. Covers S1.
+- T1b — TypeScript home resolution. DONE. Route: `src/home.ts` (new), `src/daemon.ts`, `src/background-service.ts`, `test/home.test.ts` (new), `test/daemon-lifecycle.test.ts`. Commit: `9d6843a`. Covers S1 (extension side).
+- T2 — Keep pi-companion loadable as a standard Pi package under gentle-shell; add install helper/docs. DONE. Route: `package.json`, `tools/install-gentle-shell.mjs` (new), `README.md`. Commit: `b6b9df3`. Covers S2, S5.
+- T3 — Restyle web UI with gentle-shell dark-rose tokens. DONE. Route: `ui/src/app.css`, `ui/src/lib/theme.svelte.ts`, `ui/src/routes/settings/+page.svelte`. Commit: `eccce0d`. Covers S3.
+- T4 — Rebrand UI to "Gentle Companion". DONE. Route: `+layout.svelte`, `manifest.webmanifest`, `app.html`, `logo.svg`, PWA icons, `service-worker.js`, all UI brand strings. Commit: `eccce0d` (with T3). Covers S4.
+- T5 — Build, test, smoke. DONE. Verification evidence below.
+
+## Verification evidence (T5)
+- UI build: `npm run ui:build` — ✓ wrote `server/web-dist`; dark-rose tokens present in built CSS, old amber palette absent, "Gentle Companion" present in built HTML/manifest.
+- TypeScript tests: `node --test --experimental-transform-types test/*.test.ts ui/automation.test.ts` (Node v24.18.0) — 268 tests, 268 pass, 0 fail.
+- Rust tests: `cargo test --manifest-path server/Cargo.toml` — 66 passed, 0 failed.
+- Type check: `npm run check` — tsc --noEmit clean; svelte-check 0 errors, 0 warnings.
+- Smoke: `npm run test:smoke` — UI build + cargo build + daemon HTTP smoke: "Daemon HTTP smoke passed: routes, version, create/start/history, authentication, shutdown."
+
+## Delivery
+- Work-unit commits on `feat/gentle-shell-adapt` (4 commits, 594 authored lines):
+  - `9d8f6ab` feat(server): resolve companion data home from gentle-shell agent home
+  - `9d6843a` feat(extension): resolve companion home from gentle-shell agent home
+  - `b6b9df3` docs: add gentle-shell install path and companion home reference
+  - `eccce0d` feat(ui): restyle with gentle-shell dark-rose theme and rebrand to Gentle Companion
+- Push / PR / merge remain the user's decisions.
