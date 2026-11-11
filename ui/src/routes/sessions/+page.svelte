@@ -6,6 +6,7 @@
   import clayIcon from '../../assets/clay/chat-bubble.webp';
   import { companion } from '#lib/companion.svelte.ts';
   import { prettyPath, sessionTitle } from '#lib/format.ts';
+  import { t } from '#lib/i18n.svelte.ts';
   import type { SessionStatus } from '#lib/types.ts';
 
   type Filter = 'all' | SessionStatus;
@@ -19,12 +20,12 @@
     stopped: companion.sessions.filter((s) => s.status === 'stopped').length
   });
 
-  const filters: { value: Filter; label: string }[] = [
-    { value: 'all', label: 'All' },
-    { value: 'active', label: 'Working' },
-    { value: 'idle', label: 'Waiting' },
-    { value: 'stopped', label: 'Ended' }
-  ];
+  const filters = $derived([
+    { value: 'all' as Filter, label: t('sessions.filter.all') },
+    { value: 'active' as Filter, label: t('sessions.filter.working') },
+    { value: 'idle' as Filter, label: t('sessions.filter.waiting') },
+    { value: 'stopped' as Filter, label: t('sessions.filter.ended') }
+  ]);
 
   const shown = $derived.by(() => {
     const needle = query.trim().toLowerCase();
@@ -39,19 +40,19 @@
   });
 </script>
 
-<svelte:head><title>Sessions · Gentle Companion</title></svelte:head>
+<svelte:head><title>{t('sessions.title')} · Gentle Companion</title></svelte:head>
 
 <div class="page automation-workspace">
   <PullToRefresh onrefresh={() => companion.refresh()} />
-  <PageHero icon={clayIcon} eyebrow="A LITTLE SPACE TO THINK" title="Sessions" subtitle="Big ideas, small check-ins. Follow what Pi’s working on from anywhere." />
+  <PageHero icon={clayIcon} eyebrow={t('sessions.eyebrow')} title={t('sessions.title')} subtitle={t('sessions.subtitle')} />
 
   <div class="toolbar clay">
     <label class="search">
-      <span class="field-label">Search sessions</span>
-      <span class="search-field"><Icon name="search" size={16} /><input class="input" type="search" placeholder="Name, workspace or model" bind:value={query} autocomplete="off" /></span>
+      <span class="field-label">{t('sessions.search.label')}</span>
+      <span class="search-field"><Icon name="search" size={16} /><input class="input" type="search" placeholder={t('sessions.search.placeholder')} bind:value={query} autocomplete="off" /></span>
     </label>
     <div class="filter-field">
-      <span class="field-label" id="session-status-label">Session status</span>
+      <span class="field-label" id="session-status-label">{t('sessions.status.label')}</span>
       <div class="segmented scroll-x" role="group" aria-labelledby="session-status-label">
         {#each filters as option (option.value)}
           <button aria-pressed={filter === option.value} onclick={() => (filter = option.value)}>
@@ -62,31 +63,31 @@
     </div>
   </div>
 
-  {#if companion.sessions.length}<p class="list-summary" role="status">Showing {shown.length} of {companion.sessions.length} {companion.sessions.length === 1 ? 'session' : 'sessions'}</p>{/if}
+  {#if companion.sessions.length}<p class="list-summary" role="status">{t('sessions.showing', { count: shown.length, total: companion.sessions.length, unit: companion.sessions.length === 1 ? t('sessions.plural.one') : t('sessions.plural.many') })}</p>{/if}
 
   {#if shown.length}
-    <ul class="session-list" aria-label="Pi sessions">
+    <ul class="session-list" aria-label={t('sessions.title')}>
       {#each shown as session (session.id)}<li><SessionCard {session} /></li>{/each}
     </ul>
   {:else if companion.sessions.length}
     <div class="card empty">
       <span class="empty-icon"><Icon name="search" /></span>
-      <h2>No matching sessions</h2>
-      <p>Try a different search or status filter.</p>
-      <button class="btn btn-sm" onclick={() => ((query = ''), (filter = 'all'))}>Clear filters</button>
+      <h2>{t('sessions.empty.matching.title')}</h2>
+      <p>{t('sessions.empty.matching.body')}</p>
+      <button class="btn btn-sm" onclick={() => ((query = ''), (filter = 'all'))}>{t('sessions.clear')}</button>
     </div>
   {:else}
     <div class="card empty">
       <span class="empty-icon"><Icon name="sessions" /></span>
       {#if companion.connection !== 'online'}
-        <h2>Waiting for workspace connection</h2>
-        <p>Your session list will refresh when the workspace is reachable again.</p>
+        <h2>{t('sessions.empty.waiting.title')}</h2>
+        <p>{t('sessions.empty.waiting.body')}</p>
       {:else if companion.isAdmin}
-        <h2>No Pi sessions yet</h2>
-        <p>Start <code>pi</code> in any project folder, then run <code>/companion</code> to start the daemon and connect that session.</p>
+        <h2>{t('sessions.empty.none.title')}</h2>
+        <p>{t('sessions.empty.none.body')}</p>
       {:else}
-        <h2>Nothing shared yet</h2>
-        <p>On your computer, type <code>/companion</code> inside a Pi session to share it here.</p>
+        <h2>{t('sessions.empty.shared.title')}</h2>
+        <p>{t('sessions.empty.shared.body')}</p>
       {/if}
     </div>
   {/if}

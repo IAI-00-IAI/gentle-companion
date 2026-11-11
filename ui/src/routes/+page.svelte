@@ -16,7 +16,7 @@
   import SessionCard from '#lib/SessionCard.svelte';
   import SessionTable from '#lib/SessionTable.svelte';
   import { companion } from '#lib/companion.svelte.ts';
-  import { lang, setLang, t, LOCALES, localeName } from '#lib/i18n.svelte.ts';
+  import { getLang, setLang, t, LOCALES, localeName } from '#lib/i18n.svelte.ts';
 
   // The dot field opens on the Gentle Companion mark, then cycles computer → phone → terminal.
   const art = [gentleLogo, heroShell, heroChanges];
@@ -121,7 +121,7 @@
       </ol>
       <div class="lang" role="group" aria-label={t('lang.label')}>
         {#each LOCALES as loc}
-          <button class="lang-btn" class:active={lang === loc} aria-pressed={lang === loc} onclick={() => setLang(loc)}>
+          <button class="lang-btn" class:active={getLang() === loc} aria-pressed={getLang() === loc} onclick={() => setLang(loc)}>
             {localeName(loc)}
           </button>
         {/each}

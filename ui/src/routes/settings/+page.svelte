@@ -116,7 +116,7 @@
   }
 </script>
 
-<svelte:head><title>Settings · Gentle Companion</title></svelte:head>
+<svelte:head><title>{t('settings.hero.title')} · Gentle Companion</title></svelte:head>
 
 <div class="page narrow automation-workspace">
   <PullToRefresh onrefresh={refreshSettings} />
@@ -254,9 +254,9 @@
       {#if usage.length}
         <!-- The scroll region is focusable so keyboard users can scroll every table column. -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-        <div class="usage-scroll" role="region" aria-label="Provider usage table, scroll horizontally for all columns" tabindex="0">
+        <div class="usage-scroll" role="region" aria-label={t('settings.usage.scroll.aria')} class:primary={false} tabindex="0">
           <table class="usage-table">
-            <caption>{t('settings.usage.caption')}</caption>
+            <caption class="primary">{t('settings.usage.caption')}</caption>
             <thead><tr><th scope="col">{t('settings.usage.col.provider')}</th><th scope="col">{t('settings.usage.col.weekly')}</th><th scope="col">{t('settings.usage.col.fivehour')}</th><th scope="col">{t('settings.usage.col.tokens')}</th><th scope="col">{t('settings.usage.col.cost')}</th><th scope="col">{t('settings.usage.col.last')}</th></tr></thead>
             <tbody>
               {#each usage as snapshot (snapshot.provider.toLowerCase())}
@@ -275,7 +275,7 @@
             </tbody>
           </table>
         </div>
-        <div class="usage-cards" aria-label="Provider usage">
+        <div class="usage-cards" class:primary={false} aria-label={t('settings.usage.caption')}>
           {#each usage as snapshot (snapshot.provider.toLowerCase())}
             <article class="usage-card">
               <div class="usage-card-head"><strong>{snapshot.provider}</strong><span class="subtle">{snapshot.source || t('settings.usage.source.notreported')}</span></div>

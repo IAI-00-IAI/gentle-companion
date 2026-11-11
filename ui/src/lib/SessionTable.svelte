@@ -3,6 +3,7 @@
   import AutomatedSessionBadge from './AutomatedSessionBadge.svelte';
   import { companion } from './companion.svelte.ts';
   import { prettyPath, sessionTitle, statusLabel } from './format.ts';
+  import { t } from './i18n.svelte.ts';
   import type { Session } from './types.ts';
 
   let { sessions, label = 'Live sessions' }: { sessions: Session[]; label?: string } = $props();
@@ -10,23 +11,23 @@
 
 <div class="session-table clay">
   <table aria-label={label}>
-    <caption class="sr-only">{label}: session, workspace, model, status and actions.</caption>
+    <caption class="sr-only">{t('sessiontable.caption', { label })}</caption>
     <thead>
-      <tr><th scope="col">Session</th><th scope="col">Workspace</th><th scope="col">Model</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr>
+      <tr><th scope="col">{t('sessiontable.th.session')}</th><th scope="col">{t('sessiontable.th.workspace')}</th><th scope="col">{t('sessiontable.th.model')}</th><th scope="col">{t('sessiontable.th.status')}</th><th scope="col"><span class="sr-only">{t('sessiontable.th.actions')}</span></th></tr>
     </thead>
     <tbody>
       {#each sessions as session (session.id)}
         {@const waiting = companion.pendingAsks(session.id)}
         <tr>
-          <td class="session-cell" data-label="Session">
+          <td class="session-cell" data-label={t('sessiontable.data.session')}>
             <a class="session-title" href="/sessions/{encodeURIComponent(session.id)}">{sessionTitle(session)}</a>
             {#if session.readOnly || session.automationId}<AutomatedSessionBadge />{/if}
             {#if session.shortTitle.trim() && session.shortTitle.trim() !== sessionTitle(session)}<span class="short-title">{session.shortTitle}</span>{/if}
-            {#if waiting}<span class="question-count"><Icon name="question" size={14} />{waiting} {waiting === 1 ? 'question waiting' : 'questions waiting'}</span>{/if}
+            {#if waiting}<span class="question-count"><Icon name="question" size={14} />{waiting} {waiting === 1 ? t('sessiontable.question.1') : t('sessiontable.question.plural')}</span>{/if}
           </td>
-          <td class="workspace-cell" data-label="Workspace"><span class="workspace" title={session.cwd}><Icon name="folder" size={14} /><code>{prettyPath(session.cwd)}</code></span></td>
-          <td class="model-cell" data-label="Model"><span class="model">{session.mainModel ?? 'Not reported'}</span>{#if session.effort}<span class="effort">Thinking: {session.effort}</span>{/if}</td>
-          <td class="state-cell" data-label="Status"><span class="badge" class:ok={session.status === 'active'} class:accent={session.status === 'idle'}><span class="dot {session.status}" aria-hidden="true"></span>{statusLabel[session.status]}</span></td>
+          <td class="workspace-cell" data-label={t('sessiontable.data.workspace')}><span class="workspace" title={session.cwd}><Icon name="folder" size={14} /><code>{prettyPath(session.cwd)}</code></span></td>
+          <td class="model-cell" data-label={t('sessiontable.data.model')}><span class="model">{session.mainModel ?? t('sessiontable.model.none')}</span>{#if session.effort}<span class="effort">{t('sessiontable.thinking')} {session.effort}</span>{/if}</td>
+          <td class="state-cell" data-label={t('sessiontable.data.status')}><span class="badge" class:ok={session.status === 'active'} class:accent={session.status === 'idle'}><span class="dot {session.status}" aria-hidden="true"></span>{statusLabel(session.status)}</span></td>
           <td class="action-cell" aria-hidden="true"><span class="open"><Icon name="chevron" size={16} /></span></td>
         </tr>
       {/each}
@@ -42,13 +43,13 @@
         <div class="mobile-session-name">
           <strong>{sessionTitle(session)}</strong>
           {#if session.readOnly || session.automationId}<AutomatedSessionBadge />{/if}
-          {#if waiting}<span class="question-count"><Icon name="question" size={14} />{waiting} {waiting === 1 ? 'question waiting' : 'questions waiting'}</span>{/if}
+          {#if waiting}<span class="question-count"><Icon name="question" size={14} />{waiting} {waiting === 1 ? t('sessiontable.question.1') : t('sessiontable.question.plural')}</span>{/if}
         </div>
-        <span class="badge" class:ok={session.status === 'active'} class:accent={session.status === 'idle'}><span class="dot {session.status}" aria-hidden="true"></span>{statusLabel[session.status]}</span>
+        <span class="badge" class:ok={session.status === 'active'} class:accent={session.status === 'idle'}><span class="dot {session.status}" aria-hidden="true"></span>{statusLabel(session.status)}</span>
       </div>
       <div class="mobile-session-path"><Icon name="folder" size={15} /><code>{prettyPath(session.cwd)}</code></div>
       <div class="mobile-session-bottom">
-        <span class="mobile-session-model">{session.mainModel ?? 'Model not reported'}{#if session.effort}<small> · {session.effort}</small>{/if}</span>
+        <span class="mobile-session-model">{session.mainModel ?? t('sessiontable.model.mobile')}{#if session.effort}<small> · {session.effort}</small>{/if}</span>
         <span class="mobile-session-arrow" aria-hidden="true"><Icon name="chevron" size={17} /></span>
       </div>
     </a>

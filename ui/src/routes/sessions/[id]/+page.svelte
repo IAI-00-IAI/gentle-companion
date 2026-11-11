@@ -14,6 +14,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { elapsedTime, formatBytes, prettyPath, relativeTime, sessionTitle, statusLabel } from '#lib/format.ts';
   import { contextUsage, estimatedCost } from '#lib/usage.ts';
+  import { t } from '#lib/i18n.svelte.ts';
   import { prettify, renderMarkdown } from '#lib/markdown.ts';
   import { errorMessage, toasts } from '#lib/toast.svelte.ts';
   import type { ActivityEntry } from '#lib/activity.ts';
@@ -115,10 +116,11 @@
 
   /** "Thought for 12s" once reasoning ends; the next feed entry marks when it stopped. */
   function thoughtLabel(entry: ActivityEntry, next?: ActivityEntry) {
-    const seconds = next ? Math.round((next.at - entry.at) / 1000) : 0;
-    if (seconds < 1) return 'Thought';
-    if (seconds < 60) return `Thought for ${seconds}s`;
-    return `Thought for ${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    const duration = next ? next.at - entry.at : 0;
+    const ms = Math.max(0, duration);
+    if (ms < 2000) return t('session.detail.thought');
+    if (ms < 60000) return t('session.detail.thought.seconds', { n: Math.round(ms / 1000) });
+    return t('session.detail.thought.minutes', { m: Math.floor(ms / 60000), s: Math.floor((ms % 60000) / 1000) });
   }
 
   /** Latest readable line of a streaming thought, stripped of markdown syntax. */
@@ -138,7 +140,7 @@
   const taskParents = $derived(new Set(tasks.flatMap(task => task.parentId ? [task.parentId] : [])));
   const taskLeaves = $derived(tasks.filter(task => !taskParents.has(task.id)));
   const completedTasks = $derived(taskLeaves.filter(task => task.status === 'completed').length);
-  const taskLabels = { pending: 'Pending', in_progress: 'In progress', completed: 'Done' } as const;
+  const taskLabels = $derived({ pending: t('session.detail.task.pending'), in_progress: t('session.detail.task.inprogress'), completed: t('session.detail.task.completed') } as const);
   const readOnly = $derived(Boolean(session?.readOnly || session?.automationId));
   const feed = $derived(companion.activity[id] ?? []);
   /** Uploads use HTTP, not the live socket; only a deliberate disconnect/revocation blocks them. */
@@ -270,7 +272,7 @@
     releasePreviews();
     attachments = [];
     draftGeneration += 1;
-    toasts.show('Session ended or is no longer shared. Draft attachments were cleared; message text was kept.', 'info');
+    toasts.show(t('session.detail.attachments.cleared'), 'info');
   });
 
   // Follow the newest activity unless the reader scrolled up.
@@ -363,10 +365,10 @@
       ? companion.send(id, { type: 'plan', text })
       : companion.prompt(id, text, steer && session?.status === 'active');
     if (!sent) {
-      toasts.show('Not connected. Your message was not sent.', 'error');
+      toasts.show(t('session.detail.notconnected'), 'error');
       return;
     }
-    if (mode === 'plan') toasts.show('Planning requested. Follow along in Activity.', 'success');
+    if (mode === 'plan') toasts.show(t('session.detail.planning'), 'success');
     prompt = '';
     releasePreviews();
     attachments = [];
@@ -407,7 +409,7 @@
     if (readOnly || ended) return;
     staged = nextStaged;
     diffFilter = '';
-    if (!companion.requestDiff(id, nextStaged, worktree)) toasts.show('Not connected.', 'error');
+    if (!companion.requestDiff(id, nextStaged, worktree)) toasts.show(t('session.detail.notconnected.toast'), 'error');
   }
 
   async function uploadFiles(list: FileList | File[] | null | undefined) {
@@ -457,7 +459,7 @@
       await companion.removeFile(targetSession, fileId);
       if (id !== targetSession || disposed) return;
       for (const item of attachments.filter((attachment) => attachment.uploaded?.id === fileId)) detachAttachment(item.key);
-      toasts.show(name + ' removed.');
+      toasts.show(t('session.detail.removed', { name }));
     } catch (error) {
       if (id === targetSession && !disposed) toasts.show(errorMessage(error), 'error');
     }
@@ -483,20 +485,20 @@
 </script>
 
 <svelte:window onkeydown={menuKey} onpointerdown={closeMenuOutside} />
-<svelte:head><title>{session ? sessionTitle(session) : 'Session'} · Gentle Companion</title></svelte:head>
+<svelte:head><title>{session ? sessionTitle(session) : t('session.detail.title')} · Gentle Companion</title></svelte:head>
 
 {#if !session}
   <div class="page">
     <div class="card empty">
       <span class="empty-icon"><Icon name="sessions" /></span>
       {#if companion.connection !== 'online'}
-        <h2>Waiting for workspace connection</h2>
-        <p>We cannot confirm this session’s status until your workspace reconnects.</p>
+        <h2>{t('session.detail.waiting')}</h2>
+        <p>{t('session.detail.waiting.body')}</p>
       {:else}
-        <h2>Session not found</h2>
-        <p>It may have ended before the daemon restarted{companion.remote ? ', or your computer stopped sharing it' : ''}.</p>
+        <h2>{t('session.detail.notfound')}</h2>
+        <p>{t('session.detail.notfound.body', { remote: companion.remote ? ' or your computer stopped sharing it' : '' })}</p>
       {/if}
-      <a class="btn btn-sm" href="/sessions"><Icon name="back" size={16} />All sessions</a>
+      <a class="btn btn-sm" href="/sessions"><Icon name="back" size={16} />{t('session.detail.all')}</a>
     </div>
   </div>
 {:else}
@@ -504,14 +506,14 @@
     <header class="head">
       <a class="btn btn-ghost btn-icon" href="/sessions" aria-label="All sessions"><Icon name="back" /></a>
       <h1 class="title">
-        <button aria-expanded={infoOpen} aria-controls="session-info" aria-label="Session information: {sessionTitle(session)}. Status: {statusLabel[session.status]}" title="Show session information" onclick={() => (infoOpen = !infoOpen)}>
+        <button aria-expanded={infoOpen} aria-controls="session-info" aria-label={t('session.detail.info') + ': ' + sessionTitle(session) + '. ' + t('session.detail.status') + ': ' + statusLabel(session.status)} title={t('session.detail.info')} onclick={() => (infoOpen = !infoOpen)}>
           <span class="dot {session.status} session-dot" aria-hidden="true"></span>
           <span>{sessionTitle(session)}</span>
           <Icon name="chevron" size={16} class="caret" />
         </button>
       </h1>
       {#if asks.length}
-        <button class="badge count ask-count" onclick={() => (askOpen = true)} aria-label="{asks.length} {asks.length === 1 ? 'question' : 'questions'} waiting, open">
+        <button class="badge count ask-count" onclick={() => (askOpen = true)} aria-label={asks.length + ' ' + (asks.length === 1 ? t('session.detail.question') : t('session.detail.questions')) + ' waiting, open'}>
           {asks.length}
         </button>
       {/if}
@@ -519,47 +521,47 @@
         <summary class="btn btn-ghost btn-icon" aria-label="Session options" title="Session options"><Icon name="more" /></summary>
         <div class="menu-actions">
           {#if !readOnly}
-            <button type="button" class="btn btn-ghost" onclick={() => selectTab('files')}><Icon name="folder" size={16} />Shared files{#if files.length}<span class="badge count quiet">{files.length}</span>{/if}</button>
-            <button type="button" class="btn btn-ghost" onclick={() => selectTab('changes')}><Icon name="diff" size={16} />Changes{#if diffStats.files}<span class="badge count quiet">{diffStats.files}</span>{/if}</button>
+            <button type="button" class="btn btn-ghost" onclick={() => selectTab('files')}><Icon name="folder" size={16} />{t('session.detail.files')}{#if files.length}<span class="badge count quiet">{files.length}</span>{/if}</button>
+            <button type="button" class="btn btn-ghost" onclick={() => selectTab('changes')}><Icon name="diff" size={16} />{t('session.detail.changes')}{#if diffStats.files}<span class="badge count quiet">{diffStats.files}</span>{/if}</button>
           {/if}
-          <button type="button" class="btn btn-ghost" onclick={openBackground} aria-haspopup="dialog"><Icon name="activity" size={16} />Background work<span class="badge count quiet">{backgroundShells.length + backgroundAgents.length}</span></button>
-          <button type="button" class="btn btn-ghost" onclick={openTasks} aria-haspopup="dialog"><Icon name="plan" size={16} />Tasks<span class="badge count quiet">{completedTasks}/{taskLeaves.length}</span></button>
+          <button type="button" class="btn btn-ghost" onclick={openBackground} aria-haspopup="dialog"><Icon name="activity" size={16} />{t('session.detail.background')}<span class="badge count quiet">{backgroundShells.length + backgroundAgents.length}</span></button>
+          <button type="button" class="btn btn-ghost" onclick={openTasks} aria-haspopup="dialog"><Icon name="plan" size={16} />{t('session.detail.tasks')}<span class="badge count quiet">{completedTasks}/{taskLeaves.length}</span></button>
           <ArchiveSession {session} redirect />
-          {#if !ended}<p>Only ended sessions can be archived.</p>{/if}
+          {#if !ended}<p>{t('session.detail.archive.note')}</p>{/if}
         </div>
       </details>
     </header>
 
     <div class="info chips" id="session-info" hidden={!infoOpen}>
-      <span class="chip"><span class="dot {session.status}" aria-hidden="true"></span><span>Status: {statusLabel[session.status]}</span></span>
+      <span class="chip"><span class="dot {session.status}" aria-hidden="true"></span><span>{t('session.detail.status')} {statusLabel(session.status)}</span></span>
       <span class="chip mono" title={session.cwd}><Icon name="folder" size={13} /><span>{prettyPath(session.cwd)}</span></span>
       {#if session.mainModel}<span class="chip"><Icon name="sparkle" size={13} /><span>{session.mainModel}</span></span>{/if}
       {#if session.effort}<span class="chip"><Icon name="brain" size={13} /><span>{session.effort}</span></span>{/if}
       <span class="chip" title={session.telemetry?.context?.source ? `Reported by ${session.telemetry.context.source}${ended ? ' · last session snapshot' : ''}` : 'Context usage is unavailable until Pi or an extension reports it.'}>
-        <Icon name="activity" size={13} /><span>Context{ended ? ' (last report)' : ''}: {contextUsage(session.telemetry?.context)}</span>
+        <Icon name="activity" size={13} /><span>{t('session.detail.context')}{ended ? t('session.detail.lastreport') : ''}: {contextUsage(session.telemetry?.context)}</span>
       </span>
-      <span class="chip" title={session.telemetry?.cost?.source ? `Reported by ${session.telemetry.cost.source}. Estimated, not a billing total.` : 'Estimated session cost, not a billing total. Unavailable until Pi or an extension reports it.'}>
-        <span>Estimated cost: {estimatedCost(session.telemetry?.cost)}</span>
+      <span class="chip">
+        <span>{t('session.detail.cost')}: {estimatedCost(session.telemetry?.cost)}</span>
       </span>
       {#if companion.isAdmin}
         <span class="chip" class:on={session.remoteEnabled}>
-          <Icon name="link" size={13} /><span>{session.remoteEnabled ? 'Shared with devices' : 'Not shared · run /companion'}</span>
+          <Icon name="link" size={13} /><span>{session.remoteEnabled ? t('session.detail.shared') : t('session.detail.notshared')}</span>
         </span>
       {/if}
-      <span class="chip"><span>Started {relativeTime(session.connectedAt)}</span></span>
+      <span class="chip"><span>{t('session.detail.started')} {relativeTime(session.connectedAt)}</span></span>
     </div>
 
     <dialog class="background-popup" bind:this={backgroundDialog} aria-labelledby="background-title" onclose={() => { backgroundOpen = false; focusSessionMenu(); }}>
-      <header><div><h2 id="background-title">Background work</h2><p>{companion.connection === 'online' ? 'Latest reported activity in this session.' : 'Last reported activity. Reconnect for updates.'}</p></div><button type="button" class="btn btn-ghost btn-icon" aria-label="Close background work" onclick={() => backgroundDialog?.close()}><Icon name="close" /></button></header>
-      {#if backgroundShells.length}<h3>Background shells</h3><ul>{#each backgroundShells as item (item.id)}<li><Icon name="activity" size={16} /><div><strong>{item.name}</strong><code>{item.id}</code><small class="background-elapsed" title="Elapsed since the source start time, or the first active report when no timestamp is provided"><Icon name="clock" size={12} />{elapsedTime(item.startedAt, backgroundNow)}{#if item.startedAt !== undefined}<span>{' elapsed'}</span>{/if}</small></div><span class="background-state">{backgroundStatus(item, 'running')}</span></li>{/each}</ul>{/if}
-      {#if backgroundAgents.length}<h3>Subagents</h3><ul>{#each backgroundAgents as item (item.id)}<li><Icon name="brain" size={16} /><div><strong>{item.name}</strong><code>{item.id}</code><small class="background-elapsed" title="Elapsed since the source start time, or the first active report when no timestamp is provided"><Icon name="clock" size={12} />{elapsedTime(item.startedAt, backgroundNow)}{#if item.startedAt !== undefined}<span>{' elapsed'}</span>{/if}</small></div><span class="background-state">{backgroundStatus(item, 'working')}</span></li>{/each}</ul>{/if}
-      {#if !backgroundShells.length && !backgroundAgents.length}<p class="subtle">No background work is currently reported.</p>{/if}
+      <header><div><h2 id="background-title">{t('session.detail.background')}</h2><p>{companion.connection === 'online' ? t('session.detail.bg.online') : t('session.detail.bg.offline')}</p></div><button type="button" class="btn btn-ghost btn-icon" aria-label={t('session.detail.bg.close')} onclick={() => backgroundDialog?.close()}><Icon name="close" /></button></header>
+      {#if backgroundShells.length}<h3>{t('session.detail.bg.shells')}</h3><ul>{#each backgroundShells as item (item.id)}<li><Icon name="activity" size={16} /><div><strong>{item.name}</strong><code>{item.id}</code><small class="background-elapsed" title={t('session.detail.bg.elapsed')}><Icon name="clock" size={12} />{elapsedTime(item.startedAt, backgroundNow)}{#if item.startedAt !== undefined}<span>{t('session.detail.elapsed')}</span>{/if}</small></div><span class="background-state">{backgroundStatus(item, 'running')}</span></li>{/each}</ul>{/if}
+      {#if backgroundAgents.length}<h3>{t('session.detail.bg.subagents')}</h3><ul>{#each backgroundAgents as item (item.id)}<li><Icon name="brain" size={16} /><div><strong>{item.name}</strong><code>{item.id}</code><small class="background-elapsed" title={t('session.detail.bg.elapsed')}><Icon name="clock" size={12} />{elapsedTime(item.startedAt, backgroundNow)}{#if item.startedAt !== undefined}<span>{t('session.detail.elapsed')}</span>{/if}</small></div><span class="background-state">{backgroundStatus(item, 'working')}</span></li>{/each}</ul>{/if}
+      {#if !backgroundShells.length && !backgroundAgents.length}<p class="subtle">{t('session.detail.bg.empty')}</p>{/if}
     </dialog>
 
     <dialog class="background-popup task-popup" bind:this={taskDialog} aria-labelledby="tasks-title" onclose={focusSessionMenu}>
-      <header><div><h2 id="tasks-title">Tracked tasks</h2><p>{completedTasks} of {taskLeaves.length} complete{#if companion.connection !== 'online'} · last reported{/if}</p></div><button type="button" class="btn btn-ghost btn-icon" aria-label="Close tracked tasks" onclick={() => taskDialog?.close()}><Icon name="close" /></button></header>
+      <header><div><h2 id="tasks-title">{t('session.detail.tasks.title')}</h2><p>{completedTasks}{t('session.detail.tasks.complete', { total: taskLeaves.length })}{#if companion.connection !== 'online'}{t('session.detail.tasks.lastreported')}{/if}</p></div><button type="button" class="btn btn-ghost btn-icon" aria-label={t('session.detail.tasks.close')} onclick={() => taskDialog?.close()}><Icon name="close" /></button></header>
       {#if tasks.length}
-        <ol class="task-list" aria-label="Task list">
+        <ol class="task-list" aria-label={t('session.detail.tasks.list')}>
           {#each tasks as task (task.id)}
             <li class:subtask={Boolean(task.parentId)} data-status={task.status}>
               <Icon name={task.status === 'completed' ? 'check' : task.status === 'in_progress' ? 'activity' : 'clock'} size={16} />
@@ -570,25 +572,25 @@
       {:else}<p class="task-empty">No tracked tasks in this session. Pi Jar tasks appear automatically; other extensions can publish compatible task snapshots.</p>{/if}
     </dialog>
 
-    {#if readOnly}<div class="composer-notice" role="status"><AutomatedSessionBadge /><p>Pi is following this automation’s instructions. You can answer its questions here; steering, plans, and file uploads are turned off.</p>{#if session.automationId}<a href={'/automations/' + encodeURIComponent(session.automationId)}>Open automation workspace →</a>{/if}</div>{/if}
+    {#if readOnly}<div class="composer-notice" role="status"><AutomatedSessionBadge /><p>{t('session.detail.automation.note')}</p>{#if session.automationId}<a href={'/automations/' + encodeURIComponent(session.automationId)}>{t('session.detail.automation.open')}</a>{/if}</div>{/if}
     <section class="panel">
       {#if tab !== 'activity'}
         <header class="accessory-head">
-          <button type="button" class="btn btn-ghost btn-sm" onclick={() => selectTab('activity')}><Icon name="back" size={16} />Activity</button>
-          <h2>{tab === 'files' ? 'Shared files' : 'Changes'}</h2>
-          <button type="button" class="btn btn-ghost btn-icon" aria-label="Close {tab === 'files' ? 'shared files' : 'changes'}" onclick={() => selectTab('activity')}><Icon name="close" size={16} /></button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick={() => selectTab('activity')}><Icon name="back" size={16} />{t('session.detail.activity')}</button>
+          <h2>{t(tab === 'files' ? 'session.detail.files' : 'session.detail.changes')}</h2>
+          <button type="button" class="btn btn-ghost btn-icon" aria-label={t('session.detail.close')} onclick={() => selectTab('activity')}><Icon name="close" size={16} /></button>
         </header>
       {/if}
       <input bind:this={fileInput} id="file-input" hidden type="file" multiple accept={companion.uploadPolicy.allowedUploadTypes.join(',') || undefined} disabled={ended || uploadBlocked} onchange={(e) => uploadFiles((e.currentTarget as HTMLInputElement).files)} />
-      <div class="body" id="panel" role="region" aria-label={tab === 'activity' ? 'Session activity' : tab === 'files' ? 'Shared files' : 'Changes'}>
+      <div class="body" id="panel" role="region" aria-label={tab === 'activity' ? t('session.detail.activity.aria') : tab === 'files' ? t('session.detail.files.aria') : t('session.detail.changes.aria')}>
         {#if tab === 'activity'}
           <div class="term">
             <!-- Scrollable region must be keyboard-focusable (WCAG 2.1.1). -->
             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-            <div class="feed scroll" bind:this={feedEl} use:previewLinks={{ sessionId: id, files, loadFiles: previewFileList, onpreview: showPreview, onerror: previewError }} onscroll={onFeedScroll} tabindex="0" aria-label="Session activity">
-              <p class="line banner"><span class="glyph">~</span><span>{prettyPath(session.cwd)}</span></p>
+            <div class="feed scroll" bind:this={feedEl} use:previewLinks={{ sessionId: id, files, loadFiles: previewFileList, onpreview: showPreview, onerror: previewError }} onscroll={onFeedScroll} tabindex="0" aria-label={t('session.detail.activity.aria')}>
+              <p class="line banner" aria-label={t('session.detail.sessiondir')}><span class="glyph">~</span><span title={session.cwd}>{prettyPath(session.cwd)}</span></p>
               {#if feed.length === 0}
-                <p class="line dim"><span class="glyph">#</span><span>Waiting for Pi. Replies, tool calls and questions stream here.</span></p>
+                <p class="line dim"><span class="glyph">#</span><span>{t('session.detail.activity.empty')}</span></p>
               {:else}
                 <ol aria-live="polite" aria-relevant="additions">
                   {#each feed as entry, index (entry.id)}
@@ -605,14 +607,14 @@
                             {:else}
                               <b>{entry.title}</b>
                             {/if}
-                            {#if entry.status === 'running'}<span class="state run">running</span>
-                            {:else if entry.status === 'ok'}<span class="state ok">ok</span>
-                            {:else if entry.status === 'error'}<span class="state err">failed</span>{/if}
+                            {#if entry.status === 'running'}<span class="state run">{t('session.detail.feed.running')}</span>
+                            {:else if entry.status === 'ok'}<span class="state ok">{t('session.detail.feed.ok')}</span>
+                            {:else if entry.status === 'error'}<span class="state err">{t('session.detail.feed.failed')}</span>{/if}
                           </div>
                           {#if summary.kind === 'command' && parts.result}
                             {@const lines = lineCount(parts.result)}
                             <details class="out" open={entry.status === 'error'}>
-                              <summary>Full output · {lines} {lines === 1 ? 'line' : 'lines'}</summary>
+                              <summary>{t('session.detail.feed.fulloutput', { lines, line: lines === 1 ? t('session.detail.feed.line') : t('session.detail.feed.lines') })}</summary>
                               <pre class:error-output={entry.status === 'error'}>{parts.result}</pre>
                             </details>
                           {:else if summary.kind === 'file'}
@@ -622,7 +624,7 @@
                             </div>
                             {#if entry.title.toLowerCase() === 'edit' && (summary.oldText || summary.newText)}
                               <details class="edit-snippet">
-                                <summary>edit preview</summary>
+                                <summary>{t('session.detail.feed.editsnippet')}</summary>
                                 <div class="edit-pair">
                                   {#if summary.oldText}<pre class="old-snippet">{summary.oldText}</pre>{/if}
                                   {#if summary.newText}<pre class="new-snippet">{summary.newText}</pre>{/if}
@@ -648,7 +650,7 @@
                           {#if parts.result && summary.kind !== 'command'}
                             {@const lines = lineCount(parts.result)}
                             <details class="out" open={entry.status === 'error' || lines <= 6}>
-                              <summary>output · {lines} {lines === 1 ? 'line' : 'lines'}</summary>
+                              <summary>{t('session.detail.feed.output', { lines, line: lines === 1 ? t('session.detail.feed.line') : t('session.detail.feed.lines') })}</summary>
                               <pre class:error-output={entry.status === 'error'}>{parts.result}</pre>
                             </details>
                           {/if}
@@ -660,7 +662,7 @@
                           <details class="thought" class:live={liveThought}>
                             <summary>
                               {#if liveThought}
-                                <span class="thought-label shimmer">Thinking</span><span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                                <span class="thought-label shimmer">{t('session.detail.feed.thinking')}</span><span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>
                               {:else}
                                 <span class="thought-label">{thoughtLabel(entry, feed[index + 1])}</span>
                               {/if}
@@ -686,11 +688,11 @@
                 </ol>
               {/if}
               {#if session.status === 'active'}
-                <p class="line working" role="status"><span class="glyph" aria-hidden="true">›</span><span>Pi is working<span class="cursor" aria-hidden="true"></span></span></p>
+                <p class="line working" role="status"><span class="glyph" aria-hidden="true">›</span><span>{t('session.detail.working')}<span class="cursor" aria-hidden="true"></span></span></p>
               {/if}
             </div>
             {#if unseen > 0 && !follow}
-              <button class="btn btn-sm jump" onclick={jumpToLatest}>Jump to latest<Icon name="chevron" size={14} /></button>
+              <button class="btn btn-sm jump" onclick={jumpToLatest}>{t('session.detail.jump')}<Icon name="chevron" size={14} /></button>
             {/if}
           </div>
         {:else if tab === 'files'}
@@ -701,30 +703,30 @@
               class:dragging
               data-dropzone
               role="group"
-              aria-label="Upload files"
+              aria-label={t('session.detail.upload.aria')}
               ondragenter={(e) => { e.preventDefault(); dragging = !ended; }}
               ondragover={(e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = ended ? 'none' : 'copy'; }}
               ondragleave={(e) => { if (!(e.currentTarget as Element).contains(e.relatedTarget as Node)) dragging = false; }}
               ondrop={onDrop}>
               <span class="empty-icon"><Icon name="upload" /></span>
-              <strong>{uploading ? 'Uploading…' : 'Share files with Pi'}</strong>
-              <p class="muted">Private to this session and deleted when it ends.</p>
-              <button type="button" class="btn-bento primary pick" class:disabled={ended} disabled={ended || uploading > 0 || uploadBlocked} onclick={() => fileInput?.click()}><Icon name="plus" size={18} />Choose files</button>
+              <strong>{uploading ? t('session.detail.uploading') : t('session.detail.share')}</strong>
+              <p class="muted">{t('session.detail.share.note')}</p>
+              <button type="button" class="btn-bento primary pick" class:disabled={ended} disabled={ended || uploading > 0 || uploadBlocked} onclick={() => fileInput?.click()}><Icon name="plus" size={18} />{t('session.detail.choose')}</button>
             </div>
             {#if invalidAttachments}
-              <ul class="upload-errors" aria-label="Attachment errors">{#each attachments.filter((attachment) => attachment.status === 'error') as attachment (attachment.key)}<li role="alert"><strong>{attachment.file.name}</strong>: {attachment.error}<button type="button" class="btn btn-sm" onclick={() => detachAttachment(attachment.key)}>Dismiss</button></li>{/each}</ul>
+              <ul class="upload-errors" aria-label={t('session.detail.attachments.aria')}>{#each attachments.filter((attachment) => attachment.status === 'error') as attachment (attachment.key)}<li role="alert"><strong>{attachment.file.name}</strong>: {attachment.error}<button type="button" class="btn btn-sm" onclick={() => detachAttachment(attachment.key)}>{t('session.detail.dismiss')}</button></li>{/each}</ul>
             {/if}
 
             {#if files.length}
-              <div class="file-filter"><label for="shared-file-filter">Filter by filename</label><input id="shared-file-filter" class="input" type="search" placeholder="Search shared files…" bind:value={fileFilter} /><span class="muted">{filteredFiles.length} of {files.length} files</span></div>
-              {#if !filteredFiles.length}<p class="muted" role="status">No filenames match “{fileFilter}”.</p>{/if}
+              <div class="file-filter"><label for="shared-file-filter">{t('session.detail.filter')}</label><input id="shared-file-filter" class="input" type="search" placeholder={t('session.detail.search')} bind:value={fileFilter} /><span class="muted">{t('session.detail.of', { count: filteredFiles.length })}</span></div>
+              {#if !filteredFiles.length}<p class="muted" role="status">{t('session.detail.nomatch', { filter: fileFilter })}</p>{/if}
               <ul class="bento file-list">
                 {#each filteredFiles as file (file.id)}
                   <li class="tile file">
                     <Icon name="file" />
                     <div class="file-main">
                       <strong title={file.name}>{file.name}</strong>
-                      <span class="chips"><span class="chip" title="File upload source">{file.source === 'agent' ? 'Agent' : file.source === 'user' ? 'You' : 'Unknown'}</span><span class="chip">{formatBytes(file.size)}</span><span class="chip">{relativeTime(file.createdAt)}</span></span>
+                      <span class="chips"><span class="chip" aria-label={t('session.detail.source.aria')}>{t(file.source === 'agent' ? 'session.detail.source.agent' : file.source === 'user' ? 'session.detail.source.user' : 'session.detail.source.unknown')}</span><span class="chip">{formatBytes(file.size)}</span><span class="chip">{relativeTime(file.createdAt)}</span></span>
                     </div>
                     <button class="btn" aria-label="Preview {file.name}" onclick={() => showPreview({ kind: 'file', sessionId: id, file })}><Icon name="file" size={16} />Preview</button>
                     <button class="btn" aria-label="Download {file.name}" disabled={downloading.includes(file.id)} onclick={() => download(file)}><Icon name="download" size={16} />{downloading.includes(file.id) ? 'Downloading…' : 'Download'}</button>
@@ -746,23 +748,24 @@
                 <div class="review-options-body">
                   <p class="scope-note">{diff?.scope === 'session' ? 'Files with recorded edits in this session. Patches show their current Git changes.' : 'This Pi extension returns repository-wide changes. Reload the extension to enable session-only files.'}</p>
                   <div class="worktree-bar">
-                    <label for="changes-worktree">Worktree</label>
+                    <label for="changes-worktree" aria-label={t('session.detail.worktree')}>{t('session.detail.worktree')}</label>
                     <select id="changes-worktree" class="input" value={diff?.worktree ?? ''} disabled={ended || !diff?.worktrees?.length} onchange={event => loadDiff(staged, event.currentTarget.value)}>
-                      {#if !diff?.worktrees?.length}<option value="">Session directory</option>{/if}
+                      {#if !diff?.worktrees?.length}<option value="">{t('session.detail.sessiondir.option')}</option>{/if}
                       {#each diff?.worktrees ?? [] as tree (tree.path)}<option value={tree.path} disabled={Boolean(tree.error)}>{tree.branch} · {prettyPath(tree.path)}</option>{/each}
                     </select>
                   </div>
-                  <label class="diff-filter"><Icon name="search" size={16} /><span class="sr-only">Filter changed files</span><input class="input" type="search" placeholder="Filter session files…" bind:value={diffFilter} /></label>
-                  {#if diffFilter}<button class="btn btn-sm" onclick={() => (diffFilter = '')}>Clear file filter</button>{/if}
-                  <p class="diff-count" aria-live="polite">{shownChangedFiles.length} of {changedFiles.length} files · <span class="plus">+{diffStats.add}</span> <span class="minus">−{diffStats.del}</span></p>
+                  <label class="diff-filter" aria-label={t('session.detail.changefilter')}><Icon name="search" size={16} /><input class="input" type="search" placeholder={t('session.detail.changefilter.placeholder')} bind:value={diffFilter} /></label>
+                  {#if diffFilter}<button class="btn btn-sm" aria-label={t('session.detail.clearfilter')} onclick={() => (diffFilter = '')}>{t('session.detail.clearfilter')}</button>{/if}
+                  <p class="diff-count" aria-live="polite">{t('session.detail.diff.count', { changed: changedFiles.length, add: diffStats.add, del: diffStats.del })}</p>
                   {#if diff?.warnings?.length}<p class="diff-warning" role="status">{diff.warnings.join(' ')}</p>{/if}
                 </div>
               </details>
-              <button class="btn btn-ghost btn-icon refresh" aria-label="Refresh changes" onclick={() => loadDiff()} disabled={ended}><Icon name="refresh" size={16} /></button>
+              <button class="btn btn-ghost btn-icon refresh" aria-label={t('session.detail.refresh.aria')} onclick={() => loadDiff()} disabled={ended}><Icon name="refresh" size={16} /></button>
             </div>
             {#if shownChangedFiles.length}
-              <nav class="diff-navigation" aria-label="Changed file navigation">
-                <label for="changes-file" class="sr-only">Select changed file</label>
+              <nav class="diff-navigation" aria-label={t('session.detail.changed.aria')}>
+                <label for="changes-file" class="sr-only">{t('session.detail.selectfile.aria')}</label>
+
                 <select id="changes-file" class="input" value={selectedDiffFile?.path ?? ''} onchange={event => (selectedDiffPath = event.currentTarget.value)}>
                   {#each shownChangedFiles as file (file.id)}<option value={file.path}>{file.path}{file.isNew ? ' · New' : ''}{file.binary ? ' · Binary' : ''}</option>{/each}
                 </select>
@@ -775,17 +778,17 @@
             <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard users must be able to scroll this region) -->
             <div class="diff scroll" tabindex="0" role="region" aria-label="Changed files">
               {#if !diff || diff.loading}
-                <p class="subtle none">{ended ? 'Changes are unavailable after the session ends.' : companion.connection !== 'online' ? 'Reconnect to your workspace to load changes.' : 'Loading changes…'}</p>
+                <p class="subtle none">{t(ended ? 'session.detail.ended.changes' : companion.connection !== 'online' ? 'session.detail.reconnect.changes' : 'session.detail.loading.changes')}</p>
               {:else if diff.error}<p class="subtle none">Changes unavailable. {diff.error}</p>
               {:else if !changedFiles.length}<p class="subtle none">No {diff.staged ? 'staged' : 'unstaged'} changes{diff.scope === 'session' ? ' in files with recorded session edits' : ''}.</p>
-              {:else if !shownChangedFiles.length}<div class="none"><p>No changed files match “{diffFilter}”.</p><button type="button" class="btn btn-sm" onclick={() => (diffFilter = '')}>Clear file filter</button></div>
+              {:else if !shownChangedFiles.length}<div class="none"><p>{t('session.detail.nochanged', { filter: diffFilter })}</p><button type="button" class="btn btn-sm" aria-label={t('session.detail.clearfilter')} onclick={() => (diffFilter = '')}>{t('session.detail.clearfilter')}</button></div>
               {:else}
                 {#each selectedDiffFile ? [selectedDiffFile] : [] as file (file.id)}
                   <details class="diff-file" open>
                     <summary class="diff-file-head">
                       <Icon name="chevron" size={16} class="diff-caret" />
-                      <div class="diff-label"><strong><Icon name="file" size={16} /><code>{file.path}</code></strong>{#if file.oldPath && file.newPath && file.oldPath !== file.newPath}<span class="diff-rename">Renamed from <code>{file.oldPath}</code></span>{/if}</div>
-                      <span class="file-change-counts">{#if file.isNew}<span class="chip new-file">New</span>{/if}{#if file.binary}<span class="chip">Binary file</span>{:else if file.previewUnavailable}<span class="chip">No preview</span>{:else}<span class="chip plus">+{file.additions}</span><span class="chip minus">−{file.deletions}</span>{/if}</span>
+                      <div class="diff-label"><strong><Icon name="file" size={16} /><code>{file.path}</code></strong>{#if file.oldPath && file.newPath && file.oldPath !== file.newPath}<span class="diff-rename">{t('session.detail.renamed')} <code>{file.oldPath}</code></span>{/if}</div>
+                      <span class="file-change-counts">{#if file.isNew}<span class="chip new-file">{t('session.detail.new')}</span>{/if}{#if file.binary}<span class="chip">{t('session.detail.binary')}</span>{:else if file.previewUnavailable}<span class="chip">{t('session.detail.nopreview')}</span>{:else}<span class="chip plus">+{file.additions}</span><span class="chip minus">−{file.deletions}</span>{/if}</span>
                     </summary>
                     <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard users must be able to scroll long patch lines) -->
                     <div class="diff-code scroll-x" tabindex="0" role="region" aria-label="Patch for {file.path}">
@@ -828,7 +831,7 @@
             {/if}
             <div class="prompt-row">
               {#if slashMatches.length}<div class="slash-picker" id="slash-suggestions" role="listbox" aria-label="Available slash commands">{#each slashMatches as command, index (command.name)}<div id={'slash-option-' + index} role="option" aria-selected={index === activeSlashIndex}><button type="button" tabindex="-1" onpointerdown={event => event.preventDefault()} onclick={() => chooseSlash(command.name)}><span class="slash-command"><Icon name={command.source === 'skill' ? 'brain' : command.source === 'prompt' ? 'file' : 'lightning'} size={16} /><strong>/{command.name}</strong><span class="slash-kind">{command.source === 'prompt' ? 'Template' : command.source === 'skill' ? 'Skill' : 'Command'}</span></span>{#if command.description}<small>{command.description}</small>{/if}</button></div>{/each}</div>{/if}
-              <label class="sr-only" for="prompt">{mode === 'plan' ? 'Plan request for Pi' : 'Message Pi'}</label>
+              <label class="sr-only" for="prompt" aria-label={t('session.detail.message.aria')}>{t(mode === 'plan' ? 'session.detail.plan.request.aria' : 'session.detail.message.aria')}</label>
               <textarea
                 id="prompt"
                 rows="1"
@@ -838,8 +841,8 @@
                 aria-controls={slashMatches.length ? 'slash-suggestions' : undefined}
                 aria-activedescendant={slashMatches.length ? 'slash-option-' + activeSlashIndex : undefined}
                 onkeydown={onComposerKey}
-                title="Enter sends on desktop; Shift+Enter adds a line. On touch keyboards, Enter adds a line."
-                placeholder={mode === 'plan' ? 'Plan current conversation…' : steer && session.status === 'active' ? 'Steer the current turn…' : 'Message Pi…'}></textarea>
+                title={t('session.detail.composer.title')}
+                placeholder={t(mode === 'plan' ? 'session.detail.plan.placeholder' : steer && session.status === 'active' ? 'session.detail.steer.placeholder' : 'session.detail.composer.placeholder')}></textarea>
             </div>
             <div class="composer-bar">
               <div class="mode-switch segmented" role="group" aria-label="Message mode">
@@ -853,11 +856,11 @@
                   Steer
                 </label>
               {/if}
-              <div class="composer-actions"><button type="button" class="btn btn-ghost btn-icon attach" aria-label={uploading ? 'Uploading files' : 'Attach files'} title="Attach files" disabled={uploading > 0 || uploadBlocked} onclick={() => fileInput?.click()}><Icon name="attach" size={20} /></button></div>
+              <div class="composer-actions"><button type="button" class="btn btn-ghost btn-icon attach" aria-label={t(uploading ? 'session.detail.uploading.aria' : 'session.detail.attach.aria')} title={t('session.detail.attach.aria')} disabled={uploading > 0 || uploadBlocked} onclick={() => fileInput?.click()}><Icon name="attach" size={20} /></button></div>
             </div>
             {#if uploading || invalidAttachments}<p class="composer-notice" role="status">{uploading ? 'Wait for attachments to finish uploading before sending.' : 'Fix or remove invalid attachments before sending.'}</p>{/if}
-            <button class="btn btn-primary send" aria-label={mode === 'plan' ? 'Send plan request' : steer && session.status === 'active' ? 'Steer current turn' : 'Send message'} disabled={companion.connection !== 'online' || uploading > 0 || invalidAttachments || (mode === 'auto' && !prompt.trim() && !attachments.some((attachment) => attachment.status === 'ready'))}>
-              <Icon name="send" size={18} /><span>{mode === 'plan' ? !prompt.trim() && !attachments.length ? 'Plan current conversation' : 'Send plan request' : steer && session.status === 'active' ? 'Steer current turn' : 'Send message'}</span>
+            <button class="btn btn-primary send" aria-label={t(mode === 'plan' ? 'session.detail.send.plan' : steer && session.status === 'active' ? 'session.detail.steer.button' : 'session.detail.send.message')} disabled={companion.connection !== 'online' || uploading > 0 || invalidAttachments || (mode === 'auto' && !prompt.trim() && !attachments.some((attachment) => attachment.status === 'ready'))}>
+              <Icon name="send" size={18} /><span>{t(mode === 'plan' ? !prompt.trim() && !attachments.length ? 'session.detail.plan.placeholder' : 'session.detail.send.plan' : steer && session.status === 'active' ? 'session.detail.steer.button' : 'session.detail.send.message')}</span>
             </button>
           {/if}
         </form>

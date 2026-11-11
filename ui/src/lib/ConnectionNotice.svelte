@@ -1,28 +1,29 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { companion } from './companion.svelte.ts';
+  import { t } from './i18n.svelte.ts';
 </script>
 
 {#if companion.connectionError}
-  <section class="connection-notice" role="alert" aria-label="Workspace connection problem">
+  <section class="connection-notice" role="alert" aria-label={t('shell.connection.error.aria')}>
     <Icon name="unplug" size={18} />
     <div class="copy">
-      <strong>{companion.bootError ? 'Cannot connect to workspace' : 'Workspace connection interrupted'}</strong>
+      <strong>{companion.bootError ? t('shell.connection.error.title') : t('shell.connection.error.interrupted')}</strong>
       <p>{companion.connectionError}</p>
-      {#if !companion.bootError}<p class="muted">Activity may be out of date. Messages are not queued or sent while disconnected.</p>{/if}
+      {#if !companion.bootError}<p class="muted">{t('shell.connection.error.note')}</p>{/if}
       <details>
-        <summary>How to reconnect</summary>
+        <summary>{t('shell.connection.error.summary')}</summary>
         <ul>
-          <li>Check your internet connection.</li>
-          <li>On your computer, restart the tunnel and keep the workspace running.</li>
-          <li>Run <code>/companion</code> in Pi if the daemon is not running.</li>
-          <li>If the tunnel URL changed, open the new HTTPS device URL.</li>
+          <li>{t('shell.connection.error.steps.check')}</li>
+          <li>{t('shell.connection.error.steps.tunnel')}</li>
+          <li>{t('shell.connection.error.steps.companion')}</li>
+          <li>{t('shell.connection.error.steps.url')}</li>
         </ul>
-        <p>Connection failures keep your pairing. A new device URL on a different hostname may require pairing again. Retrying never resends a message or upload.</p>
+        <p>{t('shell.connection.error.paired')}</p>
       </details>
     </div>
     <button class="btn btn-sm" disabled={companion.connection === 'connecting'} onclick={() => companion.reconnect()}>
-      {companion.connection === 'connecting' ? 'Retrying…' : 'Retry now'}
+      {companion.connection === 'connecting' ? t('shell.connection.error.retrying') : t('shell.connection.error.retry')}
     </button>
   </section>
 {/if}

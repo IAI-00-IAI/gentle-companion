@@ -1,22 +1,33 @@
-<svelte:head><title>Terms · Gentle Companion</title></svelte:head>
+<script lang="ts">
+  import { t } from '#lib/i18n.svelte.ts';
+</script>
+
+<svelte:head><title>{t('terms.title')}</title></svelte:head>
 
 <div class="page info-page">
   <header class="page-head">
-    <div><span class="eyebrow">Terms of use</span><h1>Terms</h1><p>Effective date: 2026-10-07</p></div>
+    <div>
+      <span class="eyebrow">{t('terms.eyebrow')}</span>
+      <h1>{t('terms.title')}</h1>
+      <p>{t('terms.effective')}</p>
+    </div>
   </header>
 
   <section class="bento" aria-label="Terms of use">
     <article class="tile">
-      <h2>License</h2>
-      <p>Gentle Companion is made available under the MIT License. The source and license are available at <a href="https://github.com/ygrip/pi-companion" rel="noreferrer">github.com/ygrip/pi-companion</a>.</p>
+      <h2>{t('terms.license.title')}</h2>
+      <p>
+        {t('terms.license.body')}
+        <a href="https://github.com/IAI-00-IAI/gentle-companion" rel="noreferrer">github.com/IAI-00-IAI/gentle-companion</a>.
+      </p>
     </article>
     <article class="tile">
-      <h2>Provided as-is</h2>
-      <p>The software is provided “as is”, without warranty of any kind, express or implied, to the extent permitted by law.</p>
+      <h2>{t('terms.asis.title')}</h2>
+      <p>{t('terms.asis.body')}</p>
     </article>
     <article class="tile">
-      <h2>Your responsibility</h2>
-      <p>You are responsible for securing any URLs or network access you expose and for reviewing what Pi executes on your behalf.</p>
+      <h2>{t('terms.responsibility.title')}</h2>
+      <p>{t('terms.responsibility.body')}</p>
     </article>
   </section>
 </div>
