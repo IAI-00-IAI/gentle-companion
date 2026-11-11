@@ -16,7 +16,7 @@
   import SessionCard from '#lib/SessionCard.svelte';
   import SessionTable from '#lib/SessionTable.svelte';
   import { companion } from '#lib/companion.svelte.ts';
-  import { getLang, setLang, t, LOCALES, localeName } from '#lib/i18n.svelte.ts';
+  import { t } from '#lib/i18n.svelte.ts';
 
   // The dot field opens on the Gentle Companion mark, then cycles computer → phone → terminal.
   const art = [gentleLogo, heroShell, heroChanges];
@@ -119,13 +119,7 @@
         <li>{t('hero.journey.2')}</li>
         <li>{t('hero.journey.3')}</li>
       </ol>
-      <div class="lang" role="group" aria-label={t('lang.label')}>
-        {#each LOCALES as loc}
-          <button class="lang-btn" class:active={getLang() === loc} aria-pressed={getLang() === loc} onclick={() => setLang(loc)}>
-            {localeName(loc)}
-          </button>
-        {/each}
-      </div>
+
     </div>
     <div class="hero-visual" bind:this={visual} aria-hidden="true"></div>
   </section>
@@ -278,32 +272,6 @@
     margin-left: 6px;
     color: var(--accent-text);
   }
-
-  .lang {
-    display: flex;
-    gap: 6px;
-    padding: 5px;
-    border-radius: 14px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    width: fit-content;
-  }
-  .lang-btn {
-    min-height: 32px;
-    border-color: transparent;
-    background: transparent;
-    border-radius: 9px;
-    padding-inline: 12px;
-    font-size: .78rem;
-  }
-  .lang-btn.active {
-    background: var(--surface);
-    border-color: var(--border);
-    color: var(--accent-text);
-    box-shadow: var(--clay-soft);
-    font-weight: 700;
-  }
-  @media (max-width: 520px) { .lang { width: 100%; } .lang-btn { flex: 1; } }
 
   .hero-visual {
     position: relative;
