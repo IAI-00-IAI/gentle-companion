@@ -10,6 +10,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { devicePermissions } from '#lib/device-permissions.svelte.ts';
   import { theme, type ThemePreference } from '#lib/theme.svelte.ts';
+  import { getLang, setLang, LOCALES, localeName, t } from '#lib/i18n.svelte.ts';
   import { toasts } from '#lib/toast.svelte.ts';
 
   let { children } = $props();
@@ -167,6 +168,18 @@
               aria-label={option.label}
               title={option.label}
               onclick={() => theme.set(option.value)}><Icon name={option.icon} size={16} /></button>
+          {/each}
+        </div>
+        <div class="segmented lang-switch" role="radiogroup" aria-label={t('lang.label')}>
+          {#each LOCALES as locale}
+            <button
+              role="radio"
+              aria-checked={getLang() === locale}
+              aria-label={localeName(locale)}
+              onclick={() => setLang(locale)}
+            >
+              {localeName(locale)}
+            </button>
           {/each}
         </div>
         <nav class="legal-links" aria-label="Information">
@@ -411,6 +424,40 @@
 
   .theme-switch button {
     justify-content: center;
+  }
+
+  .lang-switch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--border);
+    border-radius: var(--clay-radius);
+    background: var(--surface-2);
+    box-shadow: var(--clay-soft);
+  }
+
+  .lang-switch button {
+    border: 1px solid transparent;
+    border-radius: calc(var(--clay-radius) - 2px);
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: .76rem;
+    font-weight: 600;
+    text-align: center;
+    padding: 8px 6px;
+    cursor: pointer;
+  }
+
+  .lang-switch button:hover {
+    color: var(--text);
+    background: var(--surface);
+  }
+
+  .lang-switch button[aria-checked='true'] {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    border-color: var(--accent-line);
+    box-shadow: var(--clay-pressed);
   }
 
   .main-col {
