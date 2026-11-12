@@ -700,7 +700,7 @@ dependencies = [
 
 [[package]]
 name = "pi-companion-server"
-version = "0.3.14"
+version = "0.3.16"
 dependencies = [
  "axum",
  "chrono",

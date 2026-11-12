@@ -186,7 +186,11 @@ type ActiveToolAsk = {
 export class ToolDialogRelay {
   private active?: ActiveToolAsk;
 
-  constructor(private readonly channel: AskChannel) {}
+  private readonly channel: AskChannel;
+
+  constructor(channel: AskChannel) {
+    this.channel = channel;
+  }
 
   start(toolName: string, toolCallId: string, args: unknown) {
     const adapter = TOOL_ADAPTERS[toolName];
