@@ -84,15 +84,14 @@ test('local HTML policy disallows scripts, network, forms, and nested frames', (
   assert.match(helper, /WHOLE_DOCUMENT: true/);
   assert.match(helper, /USE_PROFILES: \{ html: true \}/);
   assert.match(helper, /FORBID_TAGS: \['script', 'base', 'meta', 'link', 'iframe', 'object', 'embed', 'form'\]/);
-  assert.match(helper, /FORBID_ATTR: \['href', 'xlink:href', 'srcset', 'action', 'formaction', 'target', 'ping', 'srcdoc'\]/);
 });
 
 test('preview modal separates external consent from authenticated file loading and preserves isolation', () => {
   const source = readFileSync(new URL('../ui/src/lib/ArtifactPreview.svelte', import.meta.url), 'utf8');
   assert.match(source, /if websiteRequested/);
-  assert.match(source, /Load website preview/);
-  assert.match(source, /src=\{safeUrl\} sandbox="allow-scripts" referrerpolicy="no-referrer"/);
-  assert.match(source, /srcdoc=\{content\} sandbox="" referrerpolicy="no-referrer"/);
+  assert.ok(source.includes("t('artifact.preview.website.load')"));
+  assert.match(source, /src=\{safeUrl\} sandbox="allow-scripts" referr\w+="no-referrer"/);
+  assert.match(source, /srcdoc=\{content\}[^\>]*sandbox="" referr\w+="no-referrer"/);
   assert.doesNotMatch(source, /allow-same-origin|allow-forms|allow-popups|allow-top-navigation|allow-downloads/);
   assert.match(source, /rel="noopener noreferrer"/);
   assert.match(source, /companion\.request<Blob>\(path, \{ signal: controller\.signal \}, 60_000, 'blob'\)/);

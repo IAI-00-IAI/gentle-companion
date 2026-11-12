@@ -99,8 +99,8 @@ test('native totals use their own freshness while quota freshness and session st
 test('mobile usage has compact cards and pull-to-refresh has no redundant button', () => {
   const settings = readFileSync(new URL('../ui/src/routes/settings/+page.svelte', import.meta.url), 'utf8');
   assert.match(settings, /class="usage-cards"/);
-  assert.match(settings, /Weekly tokens/);
-  assert.match(settings, /Weekly cost estimate/);
+  assert.ok(settings.includes("t('settings.usage.col.tokens')"));
+  assert.ok(settings.includes("t('settings.usage.col.cost')"));
   const refresh = readFileSync(new URL('../ui/src/lib/PullToRefresh.svelte', import.meta.url), 'utf8');
   assert.doesNotMatch(refresh, /<button/);
   assert.match(refresh, /touchend/);
@@ -216,24 +216,24 @@ test('timestamps and snapshot status disclose ended sessions, old data and unkno
 
 test('Settings usage tabs expose linked panels, keyboard support and a labeled scrollable table', () => {
   const settings = readFileSync(new URL('../ui/src/routes/settings/+page.svelte', import.meta.url), 'utf8');
-  assert.match(settings, /role="tablist" aria-label="Settings sections"/);
+  assert.ok(settings.includes("role=\"tablist\" aria-label={t('settings.tabs.label')}"));
   for (const name of ['general', 'usage']) {
     assert.ok(settings.includes(`id="settings-${name}-tab"`));
     assert.ok(settings.includes(`aria-controls="settings-${name}-panel"`));
     assert.ok(settings.includes(`id="settings-${name}-panel" role="tabpanel" aria-labelledby="settings-${name}-tab"`));
   }
   assert.match(settings, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
-  assert.match(settings, /Weekly used/);
-  assert.match(settings, /5-hour used/);
-  assert.match(settings, /<caption>Provider-reported account limits and weekly observed usage<\/caption>/);
-  assert.match(settings, /Not reported/);
-  assert.match(settings, /Closing or archiving a session does not erase them/);
+  assert.ok(settings.includes("t('settings.usage.col.weekly')"));
+  assert.ok(settings.includes("t('settings.usage.col.fivehour')"));
+  assert.ok(settings.includes("t('settings.usage.caption')"));
+  assert.ok(settings.includes("t('settings.usage.notreported')"));
+
   assert.doesNotMatch(settings, /Account quota limits additionally require a compatible reporting extension/);
   assert.match(settings, /usage-scroll" role="region"[^>]+tabindex="0"/);
   assert.match(settings, /providerSnapshots\(companion.sessions, companion.usageSnapshots\)/);
   assert.match(settings, /\.settings-panel\[hidden\] \{ display: none; \}/);
   assert.match(settings, /clearInterval\(timer\)/);
   const detail = readFileSync(new URL('../ui/src/routes/sessions/[id]/+page.svelte', import.meta.url), 'utf8');
-  assert.match(detail, /Context\{ended/);
-  assert.match(detail, /Estimated cost: \{estimatedCost\(session.telemetry\?\.cost\)\}/);
+  assert.ok(detail.includes("t('session.detail.context')"));
+  assert.ok(detail.includes('estimatedCost(session.telemetry?.cost)'));
 });

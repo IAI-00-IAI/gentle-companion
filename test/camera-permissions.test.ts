@@ -106,6 +106,7 @@ test('closing the scanner releases a camera granted after dismissal', async () =
   let release!: (stream: unknown) => void;
   let released = 0;
   const sandbox: any = {
+    t: (key: string) => key,
     $state: (value: unknown) => value,
     $derived: (value: unknown) => value,
     $effect: () => {},

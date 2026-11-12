@@ -1689,7 +1689,9 @@ function storedLocale(): Locale {
   return stored === 'en' || stored === 'es' ? stored : 'en';
 }
 
-let lang = $state<Locale>(storedLocale());
+let lang: Locale = typeof $state === 'function'
+  ? $state<Locale>(storedLocale())
+  : storedLocale();
 
 export function getLang(): Locale {
   return lang;

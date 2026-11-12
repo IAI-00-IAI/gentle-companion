@@ -201,14 +201,14 @@ test('Changes refreshes on open, labels workspace and distinguishes new files', 
   const page = readFileSync(new URL('../ui/src/routes/sessions/[id]/+page.svelte', import.meta.url), 'utf8');
   const store = readFileSync(new URL('../ui/src/lib/companion.svelte.ts', import.meta.url), 'utf8');
   assert.match(page, /if \(next === 'changes'\) loadDiff\(\)/);
-  assert.match(page, /<label for="changes-worktree">Worktree<\/label>/);
+  assert.match(page, /for="changes-worktree"[^>]*>{t\('session\.detail\.worktree'\)}<\/label>/);
   assert.match(page, /<details class="review-options">/);
   assert.match(page, /diff\?\.scope === 'session'/);
   assert.match(page, /class:reviewing=\{tab === 'changes'\}/);
   assert.match(store, /scope: inner\.scope === 'session'/);
-  assert.match(page, /file\.isNew[^]*?class="chip new-file">New/);
+  assert.match(page, /file\.isNew\}<span class="chip new-file">\{t\('session\.detail\.new'\)\}/);
   assert.match(store, /inner\.requestId !== expected/);
-  assert.match(page, /aria-label="Changed file navigation"/);
+  assert.match(page, /aria-label=\{t\('session\.detail\.changed\.aria'\)\}/);
   assert.match(page, /aria-label="Next changed file"/);
   assert.match(page, /selectedDiffFile \? \[selectedDiffFile\] : \[\]/);
   assert.match(page, /splitChangedFiles\(diff\?\.text \?\? '', diff\?\.files\)/);

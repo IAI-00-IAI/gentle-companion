@@ -71,6 +71,6 @@ test('elapsed labels cover seconds, minutes, hours, days and missing legacy time
     assert.equal(elapsedTime(startedAt, startedAt + seconds * 1000), label);
   }
   assert.equal(elapsedTime(startedAt, startedAt - 1000), '0s');
-  assert.equal(elapsedTime(undefined, startedAt), 'Time unavailable');
-  assert.equal(elapsedTime(NaN, startedAt), 'Time unavailable');
+  assert.equal(elapsedTime(undefined, startedAt), 'Unknown');
+  assert.equal(elapsedTime(NaN, startedAt), 'Unknown');
 });
