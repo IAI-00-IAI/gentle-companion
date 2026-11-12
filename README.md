@@ -2,7 +2,7 @@
 
 Lightweight, local-first remote control for Gentle Shell sessions.
 
-> Fork of [pi-companion](https://github.com/ygrip/pi-companion), adapted for Gentle Shell. This repository lives at [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion).
+> Fork of [pi-companion](https://github.com/ygrip/pi-companion), adapted for Gentle Shell. This repository lives at [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion). [Leer en español](README.es.md)
 
 [![Watch the Gentle Companion walkthrough (2 min)](docs/pi-companion-promo.webp)](docs/pi-companion-promo.mp4)
 
@@ -43,7 +43,7 @@ Screenshots use demo sessions, not private conversation data, and are regenerate
 
 ## Install
 
-    gentle-shell install npm:@yunazgr/pi-companion
+    gentle-shell install npm:@rgaricano/gentle-companion
 
 or straight from git:
 
@@ -51,7 +51,7 @@ or straight from git:
 
 With Gentle Shell, install the same standard package:
 
-    gentle-shell install npm:@yunazgr/pi-companion
+    gentle-shell install npm:@rgaricano/gentle-companion
 
 Gentle Shell uses the native package command, so the same `pi` manifest, extension and skill loading apply. When the extension loads, it checks the local daemon and starts it if needed, downloading the matching sha256-verified release into `~/.pi/agent/pi-companion/bin/<version>/`. Daemon startup does **not** share your session.
 
@@ -104,7 +104,7 @@ After an online visit, the public app shell and visited immutable assets are cac
 
 For a normal install:
 
-    gentle-shell install npm:@yunazgr/pi-companion
+    gentle-shell install npm:@rgaricano/gentle-companion
 
 Start Gentle Shell normally; daemon availability is automatic. Sessions stay private until `/remote-control` enables sharing. Updating the package and reloading Gentle Shell upgrades the daemon to the matching release; older Gentle Shell processes do not downgrade a newer daemon.
 
@@ -492,7 +492,7 @@ It needs Playwright and `cwebp`. Set `PLAYWRIGHT=/path/to/node_modules/playwrigh
 
 To test the same behavior as a published install, stop any development daemon first and install the package normally:
 
-    gentle-shell install npm:@yunazgr/pi-companion
+    gentle-shell install npm:@rgaricano/gentle-companion
 
 Then start Gentle Shell. Extension startup ensures the released daemon is available; use `/remote-control` only for sessions you want to share.
 
@@ -506,7 +506,7 @@ A tag matching vX.Y.Z triggers both the CI and release workflows.
 
 Before publishing, the workflow requires X.Y.Z to match both package.json and server/Cargo.toml. It then runs TypeScript and Rust checks, builds native daemon archives for Linux x86_64, macOS arm64, macOS x86_64, and Windows x86_64, generates SHA-256 checksums, and creates a GitHub Release.
 
-Only after the GitHub Release exists, the same tag publishes @yunazgr/pi-companion to npm with provenance through npm Trusted Publishing (GitHub OIDC). No long-lived NPM_TOKEN is required. The trusted publisher should point to GitHub owner IAI-00-IAI, repository gentle-companion, workflow release.yml. Git installs need no npm credential.
+Only after the GitHub Release exists, the same tag publishes @rgaricano/gentle-companion to npm with provenance through npm Trusted Publishing (GitHub OIDC). No long-lived NPM_TOKEN is required. The trusted publisher should point to GitHub owner IAI-00-IAI, repository gentle-companion, workflow release.yml. Git installs need no npm credential.
 
 On extension load, Companion downloads `pi-companion-server-<os>-<arch>` for its own package version (`releases/download/v<version>/`) if needed, verifies `SHA256SUMS` and the binary version, and caches it under `~/.pi/agent/pi-companion/bin/<version>/`. Upgrades prepare the replacement before gracefully stopping the older daemon. Git installs ahead of the newest release must provide a matching local build; missing releases never trigger a downgrade or shutdown.
 

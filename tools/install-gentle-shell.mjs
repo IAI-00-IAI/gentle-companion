@@ -12,7 +12,7 @@
 import { spawn, execFile } from "node:child_process";
 import { constants } from "node:net";
 
-const PACKAGE = "@yunazgr/pi-companion";
+const PACKAGE = "@rgaricano/gentle-companion";
 
 function die(msg) {
   console.error(`error: ${msg}\n`);

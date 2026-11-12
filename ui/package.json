@@ -1,5 +1,5 @@
 {
-  "name": "@yunazgr/pi-companion-ui",
+  "name": "@rgaricano/gentle-companion-ui",
   "private": true,
   "type": "module",
   "imports": {
