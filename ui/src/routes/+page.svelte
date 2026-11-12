@@ -16,6 +16,7 @@
   import SessionCard from '#lib/SessionCard.svelte';
   import SessionTable from '#lib/SessionTable.svelte';
   import { companion } from '#lib/companion.svelte.ts';
+  import { t } from '#lib/i18n.svelte.ts';
 
   // The dot field opens on the Gentle Companion mark, then cycles computer → phone → terminal.
   const art = [gentleLogo, heroShell, heroChanges];
@@ -66,12 +67,12 @@
 
   type Stat = { label: string; value: number | string; hint: string; icon: IconName; href: string };
   const stats = $derived<Stat[]>([
-    { label: 'Running', value: live.length, hint: working ? (working === 1 ? 'Pi is busy on 1' : 'Pi is busy on ' + working) : 'All quiet for now', icon: 'sessions', href: '/sessions' },
-    { label: 'Waiting on you', value: waiting, hint: waiting ? 'Pi has a question for you' : 'Nothing to answer', icon: 'question', href: '/sessions' },
+    { label: t('stat.running.label'), value: live.length, hint: working ? t('stat.running.hint.busy', { count: working }) : t('stat.running.hint.quiet'), icon: 'sessions', href: '/sessions' },
+    { label: t('stat.waiting.label'), value: waiting, hint: waiting ? t('stat.waiting.hint.busy') : t('stat.waiting.hint.idle'), icon: 'question', href: '/sessions' },
     ...(companion.isAdmin
       ? [
-          { label: 'Your devices', value: companion.devices.length, hint: connected ? connected + ' online now' : companion.devices.length ? 'None online right now' : 'No phone paired yet', icon: 'devices' as IconName, href: '/devices' },
-          { label: 'On your phone', value: companion.sessions.filter((s) => s.remoteEnabled && s.status !== 'stopped').length, hint: 'Sessions you can reach from your devices', icon: 'link' as IconName, href: '/sessions' }
+          { label: t('stat.devices.label'), value: companion.devices.length, hint: connected ? t('stat.devices.hint.online', { count: connected }) : companion.devices.length ? t('stat.devices.hint.none') : t('stat.devices.hint.no'), icon: 'devices' as IconName, href: '/devices' },
+          { label: t('stat.phone.label'), value: companion.sessions.filter((s) => s.remoteEnabled && s.status !== 'stopped').length, hint: t('stat.phone.hint'), icon: 'link' as IconName, href: '/sessions' }
         ]
       : [])
   ]);
@@ -100,27 +101,25 @@
         images={art}
         anchor={visual}
         className="hero-field"
-        label="Gentle Shell mark and workspace views" />
+        label={t('hero.field.label')} />
     {/if}
     <div class="hero-copy">
-      <span class="eyebrow">{companion.isAdmin ? 'Gentle Companion' : 'Linked to your computer'}</span>
-      <h1>Go grab a coffee.<br /><span class="accent">Pi’ll ping you.</span></h1>
-      <p>
-        Pi keeps chipping away on your computer while you’re off doing other stuff. Check in from your phone, answer
-        when it gets stuck, nudge it in a new direction or toss it a file. No need to sit by the terminal.
-      </p>
+      <span class="eyebrow">{companion.isAdmin ? t('hero.eyebrow.admin') : t('hero.eyebrow.linked')}</span>
+      <h1>{t('hero.title')}<br /><span class="accent">{t('hero.accent')}</span></h1>
+      <p>{t('hero.body')}</p>
       <div class="cta">
-        <a class="btn btn-primary" href="/sessions"><Icon name="sessions" />See what Pi’s up to</a>
-        <a class="btn" href="/help"><Icon name="help" />How it works</a>
+        <a class="btn btn-primary" href="/sessions"><Icon name="sessions" />{t('hero.cta.sessions')}</a>
+        <a class="btn" href="/help"><Icon name="help" />{t('hero.cta.help')}</a>
         {#if companion.isAdmin}
-          <a class="btn" href="/devices"><Icon name="devices" />Add your phone</a>
+          <a class="btn" href="/devices"><Icon name="devices" />{t('hero.cta.devices')}</a>
         {/if}
       </div>
-      <ol class="journey" aria-label="How it connects">
-        <li>Pi works</li>
-        <li>Your computer</li>
-        <li>You check in</li>
+      <ol class="journey" aria-label={t('hero.journey.label')}>
+        <li>{t('hero.journey.1')}</li>
+        <li>{t('hero.journey.2')}</li>
+        <li>{t('hero.journey.3')}</li>
       </ol>
+
     </div>
     <div class="hero-visual" bind:this={visual} aria-hidden="true"></div>
   </section>
@@ -138,17 +137,17 @@
   <section class="guide-tile tile" aria-labelledby="guide-heading">
     <span class="guide-art"><img src={bulbClay} alt="" aria-hidden="true" /></span>
     <div class="guide-copy">
-      <h2 id="guide-heading">First time here?</h2>
-      <p>It takes about two minutes: install it, switch it on in Pi, scan a code with your phone. Done.</p>
+      <h2 id="guide-heading">{t('guide.title')}</h2>
+      <p>{t('guide.body')}</p>
     </div>
-    <a class="btn guide-action" href="/help">Show me how<Icon name="chevron" size={16} /></a>
+    <a class="btn guide-action" href="/help">{t('guide.cta')}<Icon name="chevron" size={16} /></a>
   </section>
 
 
   {#if needsAnswer.length}
     <section class="recent" aria-labelledby="needs-answer-heading">
       <div class="section-head">
-        <h2 id="needs-answer-heading"><img src={chatBubbleClay} alt="" aria-hidden="true" />Pi’s waiting on you</h2>
+        <h2 id="needs-answer-heading"><img src={chatBubbleClay} alt="" aria-hidden="true" />{t('needs.title')}</h2>
       </div>
       <div class="session-grid">
         {#each needsAnswer as session (session.id)}<SessionCard {session} highlighted />{/each}
@@ -157,48 +156,48 @@
   {/if}
 
   <section class="recent home-panel" aria-labelledby="live-heading">
-    <div class="panel-topline"><div class="section-head"><h2 id="live-heading"><img src={computerClay} alt="" aria-hidden="true" />Running now</h2><p class="subtle">Your shared sessions, at a glance.</p></div>
-      <a class="btn view-all" href="/sessions">All sessions<span class="badge count quiet">{totalSessions}</span><Icon name="chevron" size={16} /></a></div>
-    <div class="panel-controls" role="group" aria-label="Filter running sessions">
-      {#each [{ value: 'all', label: 'All' }, { value: 'active', label: 'Working' }, { value: 'idle', label: 'Idle' }] as option}
+    <div class="panel-topline"><div class="section-head"><h2 id="live-heading"><img src={computerClay} alt="" aria-hidden="true" />{t('running.title')}</h2><p class="subtle">{t('running.sub')}</p></div>
+      <a class="btn view-all" href="/sessions">{t('running.viewall')}<span class="badge count quiet">{totalSessions}</span><Icon name="chevron" size={16} /></a></div>
+    <div class="panel-controls" role="group" aria-label={t('running.filter.label')}>
+      {#each [{ value: 'all', label: t('running.filter.all') }, { value: 'active', label: t('running.filter.working') }, { value: 'idle', label: t('running.filter.idle') }] as option}
         <button class="btn" class:active={runningFilter === option.value} aria-pressed={runningFilter === option.value} onclick={() => runningFilter = option.value as typeof runningFilter}>{option.label}</button>
       {/each}
     </div>
     {#if live.length}
       {#if liveNow.length}
-        <SessionTable sessions={liveNow} label="Running now" />
+        <SessionTable sessions={liveNow} label={t('running.title')} />
       {:else}
-        <p class="muted panel-empty">{runningFilter === 'all' ? 'Every session is waiting on your answer.' : 'No sessions match this filter.'}</p>
+        <p class="muted panel-empty">{runningFilter === 'all' ? t('running.empty.waiting') : t('running.empty.nomatch')}</p>
       {/if}
     {:else}
       <div class="tile empty">
         <span class="empty-icon"><img src={computerClay} alt="" aria-hidden="true" /></span>
         {#if companion.connection !== 'online'}
-          <h2>Can’t reach your computer right now</h2>
-          <p>Hang tight. We’ll keep trying, and everything shows up again as soon as it’s back.</p>
+          <h2>{t('running.empty.unreachable.title')}</h2>
+          <p>{t('running.empty.unreachable.body')}</p>
         {:else if companion.isAdmin}
-          <h2>Nothing running yet</h2>
-          <p>Type <code>/companion</code> in any Pi session and it’ll pop up here. Haven’t installed it yet? The guide walks you through it.</p>
+          <h2>{t('running.empty.norunning.title')}</h2>
+          <p>{t('running.empty.norunning.body')}</p>
         {:else}
-          <h2>Nothing shared with you yet</h2>
-          <p>On the computer running Pi, type <code>/companion</code> in a session to share it. It’ll show up here right away.</p>
+          <h2>{t('running.empty.noshared.title')}</h2>
+          <p>{t('running.empty.noshared.body')}</p>
         {/if}
-        <a class="btn" href="/help"><Icon name="help" />Show me how</a>
+        <a class="btn" href="/help"><Icon name="help" />{t('guide.cta')}</a>
       </div>
     {/if}
   </section>
   <section class="recent automation-workspace home-panel" aria-labelledby="home-automation-heading">
-    <div class="panel-topline"><div class="section-head"><h2 id="home-automation-heading"><img src={automationArt} alt="" width="38" height="38" />Your automations</h2><p class="subtle">Your repeatable routines, ready when you need them.</p></div>
-      <a class="btn view-all" href="/automations">All automations<span class="badge count quiet">{automations.length}</span><Icon name="chevron" size={16} /></a></div>
-    <div class="panel-controls" role="group" aria-label="Filter automations">
-      {#each [{ value: 'all', label: 'All' }, { value: 'enabled', label: 'Enabled' }, { value: 'disabled', label: 'Disabled' }] as option}
+    <div class="panel-topline"><div class="section-head"><h2 id="home-automation-heading"><img src={automationArt} alt="" width="38" height="38" />{t('automations.title')}</h2><p class="subtle">{t('automations.sub')}</p></div>
+      <a class="btn view-all" href="/automations">{t('automations.viewall')}<span class="badge count quiet">{automations.length}</span><Icon name="chevron" size={16} /></a></div>
+    <div class="panel-controls" role="group" aria-label={t('automations.filter.label')}>
+      {#each [{ value: 'all', label: t('automations.filter.all') }, { value: 'enabled', label: t('automations.filter.enabled') }, { value: 'disabled', label: t('automations.filter.disabled') }] as option}
         <button class="btn" class:active={automationFilter === option.value} aria-pressed={automationFilter === option.value} onclick={() => automationFilter = option.value as typeof automationFilter}>{option.label}</button>
       {/each}
     </div>
-    {#if automationError}<div class="bento-card" role="alert">Automations are unavailable right now: {automationError}</div>
-    {:else if automationLoading}<div class="bento-card" role="status">Loading your automations…</div>
-    {:else if !automations.length}<div class="bento-card automation-empty"><Icon name="lightning" size={28} /><h2>A little less busywork</h2><p>Set up your first automation on the desktop dashboard, or ask Pi to create one for you.</p><a class="btn" href="/automations">Explore automations<Icon name="chevron" size={16} /></a></div>
-    {:else if !recentAutomations.length}<p class="muted panel-empty">No automations match this filter.</p>
+    {#if automationError}<div class="bento-card" role="alert">{t('automations.error', { error: automationError })}</div>
+    {:else if automationLoading}<div class="bento-card" role="status">{t('automations.loading')}</div>
+    {:else if !automations.length}<div class="bento-card automation-empty"><Icon name="lightning" size={28} /><h2>{t('automations.empty.title')}</h2><p>{t('automations.empty.body')}</p><a class="btn" href="/automations">{t('automations.cta')}<Icon name="chevron" size={16} /></a></div>
+    {:else if !recentAutomations.length}<p class="muted panel-empty">{t('automations.empty.nomatch')}</p>
     {:else}<AutomationTable automations={recentAutomations} />{/if}
   </section>
 </div>

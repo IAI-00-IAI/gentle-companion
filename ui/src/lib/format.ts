@@ -1,3 +1,4 @@
+import { t } from './i18n.svelte.ts';
 import type { Session, SessionStatus } from './types.ts';
 
 export function formatBytes(bytes: number) {
@@ -14,19 +15,19 @@ export function toDate(value: number | string) {
 
 export function relativeTime(value: number | string, now = Date.now()) {
   const seconds = Math.round((now - toDate(value).getTime()) / 1000);
-  if (seconds < 45) return 'just now';
+  if (seconds < 45) return t('format.justnow');
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return minutes + ' min ago';
+  if (minutes < 60) return t('format.min', { n: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
+  if (hours < 24) return t(hours === 1 ? 'format.hour' : 'format.hours', { n: hours });
   const days = Math.round(hours / 24);
-  if (days < 7) return days + (days === 1 ? ' day ago' : ' days ago');
+  if (days < 7) return t(days === 1 ? 'format.day' : 'format.days', { n: days });
   return toDate(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 /** Background-work timestamps are epoch milliseconds; absent legacy timestamps stay unknown. */
 export function elapsedTime(startedAt: number | undefined, now = Date.now()): string {
-  if (startedAt === undefined || !Number.isFinite(startedAt) || !Number.isFinite(now)) return 'Time unavailable';
+  if (startedAt === undefined || !Number.isFinite(startedAt) || !Number.isFinite(now)) return t('format.time.unavailable');
   const seconds = Math.max(0, Math.floor((now - startedAt) / 1000));
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
@@ -38,14 +39,12 @@ export function shortDate(value: number | string) {
   return toDate(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export const statusLabel: Record<SessionStatus, string> = {
-  active: 'Working',
-  idle: 'Waiting',
-  stopped: 'Ended'
-};
+export function statusLabel(status: SessionStatus): string {
+  return t('status.' + status);
+}
 
 export function sessionTitle(session: Session) {
-  return session.name?.trim() || session.shortTitle || 'Pi session';
+  return session.name?.trim() || session.shortTitle || t('session.empty');
 }
 
 /** Collapse the home directory so paths stay readable in narrow cards. */

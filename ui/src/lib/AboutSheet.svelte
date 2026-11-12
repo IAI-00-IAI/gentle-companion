@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '#lib/Icon.svelte';
+  import { t } from '#lib/i18n.svelte.ts';
   import { companion } from '#lib/companion.svelte.ts';
   import { errorMessage } from '#lib/toast.svelte.ts';
   import { toasts } from '#lib/toast.svelte.ts';
@@ -30,9 +31,9 @@
   async function copyValue(value: string, label: string) {
     try {
       await navigator.clipboard.writeText(value);
-      toasts.show(`${label} copied.`, 'success');
+      toasts.show(t('about.copytoast', { label }), 'success');
     } catch {
-      toasts.show('Copy failed.', 'error');
+      toasts.show(t('about.copyfail'), 'error');
     }
   }
 
@@ -46,41 +47,41 @@
   <header class="sheet-head">
     <div class="head-copy">
       <span class="eyebrow">Gentle Companion</span>
-      <h2 id="about-title">Connection details</h2>
+      <h2 id="about-title">{t('about.title')}</h2>
     </div>
-    <button class="btn btn-ghost btn-icon" aria-label="Close connection details" onclick={close}><Icon name="close" /></button>
+    <button class="btn btn-ghost btn-icon" aria-label={t('about.close.aria')} onclick={close}><Icon name="close" /></button>
   </header>
   <div class="sheet-body scroll">
     <div class="status-row">
       <span class="dot {companion.connection}" aria-hidden="true"></span>
-      <strong>{({ connecting: 'Connecting…', online: 'Live', offline: 'Workspace unavailable', disconnected: 'Disconnected', revoked: 'Access removed' })[companion.connection]}</strong>
-      <span class="badge">{companion.version ? `v${companion.version}` : 'Version unavailable'}</span>
+      <strong>{({ connecting: t('about.connection.connecting'), online: t('about.connection.online'), offline: t('about.connection.offline'), disconnected: t('about.connection.disconnected'), revoked: t('about.connection.revoked') })[companion.connection]}</strong>
+      <span class="badge">{companion.version ? `v${companion.version}` : t('about.version.unavailable')}</span>
     </div>
     {#if companion.connectionError}
       <p class="error" role="alert">{companion.connectionError}</p>
-      <button class="btn btn-sm" disabled={companion.connection === 'connecting'} onclick={() => companion.reconnect()}>Retry connection</button>
+      <button class="btn btn-sm" disabled={companion.connection === 'connecting'} onclick={() => companion.reconnect()}>{t('about.retry')}</button>
     {/if}
     {#if companion.isAdmin}
-      {#if loading}<p class="muted">Loading daemon details…</p>
-      {:else if loadError}<p class="error" role="alert">Could not load daemon details: {loadError}</p>
+      {#if loading}<p class="muted">{t('about.loading')}</p>
+      {:else if loadError}<p class="error" role="alert">{t('about.loaderror', { error: loadError })}</p>
       {:else if about}
         <dl class="details">
           {#each [
-            { label: 'Admin URL', value: about.adminUrl },
-            { label: 'Device URL', value: about.deviceUrl },
-            { label: 'Data directory', value: about.dataDir },
-            { label: 'Temporary directory', value: about.tempDir }
+            { label: t('about.adminurl'), value: about.adminUrl },
+            { label: t('about.deviceurl'), value: about.deviceUrl },
+            { label: t('about.datadir'), value: about.dataDir },
+            { label: t('about.tempdir'), value: about.tempDir }
           ] as item (item.label)}
             <div class="detail">
               <dt>{item.label}</dt>
-              <dd><code>{item.value}</code><button class="btn btn-ghost btn-sm" aria-label="Copy {item.label}" onclick={() => copyValue(item.value, item.label)}><Icon name="copy" />Copy</button></dd>
+              <dd><code>{item.value}</code><button class="btn btn-ghost btn-sm" aria-label={t('about.copy.aria', { label: item.label })} onclick={() => copyValue(item.value, item.label)}><Icon name="copy" />{t('about.copy')}</button></dd>
             </div>
           {/each}
         </dl>
       {/if}
     {/if}
   </div>
-  <footer class="sheet-foot"><button class="btn btn-primary" onclick={close}>Done</button></footer>
+  <footer class="sheet-foot"><button class="btn btn-primary" onclick={close}>{t('about.done')}</button></footer>
 </dialog>
 
 <style>

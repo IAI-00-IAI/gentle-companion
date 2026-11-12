@@ -1,53 +1,52 @@
 <script lang="ts">
   import Icon, { type IconName } from '#lib/Icon.svelte';
   import { devicePermissions, type PermissionValue } from '#lib/device-permissions.svelte.ts';
+  import { t } from '#lib/i18n.svelte.ts';
   import { toasts } from '#lib/toast.svelte.ts';
 
   $effect(() => devicePermissions.init());
 
-  const labels: Record<PermissionValue, string> = {
-    granted: 'Allowed',
-    denied: 'Blocked',
-    prompt: 'Not asked yet',
-    unsupported: 'Not available',
-    insecure: 'Needs HTTPS',
-    policy: 'Disabled by policy'
-  };
+  const labels = $derived<Record<PermissionValue, string>>({
+    granted: t('permissions.label.granted'),
+    denied: t('permissions.label.denied'),
+    prompt: t('permissions.label.prompt'),
+    unsupported: t('permissions.label.unsupported'),
+    insecure: t('permissions.label.insecure'),
+    policy: t('permissions.label.policy')
+  });
 
   async function enableNotifications() {
     const result = await devicePermissions.requestNotifications();
-    if (result === 'denied') toasts.show('Notifications are blocked. Allow them for this site in your browser settings.', 'error');
+    if (result === 'denied') toasts.show(t('permissions.toast.denied'), 'error');
   }
 
   async function enableCamera() {
     const result = await devicePermissions.requestCamera();
-    if (result === 'granted') toasts.show('Camera allowed. You can scan pairing codes now.', 'success');
+    if (result === 'granted') toasts.show(t('permissions.toast.camera'), 'success');
     else if (devicePermissions.cameraError) toasts.show(devicePermissions.cameraError, 'error');
   }
 
   async function testNotification() {
-    const shown = await devicePermissions.notify('Test from Gentle Companion', 'This is how session alerts will look on this device.', { tag: 'pi-companion-test' });
-    if (!shown) toasts.show('Could not show a notification on this device.', 'error');
+    const shown = await devicePermissions.notify(t('permissions.notifications.test'), t('permissions.notifications.test.description'), { tag: 'pi-companion-test' });
+    if (!shown) toasts.show(t('permissions.notifications.test.fail'), 'error');
   }
 
   function hint(kind: 'notifications' | 'camera', state: PermissionValue) {
     if (kind === 'camera' && devicePermissions.cameraError) return devicePermissions.cameraError;
-    if (state === 'policy') return 'The page or proxy blocks camera access. Open Companion directly over HTTPS. In your proxy’s Permissions-Policy, use camera=(self), not camera=(). Restart Companion after upgrading and reload. Manual-code pairing still works.';
-    if (state === 'insecure') return 'Open Gentle Companion through its HTTPS link to use this. Camera access is unavailable on plain HTTP phone/LAN links.';
-    if (state === 'denied') return 'Blocked by your browser. Open the site settings (the icon next to the address) and set it to Allow, then reload.';
+    if (state === 'policy') return t('permissions.camera.policy.hint');
+    if (state === 'insecure') return t('permissions.camera.insecure.hint');
+    if (state === 'denied') return t('permissions.camera.denied.hint');
     if (kind === 'notifications') {
-      if (state === 'unsupported') return devicePermissions.needsInstall
-        ? 'On iPhone and iPad, add Gentle Companion to your Home Screen first, then open it from there.'
-        : 'This browser cannot show notifications.';
-      return 'Get an alert when Pi asks a question, finishes a task or ends a session.';
+      if (state === 'unsupported') return devicePermissions.needsInstall ? t('permissions.notifications.unsupported.hint.install') : t('permissions.notifications.unsupported.hint');
+      return t('permissions.notifications.prompt.hint');
     }
-    if (state === 'unsupported') return 'Camera access is not available in this browser or device. Try another browser or enter a pairing code instead.';
-    return 'Used only to scan pairing QR codes. Nothing is recorded or uploaded.';
+    if (state === 'unsupported') return t('permissions.camera.unsupported.hint');
+    return t('permissions.camera.hint');
   }
 
   const rows = $derived<{ kind: 'notifications' | 'camera'; icon: IconName; title: string; state: PermissionValue }[]>([
-    { kind: 'notifications', icon: 'bell', title: 'Notifications', state: devicePermissions.notifications },
-    { kind: 'camera', icon: 'camera', title: 'Camera', state: devicePermissions.camera }
+    { kind: 'notifications', icon: 'bell', title: t('permissions.notifications.title'), state: devicePermissions.notifications },
+    { kind: 'camera', icon: 'camera', title: t('permissions.camera.title'), state: devicePermissions.camera }
   ]);
 </script>
 
@@ -62,16 +61,16 @@
       <div class="permission-actions">
         {#if row.kind === 'notifications'}
           {#if row.state === 'prompt'}
-            <button class="btn btn-primary btn-sm" type="button" onclick={enableNotifications}>Allow notifications</button>
+            <button class="btn btn-primary btn-sm" class:primary={false} type="button" onclick={enableNotifications}>{t('permissions.notifications.prompt.cta')}</button>
           {:else if row.state === 'granted'}
             <label class="toggle">
               <input type="checkbox" checked={devicePermissions.notificationsEnabled} onchange={(event) => devicePermissions.setNotificationsEnabled(event.currentTarget.checked)} />
-              <span>Alerts on</span>
+              <span class="primary">{t('permissions.notifications.toggle')}</span>
             </label>
-            <button class="btn btn-ghost btn-sm" type="button" onclick={testNotification}>Send test</button>
+            <button class="btn btn-ghost btn-sm" class:primary={false} type="button" onclick={testNotification}>{t('permissions.notifications.test')}</button>
           {/if}
         {:else if row.state === 'prompt' || row.state === 'denied' || row.state === 'unsupported'}
-          <button class="btn btn-primary btn-sm" type="button" onclick={enableCamera} disabled={devicePermissions.cameraPending}>{devicePermissions.cameraPending ? 'Requesting…' : row.state === 'prompt' ? 'Allow camera' : 'Retry camera'}</button>
+          <button class="btn btn-primary btn-sm" type="button" onclick={enableCamera} disabled={devicePermissions.cameraPending}>{devicePermissions.cameraPending ? t('permissions.camera.requesting') : row.state === 'prompt' ? t('permissions.camera.prompt.cta') : t('permissions.camera.retry.cta')}</button>
         {/if}
       </div>
     </li>

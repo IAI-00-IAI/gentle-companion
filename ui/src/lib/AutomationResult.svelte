@@ -8,6 +8,7 @@
   import Icon from './Icon.svelte';
   import { renderMarkdown, prettify } from './markdown.ts';
   import { resultSections, structuredResult, adfHtml } from './automation-result.ts';
+  import { t } from './i18n.svelte.ts';
   let { text, running = false }: { text: string; running?: boolean } = $props();
   let preview = $state<PreviewTarget | null>(null);
   const showPreview = (target: PreviewTarget) => { preview = target; };
@@ -24,18 +25,18 @@
   }
   async function copy() {
     try { await navigator.clipboard.writeText(text); copied = true; copyError = ''; }
-    catch { copyError = 'Clipboard unavailable. Select text in the raw view to copy.'; }
+    catch { copyError = t('automation.result.copyfail'); }
   }
 </script>
-<section class="automation-result" aria-label="Run output" use:previewLinks={{ onpreview: showPreview, onerror: previewError }}>
-  <div class="result-toolbar"><div><h2>Run output</h2><p class="subtle">{raw ? 'Original captured output' : 'Markdown, tables, ADF & structured JSON'}</p></div><div class="result-controls"><button class="btn btn-sm" aria-pressed={raw} onclick={() => raw = !raw}><Icon name="file" size={15} />{raw ? 'Formatted view' : 'Raw output'}</button><button class="btn btn-sm" onclick={copy}><Icon name="copy" size={15} />{copied ? 'Copied' : 'Copy'}</button></div></div>
+<section class="automation-result" aria-label={t('automation.result.aria')} use:previewLinks={{ onpreview: showPreview, onerror: previewError }}>
+  <div class="result-toolbar"><div><h2>{t('automation.result.title')}</h2><p class="subtle">{t('automation.result.markdown')}</p></div><div class="result-controls"><button class="btn btn-sm" aria-pressed={raw} onclick={() => raw = !raw}><Icon name="file" size={15} />{t('automation.result.formatted')}</button><button class="btn btn-sm" onclick={copy}><Icon name="copy" size={15} />{t('automation.result.copy')}</button></div></div>
   {#if copyError}<p role="status" class="subtle">{copyError}</p>{/if}
-  {#if !text}<div class="automation-empty"><Icon name="chat" size={28} /><p>{running ? 'The run is working. Output is captured when each step finishes.' : 'No output was recorded for this run.'}</p></div>
+  {#if !text}<div class="automation-empty"><Icon name="chat" size={28} /><p>{t(running ? 'automation.result.empty.running' : 'automation.result.empty.done')}</p></div>
   {:else if raw}<pre class="raw-output">{text}</pre>
   {:else}
     {#each sections as section, index (`${index}-${section.title}`)}
       {@const structured = structuredResult(section.content)}
-      <section class="output-section"><header><span class="step-number">{String(index + 1).padStart(2, '0')}</span><h3>{section.title}</h3><span class="format-label">{structured?.kind === 'adf' ? 'ADF' : structured?.kind === 'json' ? 'JSON' : 'Markdown'}</span></header>
+      <section class="output-section"><header><span class="step-number">{String(index + 1).padStart(2, '0')}</span><h3>{section.title}</h3><span class="format-label">{t(structured?.kind === 'adf' ? 'automation.result.section.adf' : structured?.kind === 'json' ? 'automation.result.section.json' : 'automation.result.section.markdown')}</span></header>
         {#if structured?.kind === 'json'}<pre class="raw-output">{JSON.stringify(structured.value, null, 2)}</pre>
         {:else}<div class="rich-output" use:prettify={{ text: section.content, final: !running }}>{@html html(section.content)}</div>{/if}
       </section>

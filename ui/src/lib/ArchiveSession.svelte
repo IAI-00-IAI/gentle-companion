@@ -3,19 +3,20 @@
   import Icon from './Icon.svelte';
   import { companion } from './companion.svelte.ts';
   import { sessionTitle } from './format.ts';
+  import { t } from './i18n.svelte.ts';
   import { errorMessage, toasts } from './toast.svelte.ts';
   import type { Session } from './types.ts';
 
-  let { session, redirect = false, label = 'Archive session' }: { session: Session; redirect?: boolean; label?: string } = $props();
+  let { session, redirect = false, label = t('session.detail.archive.label') }: { session: Session; redirect?: boolean; label?: string } = $props();
   let busy = $state(false);
 
   async function archive() {
     if (busy || session.status !== 'stopped') return;
-    if (!confirm(`Archive “${sessionTitle(session)}” from Gentle Companion?\n\nThis removes only the ended session from the daemon. Your local Pi session and history are not deleted.`)) return;
+    if (!confirm(t('session.detail.archive.confirm', { name: sessionTitle(session) }))) return;
     busy = true;
     try {
       await companion.archiveSession(session.id);
-      toasts.show('Session archived from the daemon. Local Pi history is unchanged.', 'success');
+      toasts.show(t('session.detail.archive.toast'), 'success');
       if (redirect) await goto('/sessions');
     } catch (error) {
       toasts.show(errorMessage(error), 'error');
@@ -29,9 +30,9 @@
 <button
   class="archive btn btn-ghost btn-sm"
   disabled={busy || session.status !== 'stopped'}
-  title={session.status === 'stopped' ? 'Remove from daemon only; keep local Pi history' : 'Working and waiting sessions cannot be archived'}
+  title={session.status === 'stopped' ? t('session.detail.archive.title.disabled') : t('session.detail.archive.title.working')}
   aria-label={label + ': ' + sessionTitle(session)}
-  onclick={archive}><Icon name="archive" size={16} />{busy ? 'Archiving…' : label}</button>
+  onclick={archive}><Icon name="archive" size={16} />{busy ? t('session.detail.archive.busy') : label}</button>
 
 <style>
   .archive { min-height: 44px; justify-content: flex-start; }
