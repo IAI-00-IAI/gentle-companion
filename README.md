@@ -49,7 +49,7 @@ or straight from git:
 
     gentle-shell install git:github.com/IAI-00-IAI/gentle-companion
 
-With Gentle Shell (a Pi fork), install the same standard Gentle Shell package:
+With Gentle Shell, install the same standard package:
 
     gentle-shell install npm:@yunazgr/pi-companion
 
