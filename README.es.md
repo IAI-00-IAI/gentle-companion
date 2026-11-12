@@ -8,7 +8,7 @@ Control remoto ligero, centrado en lo local, para sesiones de Gentle Shell.
 
 **[Mira el recorrido narrado de 2 minutos](docs/pi-companion-promo.mp4)**: una sesión real de Gentle Shell compartida con `/remote-control`, un teléfono asociado desde el panel, las preguntas de Gentle Shell respondidas desde el teléfono, y una automatización creada, disparada y revisada. Está grabada desde el terminal y la interfaz reales y compuesta mediante código en [`tools/promo-video`](tools/promo-video).
 
-**Nuevo en 0.3.15:** El endurecimiento de compatibilidad con Gentle Shell 1.4.0 mantiene las sesiones activas durante el inicio y los reintentos automáticos, coloca en cola de forma segura las peticiones remotas durante ejecuciones ocupadas y evita que las respuestas de automatización canceladas o truncadas se reporten como exitosas. La cobertura de pruebas de regresión ahora incluye diálogos retransmitidos superpuestos. Los controles de desarrollo usan Gentle Shell 1.4.0. Los detalles de automatización rediseñados distinguen las ejecuciones manuales de las programaciones activas/pausadas y explican el manejo de fallas. Los enlaces de agente y los informes compartidos ofrecen vistas previas con sandbox de opt-in sin un controlador del navegador del host ni un proxy de URL.
+**Nuevo en 0.3.16:** El endurecimiento de compatibilidad con Gentle Shell 1.4.0 mantiene las sesiones activas durante el inicio y los reintentos automáticos, coloca en cola de forma segura las peticiones remotas durante ejecuciones ocupadas y evita que las respuestas de automatización canceladas o truncadas se reporten como exitosas. La cobertura de pruebas de regresión ahora incluye diálogos retransmitidos superpuestos. Los controles de desarrollo usan Gentle Shell 1.4.0. Los detalles de automatización rediseñados distinguen las ejecuciones manuales de las programaciones activas/pausadas y explican el manejo de fallas. Los enlaces de agente y los informes compartidos ofrecen vistas previas con sandbox de opt-in sin un controlador del navegador del host ni un proxy de URL.
 
 **0.3.13:** Cambios se limita a las ediciones registradas en la sesión y a los archivos de subagente de Pi Jar aplicados, con controles compactos de revisión móvil. El menú de la sesión incluye trabajo de fondo con temporizadores transcurridos y una ventana emergente de Tareas con desplazamiento para Pi Jar y extensiones compatibles. Las páginas de error con estilo claymorfism ofrecen acciones seguras de recuperación y explican las descargas de páginas fallidas.
 
@@ -446,7 +446,7 @@ Clona el repositorio y luego:
 
 `npm run serve` construye la interfaz Svelte integrada y inicia el daemon Rust en primer plano. Imprime:
 
-      Gentle Companion v0.3.15
+      Gentle Companion v0.3.16
 
       Console          http://127.0.0.1:43721
       Paired devices   http://127.0.0.1:43722
