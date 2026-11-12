@@ -1,12 +1,14 @@
 # Gentle Companion
 
-Lightweight, local-first remote control for Pi sessions.
+Lightweight, local-first remote control for Gentle Shell sessions.
+
+> Fork of [pi-companion](https://github.com/ygrip/pi-companion), adapted for Gentle Shell. This repository lives at [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion).
 
 [![Watch the Gentle Companion walkthrough (2 min)](docs/pi-companion-promo.webp)](docs/pi-companion-promo.mp4)
 
-**[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Pi session shared with `/remote-control`, a phone paired from the dashboard, Pi's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
+**[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Gentle Shell session shared with `/remote-control`, a phone paired from the dashboard, Gentle Shell's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
 
-**New in 0.3.14:** Pi 1.4.0 compatibility hardening keeps sessions active through startup and automatic retries, safely queues remote prompts during busy runs, and prevents cancelled or truncated automation responses from being reported as successful. Regression coverage now includes overlapping relayed dialogs. Development checks use Pi 1.4.0. Revamped automation details distinguish manual runs from active/paused schedules and explain failure handling. Agent links and shared reports offer opt-in sandboxed previews without a host-browser controller or URL proxy.
+**New in 0.3.14:** Gentle Shell 1.4.0 compatibility hardening keeps sessions active through startup and automatic retries, safely queues remote prompts during busy runs, and prevents cancelled or truncated automation responses from being reported as successful. Regression coverage now includes overlapping relayed dialogs. Development checks use Gentle Shell 1.4.0. Revamped automation details distinguish manual runs from active/paused schedules and explain failure handling. Agent links and shared reports offer opt-in sandboxed previews without a host-browser controller or URL proxy.
 
 **0.3.13:** Changes is scoped to session-recorded edits and applied Pi Jar subagent files, with compact mobile review controls. The session menu contains background work with elapsed timers and a scrollable Tasks popup for Pi Jar and compatible extensions. Claymorphism error pages provide safe recovery actions and explain failed page downloads.
 
@@ -20,13 +22,13 @@ Lightweight, local-first remote control for Pi sessions.
 
 **0.3.8:** The session feed is easier to scan: shell calls show a one-line, human summary ("Check git status, Run tests +1 more") instead of the raw script, while output stays intact. Agent thinking renders as Markdown with a live animated state and "Thought for Ns" once done. Unnamed sessions get a short title that summarises the first prompt, inferred by the session's own model while shared, with an instant local fallback.
 
-When a session is shared, Companion fetches OpenAI Codex and Anthropic subscription usage via Pi's existing OAuth resolver, independently per provider with five-minute caching and failure backoff. Credentials are never sent to the browser or stored by the daemon. API-key accounts and unsupported providers have no built-in subscription lookup; extensions can still publish the neutral telemetry contract. Provider rate-limit, quota and authentication failures are shown in the activity feed with safe remediation guidance rather than raw provider payloads.
+When a session is shared, Companion fetches OpenAI Codex and Anthropic subscription usage via Gentle Shell's existing OAuth resolver, independently per provider with five-minute caching and failure backoff. Credentials are never sent to the browser or stored by the daemon. API-key accounts and unsupported providers have no built-in subscription lookup; extensions can still publish the neutral telemetry contract. Provider rate-limit, quota and authentication failures are shown in the activity feed with safe remediation guidance rather than raw provider payloads.
 
 Filename search is case-insensitive. New browser uploads are marked **You**; local agent uploads can declare **Agent** by posting to `/api/sessions/{session_id}/files?source=agent`. This query is honored only on the local admin endpoint; remote uploads always remain user uploads. Older files without provenance show **Unknown**. Source badges describe upload provenance, not file-content authorship.
 
-**New in 0.3.2:** responsive automation and run-history tables, rounded status chips, matching clay-icon headers, and a single-column automation workspace with full-width mobile controls. **Edit automation** scrolls to and focuses the inline editor. Pull to refresh Overview, Sessions, Automations, or Settings—with a gesture; unsaved settings stay intact. Camera-policy guidance now explains HTTPS proxy configuration. Existing rich results, staged job editing, optional retries, and answers-only automation sessions are retained. See [automations](docs/automations.md).
+**New in 0.3.2:** responsive automation and run-history tables, rounded status chips, matching clay-icon headers, and a single-column automation workspace with full-width mobile controls. **Edit automation** scrolls to and focuses the inline editor. Pull to refresh Overview, Sessions, Automations, or Settings—with a gesture; unsaved settings stay intact. Camera-policy guidance now explains HTTPS proxy configuration. Existing rich results, staged job editing, optional retries, and answers-only automation sessions are retained. See [automations](docs/automations.md) / [es](docs/automations.es.md).
 
-Gentle Companion is deliberately not another agent runtime. Pi owns execution and conversation state. A single Rust daemon owns session discovery, pairing, temporary file exchange, browser fan-out, and the embedded web UI.
+Gentle Companion is deliberately not another agent runtime. Gentle Shell owns execution and conversation state. A single Rust daemon owns session discovery, pairing, temporary file exchange, browser fan-out, and the embedded web UI.
 
 The UI is a static SvelteKit application. There is no Node runtime in production and no Tauri shell. Rust embeds the generated frontend into the daemon binary.
 
@@ -47,11 +49,11 @@ or straight from git:
 
     gentle-shell install git:github.com/IAI-00-IAI/gentle-companion
 
-With Gentle Shell (a Pi fork), install the same standard Pi package:
+With Gentle Shell (a Pi fork), install the same standard Gentle Shell package:
 
     gentle-shell install npm:@yunazgr/pi-companion
 
-Gentle Shell uses Pi's native package command, so the same `pi` manifest, extension and skill loading apply. When the extension loads, it checks the local daemon and starts it if needed, downloading the matching sha256-verified release into `~/.pi/agent/pi-companion/bin/<version>/`. Daemon startup does **not** share your session.
+Gentle Shell uses the native package command, so the same `pi` manifest, extension and skill loading apply. When the extension loads, it checks the local daemon and starts it if needed, downloading the matching sha256-verified release into `~/.pi/agent/pi-companion/bin/<version>/`. Daemon startup does **not** share your session.
 
 Use `/remote-control` in any session to toggle sharing; `/remote-control on` and `/remote-control off` are explicit alternatives. No `/companion` prerequisite. `/companion` and `/companion off` remain compatibility aliases.
 
@@ -74,7 +76,7 @@ You do **not** need to run `pi-companion-server` manually for a normal npm insta
           localhost WebSocket
         +---------+---------+
         v                   v
-    Pi session A        Pi session B
+    Gentle Shell session A        Gentle Shell session B
     extension           extension
 
     paired phone
@@ -108,15 +110,15 @@ Start Gentle Shell normally; daemon availability is automatic. Sessions stay pri
 
 The lifecycle is:
 
-1. Extension startup probes the daemon and repeats the check every 30 seconds while Pi is open, without publishing this session.
+1. Extension startup probes the daemon and repeats the check every 30 seconds while Gentle Shell is open, without publishing this session.
 2. A process-owned startup lock serializes concurrent sessions, including long downloads. The daemon also refuses duplicate port binds.
 3. Resolve/download and version-check the replacement **before** stopping the existing daemon. Missing releases or invalid binaries leave the old daemon untouched; there is no latest-release fallback.
 4. When starting a managed daemon, register one per-user background service: macOS `launchd`, Linux `systemd --user`, or Windows Task Scheduler. Its supervisor restarts the daemon after crashes and reads the updated binary configuration after upgrades.
 5. If service registration is unavailable (for example no Linux user systemd or insufficient Windows permissions), warn and start a detached daemon instead. Extension-load and periodic checks remain the fallback.
 6. `/remote-control` toggles only the current session. Session switches reset sharing; turning sharing off never shuts down the daemon.
-7. Upgrades close sockets so browsers and opted-in Pi sessions reconnect. Active automation runs are stopped during daemon shutdown; the in-memory feed and temporary-file registry do not survive daemon replacement.
+7. Upgrades close sockets so browsers and opted-in Gentle Shell sessions reconnect. Active automation runs are stopped during daemon shutdown; the in-memory feed and temporary-file registry do not survive daemon replacement.
 
-Services run with your user privileges, not administrator/root privileges. Login/logout behavior depends on the OS: Linux may need user lingering for logout persistence, and Windows scheduling may be restricted by policy. A pre-existing same-version manual daemon is reused without takeover; service registration happens when Companion needs to start or upgrade it. Package installation alone does not execute a downloader—Pi must load the extension once.
+Services run with your user privileges, not administrator/root privileges. Login/logout behavior depends on the OS: Linux may need user lingering for logout persistence, and Windows scheduling may be restricted by policy. A pre-existing same-version manual daemon is reused without takeover; service registration happens when Companion needs to start or upgrade it. Package installation alone does not execute a downloader—Gentle Shell must load the extension once.
 
 The daemon binary is resolved in this order:
 
@@ -135,12 +137,12 @@ Companion stores its state, settings, pairing registry and daemon cache under a 
 1. `PI_COMPANION_HOME`, when set (the full override, unchanged behavior)
 2. `<agent home>/pi-companion`, where `<agent home>` comes from:
    - `GENTLE_PI_AGENT_HOME`, when set (Gentle Shell launcher default)
-   - `PI_CODING_AGENT_DIR`, when set (Pi agent home)
+   - `PI_CODING_AGENT_DIR`, when set (Gentle Shell agent home)
    - `~/.pi/agent`, otherwise
 
 So under Gentle Shell, Companion defaults to `<GENTLE_PI_AGENT_HOME>/pi-companion` instead of `~/.pi/agent/pi-companion`, while `PI_COMPANION_HOME` always wins. Pairing state, settings, the service folder and the daemon binary cache all follow the same home.
 
-To stop the daemon and remove the OS service, first set `PI_COMPANION_SERVICE=0` for Pi, then disable the per-user service: macOS `launchctl bootout gui/$(id -u)/dev.pi-companion.daemon` and remove `~/Library/LaunchAgents/dev.pi-companion.daemon.plist`; Linux `systemctl --user disable --now pi-companion.service` and remove `~/.config/systemd/user/pi-companion.service`; Windows `schtasks /End /TN "Pi Companion"` then `schtasks /Delete /TN "Pi Companion" /F`. Package removal alone does not uninstall an OS service. The supervisor/configuration lives under the daemon home directory's `service/` folder.
+To stop the daemon and remove the OS service, first set `PI_COMPANION_SERVICE=0` for Gentle Shell, then disable the per-user service: macOS `launchctl bootout gui/$(id -u)/dev.pi-companion.daemon` and remove `~/Library/LaunchAgents/dev.pi-companion.daemon.plist`; Linux `systemctl --user disable --now pi-companion.service` and remove `~/.config/systemd/user/pi-companion.service`; Windows `schtasks /End /TN "Pi Companion"` then `schtasks /Delete /TN "Pi Companion" /F`. Package removal alone does not uninstall an OS service. The supervisor/configuration lives under the daemon home directory's `service/` folder.
 
 Optional environment variables (none are required):
 
@@ -155,7 +157,7 @@ Optional environment variables (none are required):
 | PI_COMPANION_ALLOWED_ORIGINS | daemon-side: extra comma-separated browser origins accepted besides the loopback addresses and the public URL |
 | PI_COMPANION_ADMIN_ADDR, PI_COMPANION_DEVICE_ADDR | daemon-side: loopback listen addresses (default `127.0.0.1:43721` / `127.0.0.1:43722`), for running a second daemon next to the usual one, e.g. for screenshots. The extension still looks for 43721 unless `PI_COMPANION_URL` points elsewhere |
 | GENTLE_PI_AGENT_HOME | Companion data home becomes `<GENTLE_PI_AGENT_HOME>/pi-companion`; Gentle Shell sets this. Overridden by `PI_COMPANION_HOME` |
-| PI_CODING_AGENT_DIR | Companion data home becomes `<PI_CODING_AGENT_DIR>/pi-companion`; Pi agent home. Overridden by `PI_COMPANION_HOME`, `GENTLE_PI_AGENT_HOME` |
+| PI_CODING_AGENT_DIR | Companion data home becomes `<PI_CODING_AGENT_DIR>/pi-companion`; Gentle Shell agent home. Overridden by `PI_COMPANION_HOME`, `GENTLE_PI_AGENT_HOME` |
 
 Local admin:
 
@@ -175,23 +177,23 @@ The configured public URL is used to construct pairing invitations and is the br
 
 ## Per-session remote control
 
-Inside any Pi session:
+Inside any Gentle Shell session:
 
     /companion          # enable for this session (and print the dashboard address)
     /companion off      # stop sharing this session
     /remote-control     # toggle sharing on/off
 
-A paired device cannot access sessions that have not explicitly enabled remote control. Turning `/remote-control` off or running `/companion off` closes this session’s daemon channel: it disappears from paired devices and becomes **Ended** on the local dashboard. Pi continues locally; local Pi history is untouched. Sharing does not reconnect itself while disabled. `/remote-control` can enable sharing directly, including on a fresh session; `/companion` can also resume it. Temporary uploads follow the usual disconnected-session cleanup below.
+A paired device cannot access sessions that have not explicitly enabled remote control. Turning `/remote-control` off or running `/companion off` closes this session’s daemon channel: it disappears from paired devices and becomes **Ended** on the local dashboard. Gentle Shell continues locally; local Gentle Shell history is untouched. Sharing does not reconnect itself while disabled. `/remote-control` can enable sharing directly, including on a fresh session; `/companion` can also resume it. Temporary uploads follow the usual disconnected-session cleanup below.
 
-## Questions from Pi
+## Questions from Gentle Shell
 
-Pi's `companion_ask_user` tool asks one to four questions at once. Each question can offer options with descriptions, allow several choices (`multiSelect`), and accept a free-text "Other" answer; a question without options is free text. The browser shows them in a bottom sheet within thumb reach; "Later" hides it until you tap the waiting-question badge.
+Gentle Shell's `companion_ask_user` tool asks one to four questions at once. Each question can offer options with descriptions, allow several choices (`multiSelect`), and accept a free-text "Other" answer; a question without options is free text. The browser shows them in a bottom sheet within thumb reach; "Later" hides it until you tap the waiting-question badge.
 
 Dialogs from other extensions (`ctx.ui.select`, `ctx.ui.confirm`, `ctx.ui.input`) are relayed to the same sheet while the terminal dialog stays open: whichever side answers first wins and the other closes. Question tools that draw their own `ctx.ui.custom` picker can use a native-sheet adapter: pi-jar's `jar_ask` is supported, and a companion answer completes its terminal picker. Standard dialogs work for any extension, not just `jar_ask`. Pending questions are part of the session snapshot, so a browser that connects later still sees them.
 
 Other `ctx.ui.custom` components are mirrored in a terminal-style popup, including custom slash-command screens. ANSI colors and selection highlighting are preserved inside a clay-styled, vertically and horizontally scrollable viewer. Text-size controls and view-scroll buttons make long or wide screens easier to read; separate navigation controls and expandable extra keys operate the original component. The input bar stays available while the popup body scrolls, and unsent text is retained if the connection drops. Enter submits according to the extension's keybindings; Close sends Escape so the component supplies its own cancellation result. Components that ignore Escape may remain open. Local completion closes the companion view, and pending frames survive browser reconnects. Ending sharing stops mirroring without closing the local component.
 
-Custom popups use the local terminal's rendered width (scroll horizontally on narrow screens), not an independently resized terminal. Mouse-only interactions, terminal images, and direct terminal I/O are not mirrored. RPC automation sessions cannot mirror custom terminal components because Pi does not create them in RPC mode. `ctx.ui.editor` remains terminal-only.
+Custom popups use the local terminal's rendered width (scroll horizontally on narrow screens), not an independently resized terminal. Mouse-only interactions, terminal images, and direct terminal I/O are not mirrored. RPC automation sessions cannot mirror custom terminal components because Gentle Shell does not create them in RPC mode. `ctx.ui.editor` remains terminal-only.
 
 ## Refreshing your workspace
 
@@ -203,7 +205,7 @@ The Sessions, Devices, and Settings pages now share the automation page’s clay
 
 Settings → **Notifications and camera** (on every device, not just the console) asks the browser for both permissions from a tap, as browsers require, and shows whether each is allowed, blocked or unavailable. Overview also offers a one-time "Turn on notifications" banner.
 
-With notifications on, the device gets a system notification (through the service worker, so it works for installed apps and Android) when Pi asks a question, finishes a turn or a session ends. Tapping it opens that session. Nothing is sent while you are already looking at that session. iPhone and iPad only allow web notifications from an app added to the Home Screen. The camera is used only for the pairing QR scanner. Camera access requires HTTPS or localhost; plain HTTP LAN/phone links cannot prompt. After upgrading, restart the daemon and reload the app to refresh cached camera policies. Settings distinguishes browser denial, page/proxy policy blocks and transient camera errors, with retry or manual-code pairing guidance.
+With notifications on, the device gets a system notification (through the service worker, so it works for installed apps and Android) when Gentle Shell asks a question, finishes a turn or a session ends. Tapping it opens that session. Nothing is sent while you are already looking at that session. iPhone and iPad only allow web notifications from an app added to the Home Screen. The camera is used only for the pairing QR scanner. Camera access requires HTTPS or localhost; plain HTTP LAN/phone links cannot prompt. After upgrading, restart the daemon and reload the app to refresh cached camera policies. Settings distinguishes browser denial, page/proxy policy blocks and transient camera errors, with retry or manual-code pairing guidance.
 
 Activity no longer lives only in the open tab. The daemon keeps a bounded, in-memory log of each session's recent feed (streamed text is merged, up to 800 entries) at `GET /api/sessions/{id}/activity` on both surfaces (paired devices: shared sessions only). The UI rebuilds the feed from it when a session opens and after every reconnect or resync, so a phone that slept, dropped its connection or was closed catches up without sending a new message. Prompts, steers and answers from any device are added to that log too. The log is cleared when the daemon restarts or the session is archived.
 
@@ -228,13 +230,13 @@ Each paired device shows a live **Connected** / **Disconnected** status (with th
 
 Paired devices (name, browser user agent, pairing and last-seen times, credential hash) and settings survive daemon restarts. They are stored in `~/.pi/agent/pi-companion/state.json`, created with mode 0600 inside a 0700 directory and replaced atomically; a looser mode found on startup is tightened. Override the directory with `PI_COMPANION_HOME`.
 
-A phone pairs once with the daemon. Individual Pi sessions opt in using `/remote-control`. This choice is saved in Pi session history: resuming that same session restores sharing unless you used `/remote-control off`. New sessions and forks do not inherit another session's opt-in. After upgrading from 0.3.6 or earlier, enable sharing once to save this choice; older versions did not record it.
+A phone pairs once with the daemon. Individual Gentle Shell sessions opt in using `/remote-control`. This choice is saved in Gentle Shell session history: resuming that same session restores sharing unless you used `/remote-control off`. New sessions and forks do not inherit another session's opt-in. After upgrading from 0.3.6 or earlier, enable sharing once to save this choice; older versions did not record it.
 
 Network loss and daemon restarts reconnect automatically with bounded backoff. Heartbeats detect silent connections, and returning to the foreground or restoring network access retries immediately. Pairing credentials and unsent drafts survive outages; session snapshots, pending questions, and previously loaded upload lists refresh on reconnect. Recent activity is replayed from the daemon’s bounded log, but prompts/answers are never automatically resent. A deliberate **Disconnect** waits for the device’s explicit retry; **Revoke** removes access and requires pairing again.
 
 ## Session metadata and usage
 
-Shared session title, model, effort and working directory refresh on Pi events and once per second while sharing, including while idle. Session detail shows context-window usage and estimated session cost. Native Pi context and recorded usage costs take precedence; independent extension reports fill unavailable fields. Missing usage is shown as unavailable, not zero.
+Shared session title, model, effort and working directory refresh on Gentle Shell events and once per second while sharing, including while idle. Session detail shows context-window usage and estimated session cost. Native Gentle Shell context and recorded usage costs take precedence; independent extension reports fill unavailable fields. Missing usage is shown as unavailable, not zero.
 
 **Settings → Usage** is available on the console and paired devices. It displays the latest snapshot per provider: weekly usage, 5-hour usage when reported, reset times, source and snapshot age. Quota snapshots are not added across sessions or accounts. Those limits are extension-reported, not billing totals or locally inferred quotas. Companion additionally accumulates observed token consumption and estimated cost by provider across retained sessions for the current week (Monday 00:00 UTC). The daemon persists per-session counters and adds only new consumption, avoiding duplicate counts on reconnect or restart; live updates refresh Settings without reloading. The initial saved report includes the session’s known totals, and retention is bounded to 500 sessions, so these estimates are not a complete account-wide bill. Quota freshness and consumption timestamps remain independent. When no quota adapter is installed, 5-hour and weekly quotas still show as unavailable rather than fabricated percentages.
 
@@ -254,7 +256,7 @@ pi.events.emit("companion:telemetry", {
 });
 ```
 
-Publish complete snapshots per provider; session context and cost may be supplied independently by different extensions. Companion also accepts `usage:update`, `session:usage` and `provider:usage` with this shape. On opt-in and every 30 seconds it emits `companion:telemetry:request` with the Pi `sessionId` and `companionSessionId`, allowing adapters to respond with their cached snapshots. It never reads provider credentials or calls quota APIs itself. Extensions with private, non-exported quota data need an adapter to publish this contract.
+Publish complete snapshots per provider; session context and cost may be supplied independently by different extensions. Companion also accepts `usage:update`, `session:usage` and `provider:usage` with this shape. On opt-in and every 30 seconds it emits `companion:telemetry:request` with the Gentle Shell `sessionId` and `companionSessionId`, allowing adapters to respond with their cached snapshots. It never reads provider credentials or calls quota APIs itself. Extensions with private, non-exported quota data need an adapter to publish this contract.
 
 As a legacy fallback, `ctx.ui.setStatus` reports with explicit `ctx 12%` / `context 12%` and `cost: $0.25` (or cost/usage/footer keys containing `$0.25`) are recognized. Quota status lines must identify `provider=…` and label `7d`/`weekly` and `5h`/`5-hour` percentages (`used`, `left`, or `remaining`). Unlabelled percentages mean used. Status rendering is preserved. Invalid reports are ignored; extension context/cost expires after five minutes without a fresh reading. Context estimates are also invalidated on model changes, compaction and tree navigation; quota snapshots retain their original timestamps and visibly age.
 
@@ -292,7 +294,7 @@ The browser can upload a file using the composer’s attachment button, or from 
 - deletion verifies the stored path is still inside that session sandbox
 - sandbox content is removed 30 seconds after a disconnected session fails to reconnect
 
-The Pi extension exposes:
+The Gentle Shell extension exposes:
 
     companion_temp_files
 
@@ -332,15 +334,15 @@ If a tunnel closes, the workspace stops, or your device loses its network, Compa
 - Reconnection uses bounded backoff and retries when the device returns online. **Retry now** is available immediately.
 - Previously loaded activity may be stale. Failed sends keep your draft; messages and uploads are never automatically resent.
 - Network/tunnel errors preserve pairing. Explicit computer disconnects still require manual reconnect; revoked credentials still require pairing again.
-- Restart the tunnel, keep the workspace running, and run `/companion` in Pi if the daemon is not running. If the tunnel URL changed, open the new HTTPS device URL; a different hostname/origin may require pairing again in that browser.
+- Restart the tunnel, keep the workspace running, and run `/companion` in Gentle Shell if the daemon is not running. If the tunnel URL changed, open the new HTTPS device URL; a different hostname/origin may require pairing again in that browser.
 
 A previously cached PWA shell can also explain gateway failures on reload. If the app has never loaded successfully on that device and no shell is cached, the browser/tunnel provider owns the initial error page; Companion cannot display its own UI until its assets are reachable.
 
 ## Session identity
 
-Companion uses Pi's persistent session ID, so restarting, resuming, or re-enabling sharing replaces the same dashboard entry instead of creating a duplicate. Unnamed sessions use the first text-bearing user prompt in the current branch as their title (whitespace-normalized and capped at 120 characters), with the project folder as a fallback before a prompt exists. `/name` overrides that title and updates the dashboard live; clearing the name restores the prompt-derived title.
+Companion uses Gentle Shell's persistent session ID, so restarting, resuming, or re-enabling sharing replaces the same dashboard entry instead of creating a duplicate. Unnamed sessions use the first text-bearing user prompt in the current branch as their title (whitespace-normalized and capped at 120 characters), with the project folder as a fallback before a prompt exists. `/name` overrides that title and updates the dashboard live; clearing the name restores the prompt-derived title.
 
-Every registered Pi session publishes a compact display model to the daemon:
+Every registered Gentle Shell session publishes a compact display model to the daemon:
 
 - session name
 - short title
@@ -350,7 +352,7 @@ Every registered Pi session publishes a compact display model to the daemon:
 - working directory and process id
 - remote-control state
 
-Stopped sessions remain visible in the daemon registry so the dashboard does not lose context when a Pi process exits. Their controls are disabled and their temporary sandbox is cleaned after the reconnect grace period. Use **Archive session** on the list or in the session menu to remove a disconnected/stopped entry. The daemon rejects removal of active, idle, waiting, or otherwise connected sessions. Archiving removes only the daemon entry; it never deletes Pi history, project files or other files on disk. Temporary uploads still follow the existing disconnect cleanup lifecycle. Reopening a previously shared Pi session registers it again automatically; otherwise use `/companion`. Entries created by older versions with random IDs can be archived once disconnected.
+Stopped sessions remain visible in the daemon registry so the dashboard does not lose context when a Gentle Shell process exits. Their controls are disabled and their temporary sandbox is cleaned after the reconnect grace period. Use **Archive session** on the list or in the session menu to remove a disconnected/stopped entry. The daemon rejects removal of active, idle, waiting, or otherwise connected sessions. Archiving removes only the daemon entry; it never deletes Gentle Shell history, project files or other files on disk. Temporary uploads still follow the existing disconnect cleanup lifecycle. Reopening a previously shared Gentle Shell session registers it again automatically; otherwise use `/companion`. Entries created by older versions with random IDs can be archived once disconnected.
 
 ## UI
 
@@ -367,7 +369,7 @@ A single-page SvelteKit app, embedded in the daemon binary:
 
 The Live indicator in the header and sidebar opens the connection sheet (status, version and, on this computer, the console and device addresses and data folders).
 
-Changes shows dirty files with successful file-operation records in that session, including Pi Jar subagent files explicitly applied to the parent checkout—not every dirty file in the repository. Worktree selection, filtering and attribution warnings are under Options so the patch has room on mobile. Shell-only edits or delegates without an applied-file report may be missing, and a shared file’s patch can contain other sessions’ hunks. Reload the Pi extension to enable this scope in an existing session.
+Changes shows dirty files with successful file-operation records in that session, including Pi Jar subagent files explicitly applied to the parent checkout—not every dirty file in the repository. Worktree selection, filtering and attribution warnings are under Options so the patch has room on mobile. Shell-only edits or delegates without an applied-file report may be missing, and a shared file’s patch can contain other sessions’ hunks. Reload the Gentle Shell extension to enable this scope in an existing session.
 
 The session’s three-dot menu opens **Background work** (shells and subagents with live elapsed time) and **Tasks** (a scrollable checklist with statuses and subtasks). Elapsed time uses the source start timestamp when available, otherwise the first active report; it freezes while disconnected. Older extensions without timestamps show “Time unavailable.”
 
@@ -417,7 +419,7 @@ Generated `server/web-dist` files are not committed. CI builds them once and eve
 
 The initial slice supports:
 
-- multiple live Pi sessions
+- multiple live Gentle Shell sessions
 - prompt
 - steer
 - abort
@@ -435,7 +437,7 @@ There is deliberately no arbitrary shell, arbitrary tool invocation, or arbitrar
 
 Use this only when developing Gentle Companion itself. A published install does not require these steps.
 
-Requirements: Node 22.19+ (matching Pi 1.4.0) and stable Rust.
+Requirements: Node 22.19+ (matching Gentle Shell 1.4.0) and stable Rust.
 
 Clone the repository, then:
 
@@ -451,7 +453,7 @@ Clone the repository, then:
       Pairing links    http://127.0.0.1:43722  (default, this computer only; set one in Settings)
       Data             ~/.pi/agent/pi-companion  (0 paired)
 
-If a daemon is already running (for example one a Pi session started automatically), `npm run serve` prints its console address and exits instead of starting a second copy. Stop the running one first (`pkill -f pi-companion-server`) if you want your fresh build to take over. Set `RUST_LOG` (for example `RUST_LOG=debug`) for more detailed logs.
+If a daemon is already running (for example one a Gentle Shell session started automatically), `npm run serve` prints its console address and exits instead of starting a second copy. Stop the running one first (`pkill -f pi-companion-server`) if you want your fresh build to take over. Set `RUST_LOG` (for example `RUST_LOG=debug`) for more detailed logs.
 
 Type checks cover the extension (`tsc`) and the UI (`svelte-check`, warnings fail):
 
@@ -496,7 +498,7 @@ Then start Gentle Shell. Extension startup ensures the released daemon is availa
 
 ## Releases
 
-The package carries the required `pi-package` keyword, which makes the published npm package eligible for discovery in the Pi package gallery (https://pi.dev/packages). The manifest also includes focused discovery keywords such as `pi-extension`, `pi-coding-agent`, `remote-control`, and `session-dashboard`. Host-provided packages (@earendil-works/pi-coding-agent, typebox) are peer dependencies, as Pi requires.
+The package carries the required `pi-package` keyword, which makes the published npm package eligible for discovery in the Pi package gallery (https://pi.dev/packages). The manifest also includes focused discovery keywords such as `pi-extension`, `pi-coding-agent`, `remote-control`, and `session-dashboard`. Host-provided packages (@earendil-works/pi-coding-agent, typebox) are peer dependencies, as Gentle Shell requires.
 
 GitHub Actions run only for release tags. Pushing ordinary commits or opening pull requests does not trigger any workflow; CI can also be started manually with workflow_dispatch.
 
@@ -517,12 +519,12 @@ The design follows a few non-negotiable rules:
 - only the remote listener should ever sit behind a tunnel
 - pairing invitations are single-use and expire after five minutes; wrong short codes are throttled
 - paired-device secrets are stored only as SHA-256 hashes, in a 0600 state file
-- strict Origin checks: the paired-device surface accepts WebSocket upgrades and POST/DELETE only from its own loopback address, the public URL or `PI_COMPANION_ALLOWED_ORIGINS`, and refuses any foreign Origin; the console accepts only its own loopback origin, so a web page cannot drive Pi through it
+- strict Origin checks: the paired-device surface accepts WebSocket upgrades and POST/DELETE only from its own loopback address, the public URL or `PI_COMPANION_ALLOWED_ORIGINS`, and refuses any foreign Origin; the console accepts only its own loopback origin, so a web page cannot drive Gentle Shell through it
 - remote devices only see sessions with remoteEnabled=true
 - uploads are placed only in daemon-created session sandboxes, within the size limit and optional MIME allowlist
 - file deletion is id-based and boundary checked
 - there is no generic shell endpoint
-- Pi remains the authority that performs agent actions
+- Gentle Shell remains the authority that performs agent actions
 
 ## Next hardening milestones
 
