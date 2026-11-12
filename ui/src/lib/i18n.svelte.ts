@@ -1689,9 +1689,14 @@ function storedLocale(): Locale {
   return stored === 'en' || stored === 'es' ? stored : 'en';
 }
 
-let lang: Locale = typeof $state === 'function'
-  ? $state<Locale>(storedLocale())
-  : storedLocale();
+// String-based rune access so the Svelte compiler does not reject `$state`
+// in a `typeof` position, while Node (no rune runtime) falls back to a plain value.
+const stateKey = '$state';
+const stateFn = (globalThis as unknown as Record<string, unknown>)[stateKey];
+let lang: Locale =
+  typeof stateFn === 'function'
+    ? (stateFn as unknown as (v: Locale) => Locale)(storedLocale())
+    : storedLocale();
 
 export function getLang(): Locale {
   return lang;
