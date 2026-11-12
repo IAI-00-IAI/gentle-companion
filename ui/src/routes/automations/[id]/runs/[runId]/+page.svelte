@@ -1,4 +1,5 @@
 <script lang="ts">
+$langStore;
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import Icon from '#lib/Icon.svelte';
@@ -9,7 +10,7 @@
   import AutomationDate from '#lib/AutomationDate.svelte';
   import AutomationResult from '#lib/AutomationResult.svelte';
   import { automationTime, automationDuration } from '#lib/automations.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import { errorMessage } from '#lib/toast.svelte.ts';
   import type { AutomationRun } from '#lib/types.ts';
   const id = $derived(page.params.id ?? '');

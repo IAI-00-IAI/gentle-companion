@@ -1,4 +1,5 @@
 <script lang="ts">
+$langStore;
   import { onMount, tick } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
@@ -11,7 +12,7 @@
   import AutomationBadge from '#lib/AutomationBadge.svelte';
   import AutomationPagination from '#lib/AutomationPagination.svelte';
   import { automationDraft, automationTime, automationSchedule, automationNextRun, automationDuration, automationTriggerState, pageItems } from '#lib/automations.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import { errorMessage } from '#lib/toast.svelte.ts';
 
   const runLabels = $derived({ queued: t('automation.run.queued'), running: t('automation.run.running'), paused: t('automation.run.paused'), cancelled: t('automation.run.cancelled'), failed: t('automation.run.failed'), completed: t('automation.run.completed') });

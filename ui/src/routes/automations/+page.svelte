@@ -1,4 +1,5 @@
 <script lang="ts">
+$langStore;
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import '#lib/automation.css';
@@ -9,7 +10,7 @@
   import PullToRefresh from '#lib/PullToRefresh.svelte';
   import AutomationPagination from '#lib/AutomationPagination.svelte';
   import { pageItems } from '#lib/automations.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import { companion } from '#lib/companion.svelte.ts';
   import { errorMessage } from '#lib/toast.svelte.ts';
   import type { Automation, AutomationDraft } from '#lib/types.ts';

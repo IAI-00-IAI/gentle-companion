@@ -1,4 +1,5 @@
 <script lang="ts">
+$langStore;
   import Icon from '#lib/Icon.svelte';
   import SessionCard from '#lib/SessionCard.svelte';
   import PageHero from '#lib/PageHero.svelte';
@@ -6,7 +7,7 @@
   import clayIcon from '../../assets/clay/chat-bubble.webp';
   import { companion } from '#lib/companion.svelte.ts';
   import { prettyPath, sessionTitle } from '#lib/format.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import type { SessionStatus } from '#lib/types.ts';
 
   type Filter = 'all' | SessionStatus;

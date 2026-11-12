@@ -1,4 +1,5 @@
 <script lang="ts">
+$langStore;
   import PageHero from '#lib/PageHero.svelte';
   import clayIcon from '../../assets/clay/computer.webp';
   import { onDestroy } from 'svelte';
@@ -6,7 +7,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { relativeTime, shortDate } from '#lib/format.ts';
   import { errorMessage, toasts } from '#lib/toast.svelte.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import type { PairedDevice, Pairing } from '#lib/types.ts';
 
   let pairing = $state<Pairing | null>(null);

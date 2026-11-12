@@ -1,4 +1,5 @@
 <script lang="ts">
+$langStore;
   import { onDestroy, tick } from 'svelte';
   import { page } from '$app/state';
   import { beforeNavigate } from '$app/navigation';
@@ -14,7 +15,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { elapsedTime, formatBytes, prettyPath, relativeTime, sessionTitle, statusLabel } from '#lib/format.ts';
   import { contextUsage, estimatedCost } from '#lib/usage.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import { prettify, renderMarkdown } from '#lib/markdown.ts';
   import { errorMessage, toasts } from '#lib/toast.svelte.ts';
   import type { ActivityEntry } from '#lib/activity.ts';

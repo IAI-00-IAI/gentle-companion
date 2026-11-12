@@ -1,3 +1,5 @@
+import { writable } from 'svelte/store';
+
 export type Locale = 'en' | 'es';
 
 export const LOCALES: Locale[] = ['en', 'es'];
@@ -1689,21 +1691,22 @@ function storedLocale(): Locale {
   return stored === 'en' || stored === 'es' ? stored : 'en';
 }
 
-// String-based rune access so the Svelte compiler does not reject `$state`
-// in a `typeof` position, while Node (no rune runtime) falls back to a plain value.
-const stateKey = '$state';
-const stateFn = (globalThis as unknown as Record<string, unknown>)[stateKey];
-let lang: Locale =
-  typeof stateFn === 'function'
-    ? (stateFn as unknown as (v: Locale) => Locale)(storedLocale())
-    : storedLocale();
+const initialLocale = storedLocale();
+export const langStore = writable<Locale>(initialLocale);
+
+let currentLang: Locale = initialLocale;
+
+langStore.subscribe((value) => {
+  currentLang = value;
+});
 
 export function getLang(): Locale {
-  return lang;
+  return currentLang;
 }
 
 export function setLang(next: Locale): void {
-  lang = next;
+  currentLang = next;
+  langStore.set(next);
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(LANG_STORAGE_KEY, next);
   }
@@ -1713,11 +1716,11 @@ export function t(
   key: string,
   params?: Record<string, string | number | null | undefined>,
 ): string {
-  let value: string | undefined = messages[lang][key];
-  if (value === undefined) value = messages.en[key];
-  if (value === undefined) return key;
-  if (!params) return value;
-  return value.replace(/\{\{(\w+)\}\}/g, (_m, group) => {
+  let message: string | undefined = messages[currentLang][key];
+  if (message === undefined) message = messages.en[key];
+  if (message === undefined) return key;
+  if (!params) return message;
+  return message.replace(/\{\{(\w+)\}\}/g, (_m, group) => {
     const raw = params[group];
     return raw === undefined || raw === null ? '' : String(raw);
   });
