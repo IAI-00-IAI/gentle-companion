@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import Icon, { type IconName } from '#lib/Icon.svelte';
   import { devicePermissions, type PermissionValue } from '#lib/device-permissions.svelte.ts';
   import { t , langStore} from '#lib/i18n.svelte.ts';;
@@ -49,6 +48,7 @@ $langStore;
     { kind: 'notifications', icon: 'bell', title: t('permissions.notifications.title'), state: devicePermissions.notifications },
     { kind: 'camera', icon: 'camera', title: t('permissions.camera.title'), state: devicePermissions.camera }
   ]);
+$effect(() => { $langStore; });
 </script>
 
 <ul class="permissions">

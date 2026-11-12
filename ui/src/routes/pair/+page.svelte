@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import { onDestroy, onMount, tick } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -172,6 +171,7 @@ $langStore;
       if (attempt === cameraAttempt) cameraPending = false;
     }
   }
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('pair.title')}</title></svelte:head>

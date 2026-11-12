@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import PageHero from '#lib/PageHero.svelte';
   import clayIcon from '../../assets/clay/computer.webp';
   import { onDestroy } from 'svelte';
@@ -104,6 +103,7 @@ $langStore;
       confirmTarget = null;
     }
   }
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('devices.title')} · Gentle Companion</title></svelte:head>

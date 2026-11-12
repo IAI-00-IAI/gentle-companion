@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon, { type IconName } from './Icon.svelte';
   import type { AutomationRun } from './types.ts';
-  import { t } from './i18n.svelte.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
   let { status }: { status: AutomationRun['status'] | 'enabled' | 'disabled' | 'scheduled' | 'manual' } = $props();
   const labels = $derived({
     running: t('automation.run.running'),
@@ -15,6 +15,7 @@
     manual: t('automation.status.manual')
   });
   const icons: Record<string, IconName> = { succeeded: 'check', failed: 'alert', skipped: 'ban', stopped: 'stop', running: 'activity', enabled: 'check', disabled: 'ban', scheduled: 'refresh', manual: 'user' };
+$effect(() => { $langStore; });
 </script>
 <span class="automation-badge" data-status={status}><Icon name={icons[status]} size={13} />{labels[status]}</span>
 <style>

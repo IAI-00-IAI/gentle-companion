@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import Icon from '#lib/Icon.svelte';
   import { companion } from '#lib/companion.svelte.ts';
   import { toasts } from '#lib/toast.svelte.ts';
@@ -31,6 +30,7 @@ $langStore;
       toasts.show(t('help.toast.fail'), 'error');
     }
   }
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('help.title')}</title></svelte:head>

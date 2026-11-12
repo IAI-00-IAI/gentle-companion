@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import Icon from '#lib/Icon.svelte';
   import SessionCard from '#lib/SessionCard.svelte';
   import PageHero from '#lib/PageHero.svelte';
@@ -39,6 +38,7 @@ $langStore;
         .includes(needle);
     });
   });
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('sessions.title')} · Gentle Companion</title></svelte:head>

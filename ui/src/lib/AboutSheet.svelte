@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import Icon from '#lib/Icon.svelte';
   import { t , langStore} from '#lib/i18n.svelte.ts';;
   import { companion } from '#lib/companion.svelte.ts';
@@ -41,6 +40,7 @@ $langStore;
   function close() {
     open = false;
   }
+$effect(() => { $langStore; });
 </script>
 
 <dialog class="sheet about-sheet" bind:this={dialog} aria-labelledby="about-title" onclose={() => (open = false)} oncancel={(event) => { event.preventDefault(); close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>

@@ -8,7 +8,7 @@
   import Icon from './Icon.svelte';
   import { renderMarkdown, prettify } from './markdown.ts';
   import { resultSections, structuredResult, adfHtml } from './automation-result.ts';
-  import { t } from './i18n.svelte.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
   let { text, running = false }: { text: string; running?: boolean } = $props();
   let preview = $state<PreviewTarget | null>(null);
   const showPreview = (target: PreviewTarget) => { preview = target; };
@@ -27,6 +27,7 @@
     try { await navigator.clipboard.writeText(text); copied = true; copyError = ''; }
     catch { copyError = t('automation.result.copyfail'); }
   }
+$effect(() => { $langStore; });
 </script>
 <section class="automation-result" aria-label={t('automation.result.aria')} use:previewLinks={{ onpreview: showPreview, onerror: previewError }}>
   <div class="result-toolbar"><div><h2>{t('automation.result.title')}</h2><p class="subtle">{t('automation.result.markdown')}</p></div><div class="result-controls"><button class="btn btn-sm" aria-pressed={raw} onclick={() => raw = !raw}><Icon name="file" size={15} />{t('automation.result.formatted')}</button><button class="btn btn-sm" onclick={copy}><Icon name="copy" size={15} />{t('automation.result.copy')}</button></div></div>

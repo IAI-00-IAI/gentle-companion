@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import Icon from '#lib/Icon.svelte';
@@ -42,6 +41,7 @@ $langStore;
     const timer = setInterval(() => { if (run?.status === 'running' && document.visibilityState === 'visible') void refresh(); }, 3000);
     return () => { alive = false; clearInterval(timer); };
   });
+$effect(() => { $langStore; });
 </script>
 <svelte:head><title>{t('automation.rundetail.title')} · Gentle Companion</title></svelte:head>
 <div class="page automation-workspace">

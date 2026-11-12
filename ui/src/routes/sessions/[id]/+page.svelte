@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import { onDestroy, tick } from 'svelte';
   import { page } from '$app/state';
   import { beforeNavigate } from '$app/navigation';
@@ -483,6 +482,7 @@ $langStore;
   };
 
   const diffStats = $derived({ add: changedFiles.reduce((total, file) => total + file.additions, 0), del: changedFiles.reduce((total, file) => total + file.deletions, 0), files: changedFiles.length });
+$effect(() => { $langStore; });
 </script>
 
 <svelte:window onkeydown={menuKey} onpointerdown={closeMenuOutside} />

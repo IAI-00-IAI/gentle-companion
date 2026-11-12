@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import { onMount, tick } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
@@ -143,6 +142,7 @@ $langStore;
     } catch (cause) { actionError = errorMessage(cause); }
     finally { busy = false; }
   }
+$effect(() => { $langStore; });
 </script>
 <svelte:head><title>{automation?.name ?? t('automation.fallback.title')} · Gentle Companion</title></svelte:head>
 <div class="page automation-workspace automation-detail">

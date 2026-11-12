@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import '#lib/automation.css';
@@ -47,6 +46,7 @@ $langStore;
       await goto('/automations/' + encodeURIComponent(result.id));
     } finally { saving = false; }
   }
+$effect(() => { $langStore; });
 </script>
 <svelte:head><title>{t('automations.page.title')} · Gentle Companion</title></svelte:head>
 <div class="page automation-workspace">

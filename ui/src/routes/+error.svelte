@@ -1,11 +1,11 @@
 <script lang="ts">
-$langStore;
   import { page } from '$app/state';
   import Icon from '#lib/Icon.svelte';
   import { pageError } from '#lib/page-error.ts';
   import { t , langStore} from '#lib/i18n.svelte.ts';;
 
   const error = $derived(pageError(page.status, page.error?.message));
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('error.status', { code: page.status })} · {error.title} · Gentle Companion</title></svelte:head>

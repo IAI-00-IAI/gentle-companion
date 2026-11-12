@@ -2,9 +2,10 @@
   import AutomationBadge from './AutomationBadge.svelte';
   import Icon from './Icon.svelte';
   import { automationNextRun, automationSchedule } from './automations.ts';
-  import { t } from './i18n.svelte.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
   import type { Automation } from './types.ts';
   let { automations }: { automations: Automation[] } = $props();
+$effect(() => { $langStore; });
 </script>
 <div class="routine-table clay">
   <table aria-label={t('automations.list.aria')}>

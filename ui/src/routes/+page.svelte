@@ -1,5 +1,4 @@
 <script lang="ts">
-$langStore;
   import { onMount, type Component } from 'svelte';
   import gentleLogo from '../assets/gentle-logo.png';
   import heroShell from '../assets/hero-shell.png';
@@ -90,6 +89,7 @@ $langStore;
     const timer = setTimeout(load, 200);
     return () => clearTimeout(timer);
   });
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>Overview · Gentle Companion</title></svelte:head>
