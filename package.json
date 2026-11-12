@@ -1,5 +1,5 @@
 {
-  "name": "@yunazgr/pi-companion",
+  "name": "@rgaricano/gentle-companion",
   "version": "0.3.14",
   "description": "Local-first remote control for Pi sessions: live activity feed, steering, git diff, file drop and phone pairing from a single Rust daemon.",
   "keywords": [
