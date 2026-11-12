@@ -11,3 +11,5 @@ ui/.svelte-kit/
 .preview/
 
 skills/sveltekit-svelte5-tailwind-skill/
+
+.pi/
