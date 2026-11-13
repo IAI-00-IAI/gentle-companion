@@ -19,7 +19,7 @@ import { resolveCompanionHome } from "./home.ts";
 
 const execFileAsync = promisify(execFile);
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const EXE = process.platform === "win32" ? "pi-companion-server.exe" : "pi-companion-server";
+const EXE = process.platform === "win32" ? "gentle-companion-server.exe" : "gentle-companion-server";
 const REPO = "IAI-00-IAI/gentle-companion";
 const LOCK_STALE_MS = 20_000;
 const DOWNLOAD_RETRY_MS = 10 * 60_000;
@@ -75,7 +75,7 @@ function releaseAsset() {
   if (!os || !arch) return null;
   const supported = new Set(["linux-x86_64", "darwin-arm64", "darwin-x86_64", "windows-x86_64"]);
   if (!supported.has(os + "-" + arch)) return null;
-  return "pi-companion-server-" + os + "-" + arch + (os === "windows" ? ".zip" : ".tar.gz");
+  return "gentle-companion-server-" + os + "-" + arch + (os === "windows" ? ".zip" : ".tar.gz");
 }
 
 function onPath() {

@@ -4,6 +4,10 @@ version = "0.3.17"
 edition = "2024"
 license = "MIT"
 
+[[bin]]
+name = "gentle-companion-server"
+path = "src/main.rs"
+
 [dependencies]
 axum = { version = "0.8", features = ["ws", "multipart"] }
 futures-util = "0.3"

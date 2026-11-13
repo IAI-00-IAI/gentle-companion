@@ -57,7 +57,7 @@ Gentle Shell uses the native package command, so the same `pi` manifest, extensi
 
 Use `/remote-control` in any session to toggle sharing; `/remote-control on` and `/remote-control off` are explicit alternatives. No `/companion` prerequisite. `/companion` and `/companion off` remain compatibility aliases.
 
-You do **not** need to run `pi-companion-server` manually for a normal npm install. Manual daemon startup is mainly for local development, debugging, or when `PI_COMPANION_AUTOSTART=0` is set.
+You do **not** need to run `gentle-companion-server` manually for a normal npm install. Manual daemon startup is mainly for local development, debugging, or when `PI_COMPANION_AUTOSTART=0` is set.
 
 ## Architecture
 
@@ -65,7 +65,7 @@ You do **not** need to run `pi-companion-server` manually for a normal npm insta
             |
             v
     +---------------------------+
-    | pi-companion-server       |
+    | gentle-companion-server       |
     | single Rust daemon        |
     |                           |
     | live session registry     |
@@ -127,7 +127,7 @@ The daemon binary is resolved in this order:
 | 1 | PI_COMPANION_SERVER (explicit path override) |
 | 2 | a cargo build inside the package checkout: newest of server/target/release and server/target/debug |
 | 3 | cached download: <companion home>/bin/<version>/ |
-| 4 | pi-companion-server on PATH |
+| 4 | gentle-companion-server on PATH |
 | 5 | download of the GitHub release matching the package version, verified against SHA256SUMS, then cached |
 
 ### Companion data home
@@ -171,7 +171,7 @@ The remote listener is still loopback-only. Use an authenticated HTTPS tunnel or
 
 Set the externally reachable paired-device URL before starting the daemon:
 
-    PI_COMPANION_PUBLIC_URL=https://companion.example.com pi-companion-server
+    PI_COMPANION_PUBLIC_URL=https://companion.example.com gentle-companion-server
 
 The configured public URL is used to construct pairing invitations and is the browser origin the paired-device surface accepts (see Security boundary).
 
@@ -453,7 +453,7 @@ Clone the repository, then:
       Pairing links    http://127.0.0.1:43722  (default, this computer only; set one in Settings)
       Data             ~/.pi/agent/pi-companion  (0 paired)
 
-If a daemon is already running (for example one a Gentle Shell session started automatically), `npm run serve` prints its console address and exits instead of starting a second copy. Stop the running one first (`pkill -f pi-companion-server`) if you want your fresh build to take over. Set `RUST_LOG` (for example `RUST_LOG=debug`) for more detailed logs.
+If a daemon is already running (for example one a Gentle Shell session started automatically), `npm run serve` prints its console address and exits instead of starting a second copy. Stop the running one first (`pkill -f gentle-companion-server`) if you want your fresh build to take over. Set `RUST_LOG` (for example `RUST_LOG=debug`) for more detailed logs.
 
 Type checks cover the extension (`tsc`) and the UI (`svelte-check`, warnings fail):
 
@@ -508,7 +508,7 @@ Before publishing, the workflow requires X.Y.Z to match both package.json and se
 
 Only after the GitHub Release exists, the same tag publishes @rgaricano/gentle-companion to npm with provenance through npm Trusted Publishing (GitHub OIDC). No long-lived NPM_TOKEN is required. The trusted publisher should point to GitHub owner IAI-00-IAI, repository gentle-companion, workflow release.yml. Git installs need no npm credential.
 
-On extension load, Companion downloads `pi-companion-server-<os>-<arch>` for its own package version (`releases/download/v<version>/`) if needed, verifies `SHA256SUMS` and the binary version, and caches it under `~/.pi/agent/pi-companion/bin/<version>/`. Upgrades prepare the replacement before gracefully stopping the older daemon. Git installs ahead of the newest release must provide a matching local build; missing releases never trigger a downgrade or shutdown.
+On extension load, Companion downloads `gentle-companion-server-<os>-<arch>` for its own package version (`releases/download/v<version>/`) if needed, verifies `SHA256SUMS` and the binary version, and caches it under `~/.pi/agent/pi-companion/bin/<version>/`. Upgrades prepare the replacement before gracefully stopping the older daemon. Git installs ahead of the newest release must provide a matching local build; missing releases never trigger a downgrade or shutdown.
 
 ## Security boundary
 

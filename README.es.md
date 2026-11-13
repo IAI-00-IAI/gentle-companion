@@ -57,7 +57,7 @@ Gentle Shell usa el comando de paquete nativo, por lo que se aplica la misma car
 
 Usa `/remote-control` en cualquier sesión para alternar el compartir; `/remote-control on` y `/remote-control off` son alternativas explícitas. No se requiere `/companion` como prerequisito. `/companion` y `/companion off` permanecen como alias de compatibilidad.
 
-No es necesario ejecutar `pi-companion-server` manualmente para una instalación normal de npm. El inicio manual del daemon es principalmente para desarrollo local, depuración o cuando se establece `PI_COMPANION_AUTOSTART=0`.
+No es necesario ejecutar `gentle-companion-server` manualmente para una instalación normal de npm. El inicio manual del daemon es principalmente para desarrollo local, depuración o cuando se establece `PI_COMPANION_AUTOSTART=0`.
 
 ## Arquitectura
 
@@ -65,7 +65,7 @@ No es necesario ejecutar `pi-companion-server` manualmente para una instalación
             |
             v
     +---------------------------+
-    | pi-companion-server       |
+    | gentle-companion-server       |
     | single Rust daemon        |
     |                           |
     | live session registry     |
@@ -127,7 +127,7 @@ El binario del daemon se resuelve en este orden:
 | 1 | PI_COMPANION_SERVER (sustitución explícita de ruta) |
 | 2 | una compilación cargo dentro del checkout del paquete: la más reciente de server/target/release y server/target/debug |
 | 3 | descarga en caché: <companion home>/bin/<version>/ |
-| 4 | pi-companion-server en PATH |
+| 4 | gentle-companion-server en PATH |
 | 5 | descarga de la liberación de GitHub que coincide con la versión del paquete, verificada contra SHA256SUMS y luego en caché |
 
 ### Directorio de datos de Companion
@@ -171,7 +171,7 @@ El escuchador remoto sigue siendo solo de loopback. Usa un túnel HTTPS autentic
 
 Establece la URL de dispositivo asociado alcanzable externamente antes de iniciar el daemon:
 
-    PI_COMPANION_PUBLIC_URL=https://companion.example.com pi-companion-server
+    PI_COMPANION_PUBLIC_URL=https://companion.example.com gentle-companion-server
 
 La URL pública configurada se usa para construir las invitaciones de asociación y es el origen del navegador que la superficie de dispositivos asociados acepta (ver Límite de seguridad).
 
@@ -453,7 +453,7 @@ Clona el repositorio y luego:
       Pairing links    http://127.0.0.1:43722  (default, this computer only; set one in Settings)
       Data             ~/.pi/agent/pi-companion  (0 paired)
 
-Si ya hay un daemon en ejecución (por ejemplo, uno que una sesión de Gentle Shell inició automáticamente), `npm run serve` imprime su dirección de consola y sale en lugar de iniciar una segunda copia. Detén el que está en ejecución primero (`pkill -f pi-companion-server`) si quieres que tu nueva compilación tome el control. Establece `RUST_LOG` (por ejemplo `RUST_LOG=debug`) para logs más detallados.
+Si ya hay un daemon en ejecución (por ejemplo, uno que una sesión de Gentle Shell inició automáticamente), `npm run serve` imprime su dirección de consola y sale en lugar de iniciar una segunda copia. Detén el que está en ejecución primero (`pkill -f gentle-companion-server`) si quieres que tu nueva compilación tome el control. Establece `RUST_LOG` (por ejemplo `RUST_LOG=debug`) para logs más detallados.
 
 Las comprobaciones de tipos cubren la extensión (`tsc`) y la interfaz (`svelte-check`, las advertencias fallan):
 
@@ -508,7 +508,7 @@ Antes de publicar, el flujo de trabajo requiere que X.Y.Z coincida tanto con pac
 
 Solo después de que exista la liberación de GitHub, la misma etiqueta publica @rgaricano/gentle-companion en npm con procedencia (provenance) a través de la publicación confiable de npm (GitHub OIDC). No se requiere un NPM_TOKEN de larga vida. El publicador confiable debe apuntar al propietario de GitHub IAI-00-IAI, repositorio gentle-companion, flujo de trabajo release.yml. Las instalaciones por git no requieren credencial de npm.
 
-Al cargar la extensión, Companion descarga `pi-companion-server-<os>-<arch>` para su propia versión de paquete (`releases/download/v<version>/`) si es necesario, verifica `SHA256SUMS` y la versión del binario, y lo cachea bajo `~/.pi/agent/pi-companion/bin/<version>/`. Las actualizaciones preparan el sustituto antes de detener con gracia el daemon más antiguo. Las instalaciones por git por delante de la liberación más reciente deben proporcionar una compilación local coincidente; las liberaciones faltantes nunca disparan una degradación o apagado.
+Al cargar la extensión, Companion descarga `gentle-companion-server-<os>-<arch>` para su propia versión de paquete (`releases/download/v<version>/`) si es necesario, verifica `SHA256SUMS` y la versión del binario, y lo cachea bajo `~/.pi/agent/pi-companion/bin/<version>/`. Las actualizaciones preparan el sustituto antes de detener con gracia el daemon más antiguo. Las instalaciones por git por delante de la liberación más reciente deben proporcionar una compilación local coincidente; las liberaciones faltantes nunca disparan una degradación o apagado.
 
 ## Límite de seguridad
 

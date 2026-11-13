@@ -220,7 +220,7 @@ type ApiResult<T> = Result<T, ApiError>;
 #[tokio::main]
 async fn main() {
     if std::env::args().nth(1).as_deref() == Some("--version") {
-        println!("pi-companion-server {VERSION}");
+        println!("gentle-companion-server {VERSION}");
         return;
     }
     // Without RUST_LOG, show this daemon's info logs and other crates' warnings.
@@ -263,8 +263,8 @@ async fn main() {
             eprintln!();
             eprintln!("  Another daemon (often one started automatically by a Pi session) owns the port,");
             eprintln!("  so this one is exiting. To run this build instead, stop the other one first:");
-            eprintln!("    macOS/Linux:  pkill -f pi-companion-server");
-            eprintln!("    Windows:      taskkill /IM pi-companion-server.exe /F");
+            eprintln!("    macOS/Linux:  pkill -f gentle-companion-server");
+            eprintln!("    Windows:      taskkill /IM gentle-companion-server.exe /F");
             eprintln!();
             return;
         }
@@ -273,7 +273,7 @@ async fn main() {
     let remote_listener = match tokio::net::TcpListener::bind(remote_addr()).await {
         Ok(listener) => listener,
         Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
-            eprintln!("pi-companion-server: {} is used by another program. Free that port and try again.", remote_addr());
+            eprintln!("gentle-companion-server: {} is used by another program. Free that port and try again.", remote_addr());
             std::process::exit(1);
         }
         Err(error) => panic!("bind remote surface {}: {error}", remote_addr()),

@@ -60,18 +60,18 @@ jobs:
             target: x86_64-unknown-linux-gnu
             artifact: gentle-companion-server-linux-x86_64
             binary: gentle-companion-server
-          - os: macos-14
+          - os: macos-latest
             target: aarch64-apple-darwin
             artifact: gentle-companion-server-darwin-arm64
             binary: gentle-companion-server
-          - os: macos-14
+          - os: macos-latest
             target: x86_64-apple-darwin
             artifact: gentle-companion-server-darwin-x86_64
             binary: gentle-companion-server
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: gentle-companion-server-windows-x86_64
-            binary: gentle-companion-server.exe
+            binary: gentle-companion-server
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -99,7 +99,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item "server/target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/gentle-companion-server.exe"
+          Copy-Item "server/target/${{ matrix.target }}/release/${{ matrix.binary }}.exe" "dist/gentle-companion-server.exe"
           Compress-Archive -Path "dist/gentle-companion-server.exe" -DestinationPath "${{ matrix.artifact }}.zip"
       - uses: actions/upload-artifact@v4
         with:
