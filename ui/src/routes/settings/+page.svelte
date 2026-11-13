@@ -1,8 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHero from '#lib/PageHero.svelte';
-  import PullToRefresh from '#lib/PullToRefresh.svelte';
-  import { devicePermissions } from '#lib/device-permissions.svelte.ts';
   import clayIcon from '../../assets/clay/bulb.webp';
   import Icon, { type IconName } from '#lib/Icon.svelte';
   import { companion } from '#lib/companion.svelte.ts';
@@ -34,7 +32,7 @@
   }
 
   let data = $state<SettingsResponse | null>(null);
-  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [] });
+  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [], bridgeEnabled: true });
   /** Comma or newline separated MIME patterns, edited as text. */
   let typesText = $state('');
   let saving = $state(false);
@@ -52,6 +50,7 @@
       (draft.publicUrl.trim() !== data!.settings.publicUrl ||
         Number(draft.pairingTtlMinutes) !== data!.settings.pairingTtlMinutes ||
         Number(draft.maxUploadMb) !== data!.settings.maxUploadMb ||
+        draft.bridgeEnabled !== data!.settings.bridgeEnabled ||
         parseTypes(typesText).join(',') !== (data!.settings.allowedUploadTypes ?? []).join(','))
   );
 
@@ -68,7 +67,8 @@
       maxUploadMb: Number(response.settings?.maxUploadMb ?? 25),
       allowedUploadTypes: Array.isArray(response.settings?.allowedUploadTypes)
         ? response.settings.allowedUploadTypes
-        : []
+        : [],
+      bridgeEnabled: response.settings?.bridgeEnabled ?? true
     };
     data = { ...response, settings };
     draft = { ...settings };
@@ -84,17 +84,6 @@
     }
   });
 
-  async function refreshSettings() {
-    await Promise.all([companion.refresh(), devicePermissions.refresh(), (async () => {
-      if (!companion.isAdmin) return;
-      const response = await companion.getSettings();
-      if (dirty || saving) { toasts.show(t('settings.toast.refreshed'), 'info'); }
-      else apply(response);
-      loadError = '';
-    })()]);
-    usageNow = Date.now();
-  }
-
   async function save() {
     error = '';
     saving = true;
@@ -104,7 +93,8 @@
           publicUrl: draft.publicUrl.trim(),
           pairingTtlMinutes: Number(draft.pairingTtlMinutes),
           maxUploadMb: Number(draft.maxUploadMb),
-          allowedUploadTypes: parseTypes(typesText)
+          allowedUploadTypes: parseTypes(typesText),
+          bridgeEnabled: draft.bridgeEnabled
         })
       );
       toasts.show(t('settings.toast.saved'), 'success');
@@ -119,7 +109,6 @@
 <svelte:head><title>{t('settings.hero.title')} · Gentle Companion</title></svelte:head>
 
 <div class="page narrow automation-workspace">
-  <PullToRefresh onrefresh={refreshSettings} />
   <PageHero icon={clayIcon} eyebrow={t('settings.hero.eyebrow')} title={t('settings.hero.title')} subtitle={t('settings.hero.subtitle')} />
 
   <div class="settings-tabs" role="tablist" aria-label={t('settings.tabs.label')}>
@@ -220,6 +209,17 @@
         </div>
       </section>
 
+      <section class="card tile section" aria-labelledby="bridge">
+        <div class="section-copy">
+          <h2 id="bridge">{t('settings.bridge.title')}</h2>
+          <p class="muted">{t('settings.bridge.label')}</p>
+        </div>
+        <div class="fields">
+          <label class="check-field"><input type="checkbox" bind:checked={draft.bridgeEnabled} aria-describedby="bridge-hint" /><span>{t('settings.bridge.label')}</span></label>
+          <span class="hint" id="bridge-hint">Files: only those inside the session’s working directory or Companion’s temp folder, never credential files. Servers: only <code>http://localhost</code> ports the agent mentioned, relayed through Companion in a sandboxed frame. Turning this off also ends open bridge links.</span>
+        </div>
+      </section>
+
       <!-- Appears only with unsaved edits (or a save error), docked at the bottom in thumb reach. -->
       {#if dirty || error}
         <div class="savebar" role="region" aria-label={t('settings.savebar.label')}>
@@ -300,6 +300,13 @@
 </div>
 
 <style>
+  .check-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+  }
+
   .narrow {
     width: min(920px, 100%);
   }

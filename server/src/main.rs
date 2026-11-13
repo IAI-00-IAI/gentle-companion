@@ -2,6 +2,7 @@ mod activity;
 mod usage;
 mod automation;
 mod assets;
+mod bridge;
 mod config;
 #[cfg(test)]
 mod tests;
@@ -78,6 +79,13 @@ struct AppState {
     /// Recent feed per session so reconnecting browsers can catch up.
     activity: Arc<RwLock<activity::ActivityStore>>,
     usage: Arc<Mutex<usage::Store>>,
+    /// Expiring tokens for proxied localhost servers (see bridge.rs).
+    bridge: Arc<Mutex<bridge::Registry>>,
+    bridge_client: bridge::BridgeClient,
+    /// Caps how many bridged responses are relayed at once.
+    bridge_permits: Arc<tokio::sync::Semaphore>,
+    /// Caps how many bridged files are copied at once.
+    bridge_copy_permits: Arc<tokio::sync::Semaphore>,
     pairings: Arc<RwLock<HashMap<String, PairingInvite>>>,
     /// Times of recent wrong pairing-code attempts (brute-force brake).
     code_failures: Arc<Mutex<Vec<u64>>>,
@@ -108,6 +116,10 @@ impl AppState {
             files: Arc::new(RwLock::new(HashMap::new())),
             activity: Arc::new(RwLock::new(activity::ActivityStore::default())),
             usage: Arc::new(Mutex::new(usage::Store::default())),
+            bridge: Arc::new(Mutex::new(bridge::Registry::default())),
+            bridge_client: bridge::new_client(),
+            bridge_permits: Arc::new(tokio::sync::Semaphore::new(bridge::MAX_CONCURRENT_RELAYS)),
+            bridge_copy_permits: Arc::new(tokio::sync::Semaphore::new(bridge::MAX_CONCURRENT_COPIES)),
             pairings: Arc::new(RwLock::new(HashMap::new())),
             code_failures: Arc::new(Mutex::new(Vec::new())),
             devices: Arc::new(RwLock::new(devices)),
@@ -140,6 +152,9 @@ struct TempFile {
     mime: String,
     #[serde(rename = "createdAt")]
     created_at: u64,
+    /// Real path a bridged file was copied from. Never sent to browsers.
+    #[serde(skip)]
+    origin: Option<String>,
 }
 
 #[derive(Clone)]
@@ -220,7 +235,7 @@ type ApiResult<T> = Result<T, ApiError>;
 #[tokio::main]
 async fn main() {
     if std::env::args().nth(1).as_deref() == Some("--version") {
-        println!("pi-companion-server {VERSION}");
+        println!("gentle-companion-server {VERSION}");
         return;
     }
     // Without RUST_LOG, show this daemon's info logs and other crates' warnings.
@@ -257,14 +272,14 @@ async fn main() {
         Ok(listener) => listener,
         Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
             eprintln!();
-            eprintln!("  Pi Companion is already running.");
+            eprintln!("  Gentle Companion is already running.");
             eprintln!();
             eprintln!("  Console   http://{}", local_addr());
             eprintln!();
             eprintln!("  Another daemon (often one started automatically by a Pi session) owns the port,");
             eprintln!("  so this one is exiting. To run this build instead, stop the other one first:");
-            eprintln!("    macOS/Linux:  pkill -f pi-companion-server");
-            eprintln!("    Windows:      taskkill /IM pi-companion-server.exe /F");
+            eprintln!("    macOS/Linux:  pkill -f gentle-companion-server");
+            eprintln!("    Windows:      taskkill /IM gentle-companion-server.exe /F");
             eprintln!();
             return;
         }
@@ -273,7 +288,7 @@ async fn main() {
     let remote_listener = match tokio::net::TcpListener::bind(remote_addr()).await {
         Ok(listener) => listener,
         Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
-            eprintln!("pi-companion-server: {} is used by another program. Free that port and try again.", remote_addr());
+            eprintln!("gentle-companion-server: {} is used by another program. Free that port and try again.", remote_addr());
             std::process::exit(1);
         }
         Err(error) => panic!("bind remote surface {}: {error}", remote_addr()),
@@ -307,7 +322,7 @@ async fn main() {
 }
 
 fn local_router(state: AppState) -> Router {
-    Router::new()
+    let guarded = Router::new()
         .merge(automation::router(false))
         .route("/api/context", get(local_context))
         .route("/api/sessions", get(list_sessions))
@@ -315,6 +330,10 @@ fn local_router(state: AppState) -> Router {
         .route("/api/sessions/{session_id}/activity", get(session_activity))
         .route("/api/sessions/{session_id}/files", get(list_files).post(upload_file))
         .route("/api/sessions/{session_id}/files/{file_id}", get(download_file_local).delete(delete_file_local))
+        .route("/api/sessions/{session_id}/bridge/file", post(bridge::fetch_file_local))
+        .route("/api/sessions/{session_id}/bridge/endpoint", post(bridge::open_endpoint_local))
+        .route("/api/sessions/{session_id}/bridge/endpoint/revoke", post(bridge::revoke_endpoint_local))
+        .route("/api/sessions/{session_id}/bridge/endpoint/renew", post(bridge::renew_endpoint_local))
         .route("/api/pairing/start", post(start_pairing))
         .route("/api/devices", get(list_devices))
         .route("/api/devices/{device_id}", delete(revoke_device))
@@ -325,13 +344,18 @@ fn local_router(state: AppState) -> Router {
         .route("/ws/bridge/{session_id}", get(bridge_ws))
         .fallback(get(assets::serve))
         .layer(middleware::from_fn_with_state(state.clone(), require_console_origin))
-        .layer(DefaultBodyLimit::max(body_limit()))
+        .layer(DefaultBodyLimit::max(body_limit()));
+    // Bridge proxy routes sit outside the Origin check: sandboxed frames send `Origin: null`
+    // and the unguessable endpoint token is their credential.
+    Router::new()
+        .merge(bridge::router(false))
+        .merge(guarded)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
 
 fn remote_router(state: AppState) -> Router {
-    Router::new()
+    let guarded = Router::new()
         .merge(automation::router(true).layer(middleware::from_fn_with_state(state.clone(), automation::authenticate)))
         .route("/api/context", get(remote_context))
         .route("/api/pairing/claim", post(claim_pairing))
@@ -340,10 +364,17 @@ fn remote_router(state: AppState) -> Router {
         .route("/api/sessions/{session_id}/activity", get(session_activity_remote))
         .route("/api/sessions/{session_id}/files", get(list_files_remote).post(upload_file_remote))
         .route("/api/sessions/{session_id}/files/{file_id}", get(download_file_remote).delete(delete_file_remote))
+        .route("/api/sessions/{session_id}/bridge/file", post(bridge::fetch_file_remote))
+        .route("/api/sessions/{session_id}/bridge/endpoint", post(bridge::open_endpoint_remote))
+        .route("/api/sessions/{session_id}/bridge/endpoint/revoke", post(bridge::revoke_endpoint_remote))
+        .route("/api/sessions/{session_id}/bridge/endpoint/renew", post(bridge::renew_endpoint_remote))
         .route("/ws/browser", get(browser_ws_remote))
         .fallback(get(assets::serve))
         .layer(middleware::from_fn_with_state(state.clone(), require_device_origin))
-        .layer(DefaultBodyLimit::max(body_limit()))
+        .layer(DefaultBodyLimit::max(body_limit()));
+    Router::new()
+        .merge(bridge::router(true))
+        .merge(guarded)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -431,7 +462,7 @@ async fn print_banner(state: &AppState) {
     };
     let devices = state.devices.read().await.len();
     println!();
-    println!("  Pi Companion v{VERSION}");
+    println!("  Gentle Companion v{VERSION}");
     println!();
     println!("  Console          http://{}", local_addr());
     println!("  Paired devices   http://{}", remote_addr());
@@ -451,12 +482,16 @@ async fn upload_policy(state: &AppState) -> Value {
     serde_json::json!({ "maxUploadMb": settings.max_upload_mb, "allowedUploadTypes": settings.allowed_upload_types })
 }
 
+async fn bridge_enabled(state: &AppState) -> bool {
+    state.settings.read().await.bridge_enabled
+}
+
 async fn local_context(State(state): State<AppState>) -> Json<Value> {
-    Json(serde_json::json!({ "remote": false, "version": VERSION, "pid": std::process::id(), "uploadPolicy": upload_policy(&state).await }))
+    Json(serde_json::json!({ "remote": false, "version": VERSION, "pid": std::process::id(), "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await }))
 }
 
 async fn remote_context(State(state): State<AppState>) -> Json<Value> {
-    Json(serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await }))
+    Json(serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await }))
 }
 
 /// Local-admin only. Used by the extension to replace an older daemon after a package upgrade.
@@ -508,7 +543,12 @@ async fn put_settings(
     Json(next): Json<Settings>,
 ) -> ApiResult<Json<Value>> {
     let valid = next.validate().map_err(|message| (StatusCode::BAD_REQUEST, message))?;
+    let bridge_stays_on = valid.bridge_enabled;
     *state.settings.write().await = valid;
+    if !bridge_stays_on {
+        // Turning it back on later must not revive links issued before.
+        state.bridge.lock().await.revoke_all();
+    }
     persist(&state).await;
     broadcast(&state, serde_json::json!({ "type": "settings.update" }));
     Ok(get_settings(State(state)).await)
@@ -576,6 +616,7 @@ async fn delete_session(state: &AppState, session_id: &str, remote: bool) -> Api
     let remote_enabled = session.snapshot.get("remoteEnabled").and_then(Value::as_bool) == Some(true);
     sessions.remove(session_id);
     state.activity.write().await.remove(session_id);
+    state.bridge.lock().await.revoke_session(session_id);
     // Keep the lock through publication so a concurrent registration cannot be followed
     // by a stale removal event. No filesystem operation is performed by archiving.
     broadcast(state, serde_json::json!({ "type": "session.removed", "sessionId": session_id, "remoteEnabled": remote_enabled }));
@@ -599,6 +640,7 @@ async fn auto_archive(state: &AppState) {
     for id in ids {
         let session = sessions.remove(&id).unwrap();
         state.activity.write().await.remove(&id);
+        state.bridge.lock().await.revoke_session(&id);
         broadcast(state, serde_json::json!({"type":"session.removed","sessionId":id,"remoteEnabled":session.snapshot.get("remoteEnabled").and_then(Value::as_bool)==Some(true)}));
     }
 }
@@ -739,6 +781,7 @@ async fn revoke_device(
     if state.devices.write().await.remove(&device_id).is_none() {
         return StatusCode::NOT_FOUND;
     }
+    state.bridge.lock().await.revoke_device(&device_id);
     persist(&state).await;
     let _ = state.kick_tx.send(Kick { device_id, code: CLOSE_REVOKED, reason: "revoked" });
     broadcast(&state, serde_json::json!({ "type": "devices.update" }));
@@ -902,6 +945,7 @@ async fn store_upload(state: &AppState, session_id: &str, mut multipart: Multipa
             size: size as u64,
             mime,
             created_at: now_secs(),
+            origin: None,
         };
         state.files.write().await.entry(session_id.to_string()).or_default().push(file.clone());
         notify_session_files(state, session_id).await;
@@ -1274,6 +1318,10 @@ async fn bridge_socket(socket: WebSocket, session_id: String, state: AppState) {
                     for (key, value) in patch {
                         snapshot.insert(key.clone(), value.clone());
                     }
+                    if patch.get("remoteEnabled").and_then(Value::as_bool) == Some(false) {
+                        // Resharing later must not revive device links issued while it was shared.
+                        state.bridge.lock().await.revoke_session_devices(&session_id);
+                    }
                     broadcast(&state, serde_json::json!({
                         "type": "session.update",
                         "sessionId": session_id,
@@ -1320,6 +1368,8 @@ async fn bridge_socket(socket: WebSocket, session_id: String, state: AppState) {
                 snapshot.insert("disconnectedAt".into(), Value::from(now_secs()));
             }
             session.command_tx = None;
+            // No Pi, no bridge: links die with the connection and are never revived on reconnect.
+            state.bridge.lock().await.revoke_session(&session_id);
             broadcast(&state, serde_json::json!({
                 "type": "session.update", "sessionId": session_id, "patch": { "status": "stopped" }
             }));

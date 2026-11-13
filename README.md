@@ -8,7 +8,9 @@ Lightweight, local-first remote control for Gentle Shell sessions.
 
 **[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Gentle Shell session shared with `/remote-control`, a phone paired from the dashboard, Gentle Shell's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
 
-**New in 0.3.16:** Gentle Shell 1.4.0 compatibility hardening keeps sessions active through startup and automatic retries, safely queues remote prompts during busy runs, and prevents cancelled or truncated automation responses from being reported as successful. Regression coverage now includes overlapping relayed dialogs. Development checks use Gentle Shell 1.4.0. Revamped automation details distinguish manual runs from active/paused schedules and explain failure handling. Agent links and shared reports offer opt-in sandboxed previews without a host-browser controller or URL proxy.
+**New in 0.4.3:** the companion is now a bridge to the computer running Gentle Shell. Links and inline `code` the agent writes can open **localhost servers** (`http://localhost:3000`) in a sandboxed frame relayed by the daemon, and **files** the agent mentions (paths, `file://` links) can be fetched, previewed or downloaded on the device. Every open or fetch asks first; files are limited to the session's working directory and its Companion temp folders; files that look like credentials are skipped (best effort). Turn the whole bridge off in **Settings → Bridge**. See [Companion bridge](#companion-bridge).
+
+**0.3.16:** Gentle Shell 1.4.0 compatibility hardening keeps sessions active through startup and automatic retries, safely queues remote prompts during busy runs, and prevents cancelled or truncated automation responses from being reported as successful. Regression coverage now includes overlapping relayed dialogs. Development checks use Gentle Shell 1.4.0. Revamped automation details distinguish manual runs from active/paused schedules and explain failure handling. Agent links and shared reports offer opt-in sandboxed previews without a host-browser controller or URL proxy.
 
 **0.3.13:** Changes is scoped to session-recorded edits and applied Pi Jar subagent files, with compact mobile review controls. The session menu contains background work with elapsed timers and a scrollable Tasks popup for Pi Jar and compatible extensions. Claymorphism error pages provide safe recovery actions and explain failed page downloads.
 
@@ -57,7 +59,7 @@ Gentle Shell uses the native package command, so the same `pi` manifest, extensi
 
 Use `/remote-control` in any session to toggle sharing; `/remote-control on` and `/remote-control off` are explicit alternatives. No `/companion` prerequisite. `/companion` and `/companion off` remain compatibility aliases.
 
-You do **not** need to run `pi-companion-server` manually for a normal npm install. Manual daemon startup is mainly for local development, debugging, or when `PI_COMPANION_AUTOSTART=0` is set.
+You do **not** need to run `gentle-companion-server` manually for a normal npm install. Manual daemon startup is mainly for local development, debugging, or when `PI_COMPANION_AUTOSTART=0` is set.
 
 ## Architecture
 
@@ -65,7 +67,7 @@ You do **not** need to run `pi-companion-server` manually for a normal npm insta
             |
             v
     +---------------------------+
-    | pi-companion-server       |
+    | gentle-companion-server       |
     | single Rust daemon        |
     |                           |
     | live session registry     |
@@ -127,7 +129,7 @@ The daemon binary is resolved in this order:
 | 1 | PI_COMPANION_SERVER (explicit path override) |
 | 2 | a cargo build inside the package checkout: newest of server/target/release and server/target/debug |
 | 3 | cached download: <companion home>/bin/<version>/ |
-| 4 | pi-companion-server on PATH |
+| 4 | gentle-companion-server on PATH |
 | 5 | download of the GitHub release matching the package version, verified against SHA256SUMS, then cached |
 
 ### Companion data home
@@ -171,7 +173,7 @@ The remote listener is still loopback-only. Use an authenticated HTTPS tunnel or
 
 Set the externally reachable paired-device URL before starting the daemon:
 
-    PI_COMPANION_PUBLIC_URL=https://companion.example.com pi-companion-server
+    PI_COMPANION_PUBLIC_URL=https://companion.example.com gentle-companion-server
 
 The configured public URL is used to construct pairing invitations and is the browser origin the paired-device surface accepts (see Security boundary).
 
@@ -197,7 +199,7 @@ Custom popups use the local terminal's rendered width (scroll horizontally on na
 
 ## Refreshing your workspace
 
-On Overview, Sessions, Automations, and Settings, pull down from the top of the page and release when prompted to refresh current data. Each page also provides a keyboard-accessible **Refresh** button with progress and error feedback. This refreshes data without reloading the app; Settings preserves unsaved edits. Gestures inside inputs and nested scrollable lists are left alone.
+On Overview, Sessions, and Automations, pull down from the top of the page and release when prompted to refresh current data without reloading the app. Gestures inside inputs and nested scrollable lists are left alone. Settings does not use pull-to-refresh.
 
 The Sessions, Devices, and Settings pages now share the automation page’s clay-icon header style. See [device management](docs/devices.webp), [settings](docs/settings.webp), and [mobile settings](docs/settings-mobile.webp).
 
@@ -271,6 +273,7 @@ The **Settings → General** page provides appearance and device permissions on 
 | Pairing code lifetime | 5 minutes | 1 to 60. |
 | Largest file | 25 MB | 1 to 100 MB per upload. |
 | Allowed file types | any | Optional MIME allowlist such as `image/*, application/pdf`. Uploads outside it get HTTP 415. |
+| Bridge | on | Lets devices open agent-mentioned localhost servers and fetch agent-mentioned files after a prompt. Off also ends open bridge links. |
 
 It also shows the daemon version, both addresses, and where settings and session files are stored.
 
@@ -308,11 +311,30 @@ This means the agent can consume uploaded artifacts using its normal file capabi
 
 ### Preview agent links and shared files
 
-Select a link in an agent reply or formatted automation output to open Companion's preview dialog. Public HTTPS links first show the destination; choose **Load website preview** to contact that site from your current browser. Websites that block embedding require **Open in new tab**. HTTP/host-local apps, IP-address URLs and arbitrary local file paths are not proxied or opened on the host.
+Select a link in an agent reply or formatted automation output to open Companion's preview dialog. Public HTTPS links first show the destination; choose **Load website preview** to contact that site from your current browser. Websites that block embedding require **Open in new tab**. Plain `http://` sites, IP-address URLs and other non-localhost addresses are not proxied; use **Open in new tab**. Localhost servers and local files use the [Companion bridge](#companion-bridge).
 
 In **Shared files**, choose **Preview** for a registered upload. Files up to 2 MiB can display as safe raster images, escaped text or a static HTML snapshot. HTML scripts, navigation and external assets are disabled; JavaScript-dependent pages need the original file outside Companion. Unsupported or larger files remain downloadable.
 
-To share a generated local report, the agent must first upload the chosen file through the existing local-admin upload API (`POST /api/sessions/{session_id}/files?source=agent`, multipart field `file`). The agent can then link its unique shared filename, returned sandbox path or session download URL. Companion resolves these references to an existing opaque file id; it never reads an unshared filesystem path. Previewing does not launch, stream or control the host browser. See [Security model](SECURITY.md#web-ui-hardening) for isolation and privacy limits.
+To share a generated local report, the agent must first upload the chosen file through the existing local-admin upload API (`POST /api/sessions/{session_id}/files?source=agent`, multipart field `file`). The agent can then link its unique shared filename, returned sandbox path or session download URL. Companion resolves these references to an existing opaque file id. A path that is not an upload can only be fetched through the confirmed [bridge](#companion-bridge). Previewing does not launch, stream or control the host browser. See [Security model](SECURITY.md#web-ui-hardening) for isolation and privacy limits.
+
+### Companion bridge
+
+The device can act on what the agent mentions, without any tunnel changes. Links in a reply, and inline `code` that unmistakably names a file or a localhost server (underlined when actionable), open a prompt first. Nothing is fetched or relayed until you confirm.
+
+| The agent mentions | You confirm | What happens |
+|---|---|---|
+| `http://localhost:3000` (also `127.0.0.1`, `[::1]`, `0.0.0.0`) | **Open server** | The daemon mints an unguessable link that lives on a five-minute lease (an open preview renews it every minute) and relays `/bridge/<token>/...` to that loopback server. It opens in a sandboxed frame; closing the preview ends the link (**Open in new tab** only works while it is open). |
+| `/work/app/out/report.html`, `~/notes.md`, `docs/guide.md`, `file:///...` | **Fetch and preview** or **Fetch and download** | The daemon copies the file into the session's shared files (as an **Agent** upload). The usual preview and download controls take over. Fetching again refreshes the copy. |
+
+Limits, all enforced by the daemon, not the UI:
+
+- Servers: `http://` on loopback only, the exact address (port included) must appear in the session's agent output, and Companion's own ports (43721/43722 or their overrides) are never bridged. Closing the preview, turning the bridge off, unsharing the session, archiving it, revoking the device or Pi stopping ends links for good, including responses already streaming; they are never revived. While Pi is disconnected nothing is bridged. If a close cannot reach the daemon (offline), it is retried and the link still lapses with its lease.
+- Each preview gets its own link, so two previews of one server never share it (16 per device per session). Relays are capped at 32 at once; streamed responses at 100 MiB, five minutes and 60 idle seconds; pages that are rewritten must arrive within 30 seconds (10 idle) or fail with 504.
+- Files: the path (symlinks resolved) must be inside the session's working directory, that session's own Companion temp folder, or `<temp>/pi-companion/.shared`. Other sessions' folders are never reachable. It must appear in the session's agent output as a whole path (`report.html.bak` does not vouch for `report.html`), be a regular file within the upload limit and MIME allowlist, and must not look like credentials (`.env*`, `.git`, `.ssh`, `.aws`, `*.pem`, `secrets.json`, `.git-credentials`, Companion's own state, and similar). Filename rules are a best-effort safety net, not a guarantee; the confirmation prompt is the real control. A session that reports no usable working directory cannot fetch files. What you typed into a prompt cannot vouch for a path or server. Paths with spaces work when written plainly or percent-encoded.
+- Proxied pages run in an opaque origin: no cookies are relayed and WebSockets are not proxied. Root-relative URLs and absolute URLs to the bridged port (`http://localhost:3000/app.js` in `src`/`href`/`url()`/`@import`) are rewritten in HTML, CSS and JS; `fetch`/`Request`, XHR, `EventSource` and `sendBeacon` are redirected at runtime. This is best effort (`srcset` and URLs built in script are not covered). WebSockets (including HMR sockets) and Web Workers are not supported: the sandboxed frame has an opaque origin, so hot-reload dev servers may render but not live-update.
+- Automation sessions cannot use the bridge.
+
+See [Security model](SECURITY.md#companion-bridge).
 
 ### Camera access through Cloudflare or another HTTPS proxy
 
@@ -453,7 +475,7 @@ Clone the repository, then:
       Pairing links    http://127.0.0.1:43722  (default, this computer only; set one in Settings)
       Data             ~/.pi/agent/pi-companion  (0 paired)
 
-If a daemon is already running (for example one a Gentle Shell session started automatically), `npm run serve` prints its console address and exits instead of starting a second copy. Stop the running one first (`pkill -f pi-companion-server`) if you want your fresh build to take over. Set `RUST_LOG` (for example `RUST_LOG=debug`) for more detailed logs.
+If a daemon is already running (for example one a Gentle Shell session started automatically), `npm run serve` prints its console address and exits instead of starting a second copy. Stop the running one first (`pkill -f gentle-companion-server`) if you want your fresh build to take over. Set `RUST_LOG` (for example `RUST_LOG=debug`) for more detailed logs.
 
 Type checks cover the extension (`tsc`) and the UI (`svelte-check`, warnings fail):
 
@@ -508,7 +530,7 @@ Before publishing, the workflow requires X.Y.Z to match both package.json and se
 
 Only after the GitHub Release exists, the same tag publishes @rgaricano/gentle-companion to npm with provenance through npm Trusted Publishing (GitHub OIDC). No long-lived NPM_TOKEN is required. The trusted publisher should point to GitHub owner IAI-00-IAI, repository gentle-companion, workflow release.yml. Git installs need no npm credential.
 
-On extension load, Companion downloads `pi-companion-server-<os>-<arch>` for its own package version (`releases/download/v<version>/`) if needed, verifies `SHA256SUMS` and the binary version, and caches it under `~/.pi/agent/pi-companion/bin/<version>/`. Upgrades prepare the replacement before gracefully stopping the older daemon. Git installs ahead of the newest release must provide a matching local build; missing releases never trigger a downgrade or shutdown.
+On extension load, Companion downloads `gentle-companion-server-<os>-<arch>` for its own package version (`releases/download/v<version>/`) if needed, verifies `SHA256SUMS` and the binary version, and caches it under `~/.pi/agent/pi-companion/bin/<version>/`. Upgrades prepare the replacement before gracefully stopping the older daemon. Git installs ahead of the newest release must provide a matching local build; missing releases never trigger a downgrade or shutdown.
 
 ## Security boundary
 

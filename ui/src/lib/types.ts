@@ -138,6 +138,8 @@ export type Settings = {
   maxUploadMb: number;
   /** MIME allowlist for uploads (`image/*`, `application/pdf`); empty allows everything. */
   allowedUploadTypes: string[];
+  /** Lets devices fetch files and open localhost servers the agent mentioned, after a prompt. */
+  bridgeEnabled: boolean;
 };
 
 export type SettingsResponse = {

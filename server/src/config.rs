@@ -30,11 +30,14 @@ pub struct Settings {
     pub max_upload_mb: u64,
     /// Optional MIME allowlist for uploads (`image/png`, `image/*`). Empty allows every type.
     pub allowed_upload_types: Vec<String>,
+    /// Lets paired devices fetch files and open localhost servers the agent mentioned, after a
+    /// confirmation prompt on the device. See bridge.rs.
+    pub bridge_enabled: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new() }
+        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true }
     }
 }
 

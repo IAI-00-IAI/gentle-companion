@@ -2,8 +2,8 @@
   import Icon from './Icon.svelte';
   import { companion } from './companion.svelte.ts';
   import { errorMessage } from './toast.svelte.ts';
-  import { filePreviewKind, htmlSnapshot, imagePreviewMime, MAX_PREVIEW_BYTES, previewLink, type FilePreviewKind, type PreviewTarget } from './artifact-preview.ts';
-  import { t , langStore} from './i18n.svelte.ts';;
+  import { blocksEmbedding, filePreviewKind, htmlSnapshot, imagePreviewMime, MAX_PREVIEW_BYTES, previewLink, type FilePreviewKind, type PreviewTarget } from './artifact-preview.ts';
+  import { t, langStore } from './i18n.svelte.ts';
 
   let { target, onclose }: { target: PreviewTarget; onclose: () => void } = $props();
   let dialog = $state<HTMLDialogElement | null>(null);
@@ -14,6 +14,7 @@
   let content = $state('');
   let imageUrl = $state('');
   let websiteRequested = $state(false);
+  let fullscreen = $state(false);
   let closing = false;
   let disposed = false;
   const safeUrl = $derived.by(() => {
@@ -21,11 +22,14 @@
     if (typeof location === 'undefined') return undefined;
     return previewLink(target.url, location.origin);
   });
+  const embeddingBlocked = $derived(safeUrl ? blocksEmbedding(safeUrl) : false);
   const title = $derived.by(() => {
     if (target.kind === 'file') return target.file.name;
     if (safeUrl) return new URL(safeUrl).hostname;
     return t('artifact.preview.unavailable');
   });
+
+  const showFullscreenToggle = $derived((target.kind === 'link' && websiteRequested) || fileKind === 'html' || fileKind === 'image');
 
   $effect(() => {
     if (!dialog) return;
@@ -111,7 +115,7 @@
 $effect(() => { $langStore; });
 </script>
 
-<dialog class="artifact-preview" bind:this={dialog} aria-labelledby="artifact-preview-title" aria-describedby="artifact-preview-description" onclose={close} oncancel={(event) => { event.preventDefault(); close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>
+<dialog class="artifact-preview" class:fullscreen bind:this={dialog} aria-labelledby="artifact-preview-title" aria-describedby="artifact-preview-description" onclose={close} oncancel={(event) => { event.preventDefault(); if (fullscreen) fullscreen = false; else close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>
   <header class="preview-header">
     <div class="preview-heading">
       <span class="eyebrow">{t('artifact.preview.eyebrow')}</span>
@@ -120,7 +124,12 @@ $effect(() => { $langStore; });
         {#if target.kind === 'file'}{t('artifact.preview.file.description')}{:else}{t('artifact.preview.website.description')}{/if}
       </p>
     </div>
-    <button type="button" class="btn btn-ghost btn-icon" aria-label={t('artifact.preview.close.aria')} onclick={close}><Icon name="close" /></button>
+    <div class="preview-actions">
+      {#if showFullscreenToggle}
+        <button type="button" class="btn btn-ghost btn-icon" aria-label={t(fullscreen ? 'artifact.preview.fullscreen.exit' : 'artifact.preview.fullscreen.enter')} aria-pressed={fullscreen} onclick={() => fullscreen = !fullscreen}><Icon name={fullscreen ? 'minimize' : 'maximize'} /></button>
+      {/if}
+      <button type="button" class="btn btn-ghost btn-icon" aria-label={t('artifact.preview.close.aria')} onclick={close}><Icon name="close" /></button>
+    </div>
   </header>
   <div class="preview-body">
     {#if target.kind === 'link'}
@@ -128,9 +137,14 @@ $effect(() => { $langStore; });
         <div class="website-controls">
           <code class="preview-address">{safeUrl}</code>
           <p class="preview-note">{t('artifact.preview.website.note')}</p>
-          {#if !websiteRequested}<button type="button" class="btn btn-primary" onclick={() => websiteRequested = true}><Icon name="link" size={16} />{t('artifact.preview.website.load')}</button>{/if}
-          <p class="preview-note">{t('artifact.preview.website.note2')}</p>
-          <a class="btn" href={safeUrl} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{t('artifact.preview.website.open')}<Icon name="chevron" size={16} /></a>
+          {#if embeddingBlocked}
+            <p class="preview-note">{t('artifact.preview.website.embeddingBlocked')}</p>
+            <a class="btn btn-primary" href={safeUrl} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"><Icon name="link" size={16} />{t('artifact.preview.website.open')}</a>
+          {:else}
+            {#if !websiteRequested}<button type="button" class="btn btn-primary" onclick={() => websiteRequested = true}><Icon name="link" size={16} />{t('artifact.preview.website.load')}</button>{/if}
+            <p class="preview-note">{t('artifact.preview.website.note2')}</p>
+            <a class="btn" href={safeUrl} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{t('artifact.preview.website.open')}<Icon name="chevron" size={16} /></a>
+          {/if}
         </div>
         {#if websiteRequested}
           <iframe class="preview-frame" title={t('artifact.preview.website.aria', { name: title })} src={safeUrl} sandbox="allow-scripts" referrerpolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'; payment 'none'; usb 'none'"></iframe>
@@ -184,6 +198,10 @@ $effect(() => { $langStore; });
   .preview-footer { justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--border); background: var(--surface-2); }
   .artifact-preview .btn { min-width: 44px; min-height: 44px; }
   .preview-header .btn { flex: none; }
+  .preview-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+  .artifact-preview.fullscreen { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; }
+  .artifact-preview.fullscreen .preview-body { flex: 1; display: flex; flex-direction: column; overflow: auto; }
+  .artifact-preview.fullscreen .preview-frame { flex: 1; min-height: 60dvh; }
   @media (max-width: 600px) {
     .artifact-preview { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: var(--radius-lg); }
     .preview-header, .preview-footer, .website-controls { padding: 16px; gap: 12px; }
