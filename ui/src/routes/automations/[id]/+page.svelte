@@ -11,7 +11,7 @@
   import AutomationBadge from '#lib/AutomationBadge.svelte';
   import AutomationPagination from '#lib/AutomationPagination.svelte';
   import { automationDraft, automationTime, automationSchedule, automationNextRun, automationDuration, automationTriggerState, pageItems } from '#lib/automations.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import { errorMessage } from '#lib/toast.svelte.ts';
 
   const runLabels = $derived({ queued: t('automation.run.queued'), running: t('automation.run.running'), paused: t('automation.run.paused'), cancelled: t('automation.run.cancelled'), failed: t('automation.run.failed'), completed: t('automation.run.completed') });
@@ -142,6 +142,7 @@
     } catch (cause) { actionError = errorMessage(cause); }
     finally { busy = false; }
   }
+$effect(() => { $langStore; });
 </script>
 <svelte:head><title>{automation?.name ?? t('automation.fallback.title')} · Gentle Companion</title></svelte:head>
 <div class="page automation-workspace automation-detail">

@@ -8,7 +8,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import DevicePermissions from '#lib/DevicePermissions.svelte';
   import { theme, type ThemePreference } from '#lib/theme.svelte.ts';
-  import { getLang, setLang, LOCALES, localeName, t } from '#lib/i18n.svelte.ts';
+  import { langStore, setLang, LOCALES, localeName, t } from '#lib/i18n.svelte.ts';
   import { errorMessage, toasts } from '#lib/toast.svelte.ts';
   import type { Settings, SettingsResponse } from '#lib/types.ts';
   import { estimatedCost, providerSnapshots, reportedTime, snapshotStatus, usagePercent, weeklyConsumption } from '#lib/usage.ts';
@@ -152,8 +152,8 @@
       {#each LOCALES as locale}
         <button
           class="lang-btn"
-          class:active={getLang() === locale}
-          aria-pressed={getLang() === locale}
+          class:active={$langStore === locale}
+          aria-pressed={$langStore === locale}
           onclick={() => setLang(locale)}
         >
           {localeName(locale)}

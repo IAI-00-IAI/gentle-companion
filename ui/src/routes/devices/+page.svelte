@@ -6,7 +6,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { relativeTime, shortDate } from '#lib/format.ts';
   import { errorMessage, toasts } from '#lib/toast.svelte.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import type { PairedDevice, Pairing } from '#lib/types.ts';
 
   let pairing = $state<Pairing | null>(null);
@@ -103,6 +103,7 @@
       confirmTarget = null;
     }
   }
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('devices.title')} · Gentle Companion</title></svelte:head>

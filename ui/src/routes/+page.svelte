@@ -16,7 +16,7 @@
   import SessionCard from '#lib/SessionCard.svelte';
   import SessionTable from '#lib/SessionTable.svelte';
   import { companion } from '#lib/companion.svelte.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
 
   // The dot field opens on the Gentle Companion mark, then cycles computer → phone → terminal.
   const art = [gentleLogo, heroShell, heroChanges];
@@ -89,6 +89,7 @@
     const timer = setTimeout(load, 200);
     return () => clearTimeout(timer);
   });
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>Overview · Gentle Companion</title></svelte:head>

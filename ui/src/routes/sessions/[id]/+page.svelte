@@ -14,7 +14,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { elapsedTime, formatBytes, prettyPath, relativeTime, sessionTitle, statusLabel } from '#lib/format.ts';
   import { contextUsage, estimatedCost } from '#lib/usage.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import { prettify, renderMarkdown } from '#lib/markdown.ts';
   import { errorMessage, toasts } from '#lib/toast.svelte.ts';
   import type { ActivityEntry } from '#lib/activity.ts';
@@ -482,6 +482,7 @@
   };
 
   const diffStats = $derived({ add: changedFiles.reduce((total, file) => total + file.additions, 0), del: changedFiles.reduce((total, file) => total + file.deletions, 0), files: changedFiles.length });
+$effect(() => { $langStore; });
 </script>
 
 <svelte:window onkeydown={menuKey} onpointerdown={closeMenuOutside} />

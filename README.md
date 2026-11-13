@@ -8,7 +8,7 @@ Lightweight, local-first remote control for Gentle Shell sessions.
 
 **[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Gentle Shell session shared with `/remote-control`, a phone paired from the dashboard, Gentle Shell's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
 
-**New in 0.3.15:** Gentle Shell 1.4.0 compatibility hardening keeps sessions active through startup and automatic retries, safely queues remote prompts during busy runs, and prevents cancelled or truncated automation responses from being reported as successful. Regression coverage now includes overlapping relayed dialogs. Development checks use Gentle Shell 1.4.0. Revamped automation details distinguish manual runs from active/paused schedules and explain failure handling. Agent links and shared reports offer opt-in sandboxed previews without a host-browser controller or URL proxy.
+**New in 0.3.16:** Gentle Shell 1.4.0 compatibility hardening keeps sessions active through startup and automatic retries, safely queues remote prompts during busy runs, and prevents cancelled or truncated automation responses from being reported as successful. Regression coverage now includes overlapping relayed dialogs. Development checks use Gentle Shell 1.4.0. Revamped automation details distinguish manual runs from active/paused schedules and explain failure handling. Agent links and shared reports offer opt-in sandboxed previews without a host-browser controller or URL proxy.
 
 **0.3.13:** Changes is scoped to session-recorded edits and applied Pi Jar subagent files, with compact mobile review controls. The session menu contains background work with elapsed timers and a scrollable Tasks popup for Pi Jar and compatible extensions. Claymorphism error pages provide safe recovery actions and explain failed page downloads.
 
@@ -446,7 +446,7 @@ Clone the repository, then:
 
 `npm run serve` builds the embedded Svelte UI and starts the Rust daemon in the foreground. It prints:
 
-      Gentle Companion v0.3.15
+      Gentle Companion v0.3.16
 
       Console          http://127.0.0.1:43721
       Paired devices   http://127.0.0.1:43722

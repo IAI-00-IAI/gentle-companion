@@ -8,7 +8,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { errorMessage } from '#lib/toast.svelte.ts';
   import { cameraAvailability, cameraFailure, devicePermissions, openCameraStream } from '#lib/device-permissions.svelte.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
 
   const invite = $derived(page.url.searchParams.get('invite'));
   let name = $state(guessName());
@@ -171,6 +171,7 @@
       if (attempt === cameraAttempt) cameraPending = false;
     }
   }
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('pair.title')}</title></svelte:head>

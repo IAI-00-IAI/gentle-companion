@@ -9,3 +9,7 @@ ui/.svelte-kit/
 # local tooling
 .shots/
 .preview/
+
+skills/sveltekit-svelte5-tailwind-skill/
+
+.pi/

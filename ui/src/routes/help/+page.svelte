@@ -2,7 +2,7 @@
   import Icon from '#lib/Icon.svelte';
   import { companion } from '#lib/companion.svelte.ts';
   import { toasts } from '#lib/toast.svelte.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
 
   const installCommand = 'gentle-shell install git:github.com/IAI-00-IAI/gentle-companion';
 
@@ -30,6 +30,7 @@
       toasts.show(t('help.toast.fail'), 'error');
     }
   }
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('help.title')}</title></svelte:head>

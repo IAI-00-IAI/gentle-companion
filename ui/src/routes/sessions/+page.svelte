@@ -6,7 +6,7 @@
   import clayIcon from '../../assets/clay/chat-bubble.webp';
   import { companion } from '#lib/companion.svelte.ts';
   import { prettyPath, sessionTitle } from '#lib/format.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import type { SessionStatus } from '#lib/types.ts';
 
   type Filter = 'all' | SessionStatus;
@@ -38,6 +38,7 @@
         .includes(needle);
     });
   });
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('sessions.title')} · Gentle Companion</title></svelte:head>

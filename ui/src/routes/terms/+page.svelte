@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('terms.title')}</title></svelte:head>

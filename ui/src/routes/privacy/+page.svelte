@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '#lib/Icon.svelte';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
+$effect(() => { $langStore; });
 </script>
 
 <svelte:head><title>{t('privacy.title')}</title></svelte:head>

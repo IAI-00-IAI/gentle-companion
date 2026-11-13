@@ -10,7 +10,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { devicePermissions } from '#lib/device-permissions.svelte.ts';
   import { theme, type ThemePreference } from '#lib/theme.svelte.ts';
-  import { getLang, setLang, LOCALES, localeName, t } from '#lib/i18n.svelte.ts';
+  import { langStore, setLang, LOCALES, localeName, t } from '#lib/i18n.svelte.ts';
   import { toasts } from '#lib/toast.svelte.ts';
 
   let { children } = $props();
@@ -172,7 +172,7 @@
           {#each LOCALES as locale}
             <button
               role="radio"
-              aria-checked={getLang() === locale}
+              aria-checked={$langStore === locale}
               aria-label={localeName(locale)}
               onclick={() => setLang(locale)}
             >

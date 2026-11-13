@@ -9,7 +9,11 @@ export class BackgroundWorkTracker {
   private shells = new Map<string, Item>();
   private agents = new Map<string, Item>();
 
-  constructor(private readonly now: () => number = Date.now) {}
+  private readonly now: () => number;
+
+  constructor(now: () => number = Date.now) {
+    this.now = now;
+  }
 
   ingest(tool: string, value: unknown) {
     const details = object(value);

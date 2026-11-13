@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon, { type IconName } from '#lib/Icon.svelte';
   import { devicePermissions, type PermissionValue } from '#lib/device-permissions.svelte.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import { toasts } from '#lib/toast.svelte.ts';
 
   $effect(() => devicePermissions.init());
@@ -48,6 +48,7 @@
     { kind: 'notifications', icon: 'bell', title: t('permissions.notifications.title'), state: devicePermissions.notifications },
     { kind: 'camera', icon: 'camera', title: t('permissions.camera.title'), state: devicePermissions.camera }
   ]);
+$effect(() => { $langStore; });
 </script>
 
 <ul class="permissions">

@@ -9,7 +9,7 @@
   import AutomationDate from '#lib/AutomationDate.svelte';
   import AutomationResult from '#lib/AutomationResult.svelte';
   import { automationTime, automationDuration } from '#lib/automations.ts';
-  import { t } from '#lib/i18n.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import { errorMessage } from '#lib/toast.svelte.ts';
   import type { AutomationRun } from '#lib/types.ts';
   const id = $derived(page.params.id ?? '');
@@ -41,6 +41,7 @@
     const timer = setInterval(() => { if (run?.status === 'running' && document.visibilityState === 'visible') void refresh(); }, 3000);
     return () => { alive = false; clearInterval(timer); };
   });
+$effect(() => { $langStore; });
 </script>
 <svelte:head><title>{t('automation.rundetail.title')} · Gentle Companion</title></svelte:head>
 <div class="page automation-workspace">

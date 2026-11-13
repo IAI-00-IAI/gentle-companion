@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import Icon from './Icon.svelte';
   import { automationDraft, automationTimezones, parseAutomationDraft } from './automations.ts';
-  import { t } from './i18n.svelte.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
   import type { Automation, AutomationDraft } from './types.ts';
   let { automation, busy = false, onsave, oncancel }: { automation?: Automation; busy?: boolean; onsave: (draft: AutomationDraft) => Promise<void>; oncancel: () => void } = $props();
   const initial = untrack(() => automationDraft(automation));
@@ -98,6 +98,7 @@
       await onsave(draft);
     } catch (cause) { error = translateAutomationError(cause instanceof Error ? cause.message : t('automation.editor.error.save')); }
   }
+$effect(() => { $langStore; });
 </script>
 <form class="bento-card editor" onsubmit={event => { event.preventDefault(); void submit(); }}>
   <header><span class="eyebrow">{t('automation.editor.eyebrow')}</span><h2>{automation ? t('automation.editor.title.edit') : t('automation.editor.title.create')}</h2><p class="subtle">{t('automation.editor.intro')}</p></header>

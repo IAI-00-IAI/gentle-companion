@@ -3,7 +3,7 @@
   import { companion } from './companion.svelte.ts';
   import { errorMessage } from './toast.svelte.ts';
   import { filePreviewKind, htmlSnapshot, imagePreviewMime, MAX_PREVIEW_BYTES, previewLink, type FilePreviewKind, type PreviewTarget } from './artifact-preview.ts';
-  import { t } from './i18n.svelte.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
 
   let { target, onclose }: { target: PreviewTarget; onclose: () => void } = $props();
   let dialog = $state<HTMLDialogElement | null>(null);
@@ -108,6 +108,7 @@
       if (!disposed && target === selected) downloadBusy = false;
     }
   }
+$effect(() => { $langStore; });
 </script>
 
 <dialog class="artifact-preview" bind:this={dialog} aria-labelledby="artifact-preview-title" aria-describedby="artifact-preview-description" onclose={close} oncancel={(event) => { event.preventDefault(); close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>

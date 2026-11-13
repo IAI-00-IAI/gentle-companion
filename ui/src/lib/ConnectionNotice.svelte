@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { companion } from './companion.svelte.ts';
-  import { t } from './i18n.svelte.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
+$effect(() => { $langStore; });
 </script>
 
 {#if companion.connectionError}

@@ -3,10 +3,11 @@
   import AutomatedSessionBadge from './AutomatedSessionBadge.svelte';
   import { companion } from './companion.svelte.ts';
   import { prettyPath, sessionTitle, statusLabel } from './format.ts';
-  import { t } from './i18n.svelte.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
   import type { Session } from './types.ts';
 
   let { sessions, label = 'Live sessions' }: { sessions: Session[]; label?: string } = $props();
+$effect(() => { $langStore; });
 </script>
 
 <div class="session-table clay">

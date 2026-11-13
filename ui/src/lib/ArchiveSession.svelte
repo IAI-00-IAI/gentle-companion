@@ -3,7 +3,7 @@
   import Icon from './Icon.svelte';
   import { companion } from './companion.svelte.ts';
   import { sessionTitle } from './format.ts';
-  import { t } from './i18n.svelte.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
   import { errorMessage, toasts } from './toast.svelte.ts';
   import type { Session } from './types.ts';
 
@@ -25,6 +25,7 @@
       busy = false;
     }
   }
+$effect(() => { $langStore; });
 </script>
 
 <button

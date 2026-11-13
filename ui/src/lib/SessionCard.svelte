@@ -4,12 +4,13 @@
   import ArchiveSession from './ArchiveSession.svelte';
   import { companion } from './companion.svelte.ts';
   import { prettyPath, relativeTime, sessionTitle, statusLabel } from './format.ts';
-  import { t } from './i18n.svelte.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
   import type { Session } from './types.ts';
 
   let { session, highlighted = false }: { session: Session; highlighted?: boolean } = $props();
   const waiting = $derived(companion.pendingAsks(session.id));
   const title = $derived(sessionTitle(session));
+$effect(() => { $langStore; });
 </script>
 
 <article class="session-row clay" class:stopped={session.status === 'stopped'} class:highlighted>

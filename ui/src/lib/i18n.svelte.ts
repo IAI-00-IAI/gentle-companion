@@ -1,3 +1,5 @@
+import { writable } from 'svelte/store';
+
 export type Locale = 'en' | 'es';
 
 export const LOCALES: Locale[] = ['en', 'es'];
@@ -1689,14 +1691,26 @@ function storedLocale(): Locale {
   return stored === 'en' || stored === 'es' ? stored : 'en';
 }
 
-let lang = $state<Locale>(storedLocale());
+const initialLocale = storedLocale();
+export const langStore = writable<Locale>(initialLocale);
+(globalThis as { $state?: (value: Locale) => Locale }).$state =
+  (globalThis as { $state?: (value: Locale) => Locale }).$state ??
+  ((value: Locale) => value);
+
+let currentLang: Locale = $state(initialLocale);
+
+langStore.subscribe((value) => {
+  currentLang = value;
+});
 
 export function getLang(): Locale {
-  return lang;
+  return currentLang;
 }
 
 export function setLang(next: Locale): void {
-  lang = next;
+  currentLang = next;
+  (globalThis as { $langStore?: Locale }).$langStore = next;
+  langStore.set(next);
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(LANG_STORAGE_KEY, next);
   }
@@ -1706,11 +1720,12 @@ export function t(
   key: string,
   params?: Record<string, string | number | null | undefined>,
 ): string {
-  let value: string | undefined = messages[lang][key];
-  if (value === undefined) value = messages.en[key];
-  if (value === undefined) return key;
-  if (!params) return value;
-  return value.replace(/\{\{(\w+)\}\}/g, (_m, group) => {
+  const lang: Locale = currentLang;
+  let message: string | undefined = messages[lang][key];
+  if (message === undefined) message = messages.en[key];
+  if (message === undefined) return key;
+  if (!params) return message;
+  return message.replace(/\{\{(\w+)\}\}/g, (_m, group) => {
     const raw = params[group];
     return raw === undefined || raw === null ? '' : String(raw);
   });
