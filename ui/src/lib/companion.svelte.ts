@@ -482,6 +482,56 @@ class Companion {
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
+  /**
+   * Ask the daemon to copy a file the agent mentioned into the session's shared files. Call only
+   * after the person confirmed; the daemon still enforces its own scope (working directory and
+   * shared temp folder, mentioned by the agent, no credential files).
+   */
+  async bridgeFile(sessionId: string, reference: string) {
+    const file = await this.request<TempFile>('/api/sessions/' + encodeURIComponent(sessionId) + '/bridge/file', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reference })
+    }, 60_000);
+    if (!file || typeof file.id !== 'string' || typeof file.name !== 'string' || typeof file.size !== 'number') {
+      throw new Error('The workspace could not confirm this file. Check Shared files before trying again.');
+    }
+    this.files = { ...this.files, [sessionId]: [...(this.files[sessionId] ?? []).filter((existing) => existing.id !== file.id), file] };
+    void this.refreshFiles(sessionId).catch(() => {});
+    return file;
+  }
+
+  /** Mint an expiring link that relays to a localhost server the agent mentioned. */
+  async bridgeEndpoint(sessionId: string, url: string) {
+    const endpoint = await this.request<{ origin: string; path: string; expiresAt: number; leaseSeconds?: number }>('/api/sessions/' + encodeURIComponent(sessionId) + '/bridge/endpoint', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url })
+    }, 15_000);
+    if (!endpoint || typeof endpoint.path !== 'string' || !endpoint.path.startsWith('/bridge/') || typeof endpoint.origin !== 'string') {
+      throw new Error('The workspace returned an invalid bridge link.');
+    }
+    return endpoint;
+  }
+
+  /** Tell the daemon an open preview is still there, so its short lease does not run out. */
+  async bridgeRenew(sessionId: string, path: string) {
+    await this.request('/api/sessions/' + encodeURIComponent(sessionId) + '/bridge/endpoint/renew', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path })
+    }, 10_000);
+  }
+
+  /** End a relay link when its preview closes. Only the device or console that opened it can. */
+  async bridgeRevoke(sessionId: string, path: string) {
+    await this.request('/api/sessions/' + encodeURIComponent(sessionId) + '/bridge/endpoint/revoke', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path })
+    }, 10_000);
+  }
+
   async removeFile(sessionId: string, fileId: string) {
     await this.request(
       '/api/sessions/' + encodeURIComponent(sessionId) + '/files/' + encodeURIComponent(fileId),

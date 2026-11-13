@@ -15,7 +15,7 @@ async function reservePort() {
 const admin = await reservePort(), device = await reservePort();
 const home = await mkdtemp(join(tmpdir(), 'companion-automation-smoke-'));
 await admin.close(); await device.close();
-const daemon = spawn('server/target/debug/pi-companion-server' + (process.platform === 'win32' ? '.exe' : ''), [], {
+const daemon = spawn('server/target/debug/gentle-companion-server' + (process.platform === 'win32' ? '.exe' : ''), [], {
   env: { ...process.env, PI_COMPANION_HOME: home, PI_COMPANION_ADMIN_ADDR: `127.0.0.1:${admin.port}`, PI_COMPANION_DEVICE_ADDR: `127.0.0.1:${device.port}` },
   stdio: ['ignore', 'pipe', 'pipe']
 });

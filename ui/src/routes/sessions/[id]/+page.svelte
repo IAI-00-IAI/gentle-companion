@@ -3,8 +3,9 @@
   import { page } from '$app/state';
   import { beforeNavigate } from '$app/navigation';
   import ArtifactPreview from '#lib/ArtifactPreview.svelte';
+  import BridgePreview from '#lib/BridgePreview.svelte';
   import { previewLinks } from '#lib/artifact-links.ts';
-  import type { PreviewTarget } from '#lib/artifact-preview.ts';
+  import { isBridgeTarget, type PreviewTarget } from '#lib/artifact-preview.ts';
   import AskSheet from '#lib/AskSheet.svelte';
   import TerminalPopup from '#lib/TerminalPopup.svelte';
   import { matchingSlashCommands } from '#lib/slash-commands.ts';
@@ -869,7 +870,11 @@ $effect(() => { $langStore; });
     </section>
   </div>
 
-  {#if preview}<ArtifactPreview target={preview} onclose={() => preview = null} />{/if}
+  {#if isBridgeTarget(preview)}
+    <BridgePreview target={preview} onfile={(file) => showPreview({ kind: 'file', sessionId: id, file })} onclose={() => preview = null} />
+  {:else if preview}
+    <ArtifactPreview target={preview} onclose={() => preview = null} />
+  {/if}
   {#if !ended}
     <AskSheet sessionId={id} {asks} bind:open={askOpen} />
     <TerminalPopup sessionId={id} popups={session?.popups ?? []} />
@@ -1462,6 +1467,21 @@ $effect(() => { $langStore; });
     border-radius: 6px;
     background: var(--surface-2);
     font-size: 0.85em;
+  }
+
+  /* Inline code naming a file or localhost server opens the bridge prompt. */
+  .md :global(code.bridge-ref) {
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    color: var(--accent-text);
+  }
+
+  .md :global(code.bridge-ref:hover),
+  .md :global(code.bridge-ref:focus-visible) {
+    background: var(--accent-soft, var(--surface-2));
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .md :global(pre),

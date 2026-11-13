@@ -19,7 +19,7 @@ const docs = join(root, 'docs');
 const ADMIN = '127.0.0.1:43731';
 const DEVICE = '127.0.0.1:43732';
 const BASE = `http://${ADMIN}`;
-const binary = process.env.COMPANION_BINARY ?? join(root, 'server/target/release/pi-companion-server');
+const binary = process.env.COMPANION_BINARY ?? join(root, 'server/target/release/gentle-companion-server');
 const { chromium } = await import(process.env.PLAYWRIGHT ? pathToFileURL(process.env.PLAYWRIGHT).href : 'playwright');
 
 const home = mkdtempSync(join(tmpdir(), 'pi-companion-shots-'));
