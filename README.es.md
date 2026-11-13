@@ -556,4 +556,4 @@ El diseño sigue algunas reglas innegociables:
 
 ## Licencia
 
-MIT. Ver [LICENSE](LICENSE).
+Este fork se distribuye bajo la GNU Affero General Public License, versión 3.0, tal como se especifica en [LICENSE](LICENSE). El código heredado del proyecto original [pi-companion](https://github.com/ygrip/pi-companion) se proporciona bajo su licencia MIT; los archivos originales conservan sus avisos de licencia, y el texto original de la licencia se conserva en [LICENSE-MIT](LICENSE-MIT).

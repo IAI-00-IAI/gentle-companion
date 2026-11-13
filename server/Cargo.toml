@@ -2,7 +2,7 @@
 name = "pi-companion-server"
 version = "0.4.3"
 edition = "2024"
-license = "MIT"
+license = "AGPL-3.0"
 
 [[bin]]
 name = "gentle-companion-server"
