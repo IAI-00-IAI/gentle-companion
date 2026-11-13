@@ -1693,8 +1693,11 @@ function storedLocale(): Locale {
 
 const initialLocale = storedLocale();
 export const langStore = writable<Locale>(initialLocale);
+(globalThis as { $state?: (value: Locale) => Locale }).$state =
+  (globalThis as { $state?: (value: Locale) => Locale }).$state ??
+  ((value: Locale) => value);
 
-let currentLang: Locale = initialLocale;
+let currentLang: Locale = $state(initialLocale);
 
 langStore.subscribe((value) => {
   currentLang = value;
@@ -1706,6 +1709,7 @@ export function getLang(): Locale {
 
 export function setLang(next: Locale): void {
   currentLang = next;
+  (globalThis as { $langStore?: Locale }).$langStore = next;
   langStore.set(next);
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(LANG_STORAGE_KEY, next);
@@ -1716,7 +1720,8 @@ export function t(
   key: string,
   params?: Record<string, string | number | null | undefined>,
 ): string {
-  let message: string | undefined = messages[currentLang][key];
+  const lang: Locale = currentLang;
+  let message: string | undefined = messages[lang][key];
   if (message === undefined) message = messages.en[key];
   if (message === undefined) return key;
   if (!params) return message;
