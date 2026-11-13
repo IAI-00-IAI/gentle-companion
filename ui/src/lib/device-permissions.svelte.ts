@@ -118,7 +118,7 @@ class DevicePermissions {
     }
     if (this.notifications === 'granted') {
       this.setNotificationsEnabled(true);
-      await this.notify('Notifications are on', 'Pi Companion will tell you when a session needs you.', { tag: 'pi-companion-welcome' });
+      await this.notify('Notifications are on', 'Gentle Companion will tell you when a session needs you.', { tag: 'pi-companion-welcome' });
     }
     return this.notifications;
   }

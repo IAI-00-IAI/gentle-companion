@@ -6,6 +6,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { relativeTime, shortDate } from '#lib/format.ts';
   import { errorMessage, toasts } from '#lib/toast.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
   import type { PairedDevice, Pairing } from '#lib/types.ts';
 
   let pairing = $state<Pairing | null>(null);
@@ -29,7 +30,7 @@
     for (const device of companion.devices) knownIds.add(device.id);
     if (fresh && pairing) {
       pairing = null;
-      toasts.show(fresh.name + ' is now paired.', 'success');
+      toasts.show(t('devices.toast.paired', { name: fresh.name }), 'success');
     }
   });
 
@@ -54,9 +55,9 @@
     if (!pairing) return;
     try {
       await navigator.clipboard.writeText(pairing.url);
-      toasts.show('Pairing link copied.', 'success');
+      toasts.show(t('devices.toast.link'), 'success');
     } catch {
-      toasts.show('Copy failed. Select the link and copy it manually.', 'error');
+      toasts.show(t('devices.toast.link.fail'), 'error');
     }
   }
 
@@ -64,9 +65,9 @@
     if (!pairing) return;
     try {
       await navigator.clipboard.writeText(pairing.code);
-      toasts.show('Pairing code copied.', 'success');
+      toasts.show(t('devices.toast.code'), 'success');
     } catch {
-      toasts.show('Copy failed. Select the code and copy it manually.', 'error');
+      toasts.show(t('devices.toast.code.fail'), 'error');
     }
   }
 
@@ -74,7 +75,7 @@
     busy = device.id;
     try {
       await companion.disconnectDevice(device.id);
-      toasts.show(device.name + ' was disconnected. It stays paired.', 'success');
+      toasts.show(t('devices.toast.disconnected', { name: device.name }), 'success');
     } catch (error) {
       toasts.show(errorMessage(error), 'error');
     } finally {
@@ -94,7 +95,7 @@
     busy = device.id;
     try {
       await companion.revokeDevice(device.id);
-      toasts.show(device.name + ' can no longer connect.', 'success');
+      toasts.show(t('devices.toast.revoked', { name: device.name }), 'success');
     } catch (error) {
       toasts.show(errorMessage(error), 'error');
     } finally {
@@ -102,48 +103,49 @@
       confirmTarget = null;
     }
   }
+$effect(() => { $langStore; });
 </script>
 
-<svelte:head><title>Devices · Pi Companion</title></svelte:head>
+<svelte:head><title>{t('devices.title')} · Gentle Companion</title></svelte:head>
 
 <div class="page automation-workspace">
-  <PageHero icon={clayIcon} eyebrow="YOUR WORK, WHEREVER YOU ARE" title="Devices" subtitle="One workspace. Your favorite screens. Pair once, check in anywhere.">
-    {#if !pairing}<button class="btn-bento primary" onclick={startPairing} disabled={starting}><Icon name="plus" />Pair a device</button>{/if}
+  <PageHero icon={clayIcon} eyebrow={t('devices.eyebrow')} title={t('devices.title')} subtitle={t('devices.subtitle')}>
+    {#if !pairing}<button class="btn-bento primary" onclick={startPairing} disabled={starting}><Icon name="plus" />{t('devices.pair')}</button>{/if}
   </PageHero>
 
   {#if pairing}
     <section class="pair card" aria-labelledby="pair-heading">
       <div class="qr" class:expired>
         {@html pairing.qrSvg}
-        {#if expired}<span>Expired</span>{/if}
+        {#if expired}<span class="primary">{t('devices.expired.badge')}</span>{/if}
       </div>
       <div class="pair-copy">
-        <span class="eyebrow">New device</span>
-        <h2 id="pair-heading">Scan with your phone’s camera</h2>
+        <span class="eyebrow">{t('devices.new')}</span>
+        <h2 id="pair-heading">{t('devices.scan')}</h2>
         <ol>
-          <li>Open the camera and point it at the code.</li>
-          <li>Open the link, name the device and tap <strong>Connect device</strong>.</li>
-          <li>Share a session by typing <code>/remote-control</code> in Pi.</li>
+          <li>{t('devices.step1')}</li>
+          <li>{t('devices.step2')}</li>
+          <li>{t('devices.step3')}</li>
         </ol>
-        <div class="code-block" aria-label="One-time pairing code">
+        <div class="code-block" aria-label={t('devices.code.aria')}>
           <div>
-            <span class="subtle">Or enter this code</span>
+            <span class="subtle">{t('devices.code.label')}</span>
             <code class="pair-code">{pairing.code}</code>
           </div>
-          <button class="btn btn-sm" onclick={copyCode}><Icon name="copy" size={14} />Copy code</button>
+          <button class="btn btn-sm" onclick={copyCode}><Icon name="copy" size={14} />{t('devices.copy.code')}</button>
         </div>
         <div class="link-row">
           <code title={pairing.url}>{pairing.url}</code>
-          <button class="btn btn-sm" onclick={copyLink}><Icon name="copy" size={14} />Copy link</button>
+          <button class="btn btn-sm" onclick={copyLink}><Icon name="copy" size={14} />{t('devices.copy.link')}</button>
         </div>
         <p class="subtle expiry" role="timer" aria-live="off">
-          {#if expired}This code expired. Create a new one.{:else}One-time code · expires in {countdown(remaining)}{/if}
+          {#if expired}{t('devices.expired.title')}{:else}{t('devices.expired.note', { time: countdown(remaining) })}{/if}
         </p>
         <div class="actions">
           {#if expired}
-            <button class="btn btn-primary" onclick={startPairing}><Icon name="refresh" size={16} />New code</button>
+            <button class="btn btn-primary" onclick={startPairing}><Icon name="refresh" size={16} />{t('devices.newcode')}</button>
           {/if}
-          <button class="btn btn-ghost" onclick={() => (pairing = null)}>Done</button>
+          <button class="btn btn-ghost" onclick={() => (pairing = null)}>{t('devices.done')}</button>
         </div>
       </div>
     </section>
@@ -151,17 +153,17 @@
 
   <section class="card list-card" aria-labelledby="list-heading">
     <div class="card-head">
-      <h2 id="list-heading">Paired devices</h2>
-      <div class="chips" aria-label="Device counts">
-        <span class="badge count">{companion.devices.length}<span class="sr-only"> paired devices</span></span>
-        <span class="badge count quiet">{connected}<span class="sr-only"> connected</span></span>
+      <h2 id="list-heading">{t('devices.list')}</h2>
+      <div class="chips" class:primary={false} aria-label={t('devices.chips.aria')} >
+        <span class="badge count">{companion.devices.length}<span class="sr-only">{t('devices.chips.total.aria')}</span></span>
+        <span class="badge count quiet">{connected}<span class="sr-only">{t('devices.chips.connected.aria')}</span></span>
       </div>
     </div>
     {#if companion.devices.length === 0}
       <div class="empty">
         <span class="empty-icon"><Icon name="devices" /></span>
-        <h2>No devices yet</h2>
-        <p>Pair a phone to follow sessions and answer Pi from anywhere you can reach this computer.</p>
+        <h2>{t('devices.empty.title')}</h2>
+        <p>{t('devices.empty.body')}</p>
       </div>
     {:else}
       <ul class="devices">
@@ -172,23 +174,23 @@
               <div class="device-title">
                 <strong class="chip"><span>{device.name}</span></strong>
                 {#if device.connected}
-                  <span class="badge ok"><span class="dot online" aria-hidden="true"></span>Connected{#if device.connections > 1}<span class="badge count quiet" aria-label="{device.connections} connections">{device.connections}</span>{/if}</span>
+                  <span class="badge ok"><span class="dot online" aria-hidden="true"></span>{t('devices.connected')}{#if device.connections > 1}<span class="badge count quiet">{device.connections}</span>{/if}</span>
                 {:else}
-                  <span class="badge"><span class="dot" aria-hidden="true"></span>Disconnected</span>
+                  <span class="badge"><span class="dot" aria-hidden="true"></span>{t('devices.disconnected')}</span>
                 {/if}
               </div>
               <span class="subtle">
-                {device.connected ? 'Active now' : 'Last seen ' + relativeTime(device.lastSeen, now)} · Paired {shortDate(device.pairedAt)}
+                {device.connected ? t('devices.active') : t('devices.lastseen', { time: relativeTime(device.lastSeen, now) })} · {t('devices.paired', { date: shortDate(device.pairedAt) })}
               </span>
             </div>
             <div class="device-actions">
               <button class="btn btn-sm" onclick={() => disconnect(device)} disabled={!device.connected || busy === device.id}
-                title="End its current connection. It stays paired and can reconnect.">
-                <Icon name="unplug" size={14} />Disconnect
+                title={t('devices.disconnect.title')}>
+                <Icon name="unplug" size={14} />{t('devices.disconnect')}
               </button>
               <button class="btn btn-sm btn-danger" onclick={() => askRevoke(device)} disabled={busy === device.id}
-                title="Remove this device. It must pair again to reconnect.">
-                <Icon name="ban" size={14} />Revoke
+                title={t('devices.revoke.title')}>
+                <Icon name="ban" size={14} />{t('devices.revoke')}
               </button>
             </div>
           </li>
@@ -198,18 +200,17 @@
   </section>
 
   <p class="subtle footnote">
-    <strong>Disconnect</strong> ends a device’s live connection but keeps it paired. <strong>Revoke</strong> deletes its
-    credential, so it has to scan a new code.
+    {t('devices.footnote')}
   </p>
 </div>
 
 <dialog bind:this={dialog} class="dialog" aria-labelledby="revoke-title" onclose={() => (confirmTarget = null)}>
   <form method="dialog">
-    <h2 id="revoke-title">Revoke {confirmTarget?.name}?</h2>
-    <p class="muted">It is disconnected now and can’t reconnect. To use it again, pair it with a new code.</p>
+    <h2 id="revoke-title">{t('devices.revoke.confirm.title', { name: confirmTarget?.name })}</h2>
+    <p class="muted">{t('devices.revoke.confirm.body')}</p>
     <div class="dialog-actions">
-      <button class="btn" value="cancel">Cancel</button>
-      <button class="btn btn-danger solid" type="button" onclick={revoke}>Revoke device</button>
+      <button class="btn" value="cancel">{t('devices.revoke.cancel')}</button>
+      <button class="btn btn-danger solid" type="button" onclick={revoke}>{t('devices.revoke.action')}</button>
     </div>
   </form>
 </dialog>

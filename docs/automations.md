@@ -10,7 +10,7 @@ The detail workspace is a single-column bento layout with a clay back button and
 
 Choose **Edit automation** to reveal the editor at the top of Summary, automatically scroll it into view, and focus its name field. This keeps the routine context nearby without navigating to another page. Nothing changes until you save. Desktop console editing remains required.
 
-Overview, Sessions, Automations, and Settings support pull-to-refresh from the top of the page and an accessible **Refresh** button. Pull down on non-interactive page content, then release when prompted. Nested scroll regions and form controls keep their own gestures. Settings refresh never discards unsaved edits.
+Overview, Sessions, and Automations support pull-to-refresh from the top of the page. Pull down on non-interactive page content, then release when prompted. Nested scroll regions and form controls keep their own gestures. Settings does not use pull-to-refresh.
 
 The job editor separates name, enablement, cron and timezone choice, optional retry policy, preconditions, actions, and post-actions. Each step is a reorderable JSON DSL object with Command/Pi templates. Saving validates the definition, cron ranges, action types, arguments, absolute directories, timeouts, step count, and retry bounds; the daemon validates again before persistence. Only computer desktop administrators can author definitions.
 
@@ -67,7 +67,7 @@ Automations also appear below running sessions on the overview. Automated sessio
 
 Commands run as executable + argv, not through an implicit shell. A nonzero precondition skips the main actions. Actions execute in order. Post-actions provide a finalization stage. `schedule: null` is manual-only; otherwise use five cron fields (minute, hour, day of month, month, day of week), evaluated in the selected IANA `timezone` (**UTC** when omitted, preserving existing jobs). The collection and workspace show the next scheduled occurrence in that timezone. Daylight-saving gaps skip nonexistent local times; repeated local times can trigger twice, once at each UTC instant. Disabled and manual-only jobs have no next scheduled run. API collection/detail responses expose the derived, read-only `nextRunAt` as Unix seconds (or `null`); it is not part of the editable definition or persisted schedule. Scheduled execution requires the daemon to remain running; it does not catch up missed executions. A definition cannot have overlapping runs. Disabling scheduling and stopping a run are separate operations.
 
-A Pi action starts `pi --mode rpc --no-session` in the specified directory. Pi must be on PATH and already configured with credentials/model settings. It exposes a read-only Companion session: the feed and questions are visible, but steering, prompts, plan changes, file uploads, and diffs are unavailable. This restriction applies to browser control, **not** the agent's own tools or filesystem access. Pi's final assistant output is stored in the run result. Supported RPC `select`, `confirm`, `input`, and `editor` questions are forwarded; terminal-only custom dialogs cannot be displayed. The native `companion_ask_user` tool falls back to these RPC dialogs for daemon-owned runs.
+A Gentle Shell action starts `gentle-shell --mode rpc --no-session` in the specified directory. Gentle Shell must be on PATH and already configured with credentials/model settings. It exposes a read-only Companion session: the feed and questions are visible, but steering, prompts, plan changes, file uploads, and diffs are unavailable. This restriction applies to browser control, **not** the agent's own tools or filesystem access. Pi's final assistant output is stored in the run result. Supported RPC `select`, `confirm`, `input`, and `editor` questions are forwarded; terminal-only custom dialogs cannot be displayed. The native `companion_ask_user` tool falls back to these RPC dialogs for daemon-owned runs.
 
 **Security:** automations run with the daemon user's operating-system privileges. They are not sandboxed. Paired devices can start an existing automation, including commands with side effects. Pair only devices you trust, and review commands, prompts, working directories, and schedules before saving/enabling a definition. Native agent tools and MCP management use the local admin surface; do not expose that surface publicly.
 
@@ -86,7 +86,7 @@ Tools only contact an already-running daemon. They never download/start one or a
 Node >=22.17 can run the shipped stdio MCP server, without an MCP SDK dependency:
 
 ```bash
-pi mcp add companion-automations -- node --experimental-strip-types --no-warnings /absolute/path/to/pi-companion/src/automation-mcp.ts
+gentle-shell mcp add companion-automations -- node --experimental-strip-types --no-warnings /absolute/path/to/gentle-companion/src/automation-mcp.ts
 ```
 
 Other MCP clients can configure the same executable and arguments. The server exposes `companion_automation` with the same schema as the native extension tool. Configure only one surface if you want to avoid duplicate tools. It uses the default local admin address, overridable with `PI_COMPANION_URL=ws://127.0.0.1:PORT`; non-loopback management targets are rejected.

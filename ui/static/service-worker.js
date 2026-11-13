@@ -50,7 +50,7 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Tapping a session notification focuses an open Pi Companion window (or opens one) on that session.
+// Tapping a session notification focuses an open Gentle Companion window (or opens one) on that session.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const target = new URL(event.notification.data?.url || '/', self.location.origin).href;

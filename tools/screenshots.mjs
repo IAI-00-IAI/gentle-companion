@@ -19,7 +19,7 @@ const docs = join(root, 'docs');
 const ADMIN = '127.0.0.1:43731';
 const DEVICE = '127.0.0.1:43732';
 const BASE = `http://${ADMIN}`;
-const binary = process.env.COMPANION_BINARY ?? join(root, 'server/target/release/pi-companion-server');
+const binary = process.env.COMPANION_BINARY ?? join(root, 'server/target/release/gentle-companion-server');
 const { chromium } = await import(process.env.PLAYWRIGHT ? pathToFileURL(process.env.PLAYWRIGHT).href : 'playwright');
 
 const home = mkdtempSync(join(tmpdir(), 'pi-companion-shots-'));
@@ -154,7 +154,14 @@ async function shot(page, name, { webp = true, png = false } = {}) {
   if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) throw new Error('Horizontal overflow in ' + name);
   const file = join(docs, name + '.png');
   await page.screenshot({ path: file });
-  if (webp) execFileSync('cwebp', ['-quiet', '-q', '82', file, '-o', join(docs, name + '.webp')]);
+  if (webp) {
+    const out = join(docs, name + '.webp');
+    try {
+      execFileSync('cwebp', ['-quiet', '-q', '82', file, '-o', out]);
+    } catch {
+      execFileSync('convert', [file, '-quality', '82', out]);
+    }
+  }
   if (!png) rmSync(file);
 }
 
@@ -256,7 +263,7 @@ try {
     await shot(page, 'automation-history');
     await page.getByLabel('Run status').selectOption('failed');
     if (await page.locator('.routine-table tbody tr').count() !== 6) throw new Error('History filter failed');
-    await page.getByRole('tab', { name: 'Summary', exact: true }).click();
+    await page.getByRole('tab', { name: 'Overview', exact: true }).click();
     await page.getByRole('button', { name: 'Edit automation', exact: true }).click();
     if (!(await page.getByLabel('Automation name', { exact: true }).evaluate(el => el === document.activeElement))) throw new Error('Editor did not focus');
     await sleep(500);
@@ -302,7 +309,7 @@ try {
   // Phone screens, dark.
   {
     const { context, page } = await open(browser, { width: 390, height: 844, theme: 'dark', mobile: true });
-    for (const [path, endpoint] of [['/', '/api/automations'], ['/sessions', '/api/sessions'], ['/automations', '/api/automations'], ['/settings', '/api/settings']]) await checkPullToRefresh(page, path, endpoint);
+    for (const [path, endpoint] of [['/', '/api/automations'], ['/sessions', '/api/sessions'], ['/automations', '/api/automations']]) await checkPullToRefresh(page, path, endpoint);
     await page.goto(BASE + '/sessions');
     await settle(page);
     await shot(page, 'session-list');

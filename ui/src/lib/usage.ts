@@ -23,7 +23,7 @@ export function estimatedCost(cost: SessionTelemetry['cost'] | null): string {
   if (!cost || !nonnegative(cost.amount)) return 'Unavailable';
   const currency = cost.currency?.trim().toUpperCase() || 'USD';
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency', currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: cost.amount > 0 && cost.amount < 0.01 ? 4 : 2

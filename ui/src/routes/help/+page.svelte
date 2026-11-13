@@ -2,43 +2,45 @@
   import Icon from '#lib/Icon.svelte';
   import { companion } from '#lib/companion.svelte.ts';
   import { toasts } from '#lib/toast.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
 
-  const installCommand = 'pi install git:github.com/ygrip/pi-companion';
+  const installCommand = 'gentle-shell install git:github.com/IAI-00-IAI/gentle-companion';
 
   const steps = $derived(
     companion.remote && !companion.isAdmin
       ? [
-          { title: 'Pick a session', body: 'You’ll see every session your computer has shared with you. Tap one to open it.' },
-          { title: 'Watch it work', body: 'Pi’s replies and what it’s doing show up as they happen. Close the tab and come back later, it’ll catch you up.' },
-          { title: 'Jump in when you want', body: 'Answer its questions, send a new message, nudge it mid-task or drop in a file. All from here.' }
+          { title: t('help.remote.title1'), body: t('help.remote.body1') },
+          { title: t('help.remote.title2'), body: t('help.remote.body2') },
+          { title: t('help.remote.title3'), body: t('help.remote.body3') }
         ]
       : [
-          { title: 'Install', body: 'Paste this into your terminal once. It grabs everything it needs on its own.' },
-          { title: 'Switch it on in Pi', body: 'In any Pi session you want to keep an eye on, type /companion. That session shows up here. Sessions you don’t switch on stay private.' },
-          { title: 'Keep this page handy', body: 'This is home base on your computer. Everything you’ve switched on lives here.' },
-          { title: 'Add your phone', body: 'Go to Devices, then scan the QR code with your phone’s camera. Or type the short code instead.', link: '/devices' },
-          { title: 'Get on with your day', body: 'Pi will ping you when it needs an answer or finishes up. Reply from wherever you are.' }
+          { title: t('help.local.title1'), body: t('help.local.body1') },
+          { title: t('help.local.title2'), body: t('help.local.body2') },
+          { title: t('help.local.title3'), body: t('help.local.body3') },
+          { title: t('help.local.title4'), body: t('help.local.body4'), link: '/devices' },
+          { title: t('help.local.title5'), body: t('help.local.body5') }
         ]
   );
 
   async function copyInstall() {
     try {
       await navigator.clipboard.writeText(installCommand);
-      toasts.show('Install command copied.', 'success');
+      toasts.show(t('help.toast.copy'), 'success');
     } catch {
-      toasts.show('Copy failed.', 'error');
+      toasts.show(t('help.toast.fail'), 'error');
     }
   }
+$effect(() => { $langStore; });
 </script>
 
-<svelte:head><title>Help · Pi Companion</title></svelte:head>
+<svelte:head><title>{t('help.title')}</title></svelte:head>
 
 <div class="page info-page">
   <header class="page-head">
     <div>
-      <span class="eyebrow">Guide</span>
-      <h1>How it works</h1>
-      <p>Pi Companion lets you check on Pi from your phone or any browser, so you don’t have to babysit the terminal. Here’s the quick version.</p>
+      <span class="eyebrow">{t('help.eyebrow')}</span>
+      <h1>{t('help.title')}</h1>
+      <p>{t('help.intro')}</p>
     </div>
   </header>
 
@@ -50,14 +52,14 @@
           <div class="step-content">
             <h2>{step.title}</h2>
             <p>{step.body}</p>
-            {#if step.title === 'Install'}
+            {#if step.title === t('help.local.title1')}
               <div class="install-command">
                 <code>{installCommand}</code>
-                <button class="btn btn-ghost" onclick={copyInstall}><Icon name="copy" />Copy</button>
+                <button class="btn btn-ghost" onclick={copyInstall}><Icon name="copy" />{t('help.btn.copy')}</button>
               </div>
             {/if}
             {#if 'link' in step && step.link}
-              <a class="btn btn-ghost step-link" href={step.link}><Icon name="devices" />Go to Devices</a>
+              <a class="btn btn-ghost step-link" href={step.link}><Icon name="devices" />{t('help.btn.devices')}</a>
             {/if}
           </div>
         </li>
@@ -68,14 +70,14 @@
   <section class="bento" aria-label="Help topics">
     <article class="tile">
       <span class="topic-icon"><Icon name="tool" /></span>
-      <h2>The two commands you’ll use</h2>
-      <p class="muted">Type these inside a Pi session on your computer.</p>
+      <h2>{t('help.cmds.title')}</h2>
+      <p class="muted">{t('help.cmds.intro')}</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Type this</th><th>What happens</th></tr></thead>
+          <thead><tr><th>{t('help.cmds.th1')}</th><th>{t('help.cmds.th2')}</th></tr></thead>
           <tbody>
-            <tr><th><code>/companion</code></th><td>Switches this session on, so you can see it here and on your phone. Starts everything up if it isn’t running yet.</td></tr>
-            <tr><th><code>/remote-control</code></th><td>Flips sharing off and on again. Off hides the session from your phone; Pi carries on as normal on your computer.</td></tr>
+            <tr><th><code>/companion</code></th><td>{t('help.cmds.c1.desc')}</td></tr>
+            <tr><th><code>/remote-control</code></th><td>{t('help.cmds.c2.desc')}</td></tr>
           </tbody>
         </table>
       </div>
@@ -83,70 +85,72 @@
 
     <article class="tile">
       <span class="topic-icon"><Icon name="bell" /></span>
-      <h2>Notifications and camera</h2>
-      <p>Want a buzz when Pi needs you? Turn on notifications in <a href="/settings">Settings</a>. You’ll hear about it when Pi asks something, wraps up a task or a session ends.</p>
-      <p>The camera is only for scanning the pairing QR code. Nothing gets recorded or sent anywhere.</p>
+      <h2>{t('help.notify.title')}</h2>
+      <p>{t('help.notify.p1')}</p>
+      <p>{t('help.notify.p2')}</p>
       <dl>
-        <dt>iPhone or iPad</dt><dd>Add Pi Companion to your Home Screen first (see below), open it from there, then turn notifications on. Apple only allows them that way.</dd>
-        <dt>Said no by accident?</dt><dd>Tap the icon next to the web address, find Notifications or Camera, and switch it to Allow. Then reload.</dd>
+        <dt>{t('help.notify.di1')}</dt><dd>{t('help.notify.dd1')}</dd>
+        <dt>{t('help.notify.di2')}</dt><dd>{t('help.notify.dd2')}</dd>
       </dl>
     </article>
 
     <article class="tile">
       <span class="topic-icon"><Icon name="chat" /></span>
-      <h2>When Pi asks you something</h2>
-      <p>Sometimes Pi needs a decision: pick an option, say yes or no, or type a quick answer. Those questions pop up here and on your phone. Answer wherever’s easiest. Whoever answers first, terminal or phone, wins.</p>
-      <p class="muted">For the curious: this covers Pi’s <code>companion_ask_user</code> tool plus questions from other extensions, like <code>jar_ask</code> and the usual select, confirm and input prompts.</p>
+      <h2>{t('help.ask.title')}</h2>
+      <p>{t('help.ask.p1')}</p>
+      <p class="muted">{t('help.ask.note')}</p>
     </article>
 
     <article class="tile">
       <span class="topic-icon"><Icon name="devices" /></span>
-      <h2>Adding a phone</h2>
-      <p>Head to <a href="/devices">Devices</a> on your computer and scan the code. Each code works once and runs out after a few minutes, so a screenshot floating around won’t let anyone in.</p>
-      <p>Once your phone is in, it stays in until you remove it. <strong>Disconnect</strong> just kicks it off for now. <strong>Revoke</strong> removes it for good.</p>
-      <p class="muted">Not on the same Wi-Fi? Use the device link from Settings (usually an HTTPS tunnel), not the local one.</p>
+      <h2>{t('help.phone.title')}</h2>
+      <p>{t('help.phone.p1')}</p>
+      <p>
+        {t('help.phone.p2')}
+      </p>
+      <p class="muted">{t('help.phone.note')}</p>
     </article>
 
     <article class="tile">
       <span class="topic-icon"><Icon name="download" /></span>
-      <h2>Put it on your home screen</h2>
-      <p>Pair first, then add it to your home screen so it opens like a normal app.</p>
+      <h2>{t('help.home.title')}</h2>
+      <p>{t('help.home.p1')}</p>
       <dl>
-        <dt>iPhone or iPad</dt><dd>In Safari, tap Share → Add to Home Screen. If you see “Open as Web App”, leave it on.</dd>
-        <dt>Android</dt><dd>In Chrome, open the ⋮ menu → Install app (or Add to Home screen).</dd>
-        <dt>Don’t see the option?</dt><dd>Make sure the address starts with <code>https://</code> and you’re in Safari or Chrome, not a browser inside another app.</dd>
+        <dt>{t('help.home.di1')}</dt><dd>{t('help.home.dd1')}</dd>
+        <dt>{t('help.home.di2')}</dt><dd>{t('help.home.dd2')}</dd>
+        <dt>{t('help.home.di3')}</dt><dd>{t('help.home.dd3')}</dd>
       </dl>
-      <p class="muted">It still needs a connection to your computer to show anything live.</p>
+      <p class="muted">{t('help.home.note')}</p>
     </article>
 
     <article class="tile">
       <span class="topic-icon"><Icon name="alert" /></span>
-      <h2>Something’s off?</h2>
+      <h2>{t('help.trouble.title')}</h2>
       <dl>
-        <dt>“Can’t reach your computer”</dt><dd>Check your internet and that the computer is awake. If you use a tunnel, restart it; if the link changed, open the new one. Hit <strong>Retry now</strong>. Your pairing and anything you were typing are kept, but nothing gets resent on its own.</dd>
-        <dt>Activity looks stale</dt><dd>It catches up by itself when the connection comes back. Still stuck? Leave the session and open it again.</dd>
-        <dt>Nothing shows up on the computer</dt><dd>Type <code>/companion</code> in the Pi session again. It normally runs on port <code>43721</code>.</dd>
-        <dt>A file won’t attach</dt><dd>It might be empty, too big or a type that isn’t allowed. You’ll see the reason right under the file. Remove it and try another.</dd>
-        <dt>Need a clean restart</dt><dd>On macOS or Linux run <code>pkill -f pi-companion-server</code>, then type <code>/companion</code> again.</dd>
-        <dt>Git errors in Changes</dt><dd>They show as a pop-up message. Usually it means the folder isn’t a git repo or git isn’t installed.</dd>
-        <dt>Power-user settings</dt><dd><code>PI_COMPANION_URL</code>, <code>PI_COMPANION_SERVER</code> and <code>PI_COMPANION_AUTOSTART=0</code> change where and how it runs.</dd>
+        <dt>{t('help.trouble.di1')}</dt><dd>{t('help.trouble.dd1')}</dd>
+        <dt>{t('help.trouble.di2')}</dt><dd>{t('help.trouble.dd2')}</dd>
+        <dt>{t('help.trouble.di3')}</dt><dd>{t('help.trouble.dd3')}</dd>
+        <dt>{t('help.trouble.di4')}</dt><dd>{t('help.trouble.dd4')}</dd>
+        <dt>{t('help.trouble.di5')}</dt><dd>{t('help.trouble.dd5')}</dd>
+        <dt>{t('help.trouble.di6')}</dt><dd>{t('help.trouble.dd6')}</dd>
+        <dt>{t('help.trouble.di7')}</dt><dd>{t('help.trouble.dd7')}</dd>
       </dl>
     </article>
 
     <article class="tile">
       <span class="topic-icon"><Icon name="help" /></span>
-      <h2>Quick questions</h2>
+      <h2>{t('help.qa.title')}</h2>
       <dl>
-        <dt>Why don’t I see all my Pi sessions?</dt><dd>On purpose. Only sessions where you typed <code>/companion</code> show up. Everything else stays private.</dd>
-        <dt>Can my phone see everything?</dt><dd>Nope. Just the sessions you’ve shared. Pairing a phone doesn’t share anything by itself.</dd>
-        <dt>Where do my uploaded files go?</dt><dd>Into a temporary folder on your computer, just for that session. They’re cleaned up when the session ends. Nothing goes to the cloud.</dd>
-        <dt>What does Archive do?</dt><dd>Tidies a finished session out of the list. Your Pi history and project files aren’t touched.</dd>
+        <dt>{t('help.qa.di1')}</dt><dd>{t('help.qa.dd1')}</dd>
+        <dt>{t('help.qa.di2')}</dt><dd>{t('help.qa.dd2')}</dd>
+        <dt>{t('help.qa.di3')}</dt><dd>{t('help.qa.dd3')}</dd>
+        <dt>{t('help.qa.di4')}</dt><dd>{t('help.qa.dd4')}</dd>
       </dl>
     </article>
   </section>
 
   <footer class="help-footer" aria-label="Legal links">
-    <a href="/privacy">Privacy</a><span aria-hidden="true">·</span><a href="/terms">Terms</a>
+    <a href="/privacy">{t('help.footer.privacy')}</a><span aria-hidden="true">·</span><a href="/terms">{t('help.footer.terms')}</a>
   </footer>
 </div>
 

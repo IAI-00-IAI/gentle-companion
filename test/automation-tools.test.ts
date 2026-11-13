@@ -59,7 +59,7 @@ test('API failures and no-content responses are explicit', async () => {
 });
 
 test('stdio MCP initializes and exposes the same tool without contacting or launching daemon', async () => {
-  const child = spawn(process.execPath, ['--experimental-transform-types', '--no-warnings', new URL('../src/automation-mcp.ts', import.meta.url).pathname], {
+  const child = spawn(process.execPath, ['--no-warnings', new URL('../src/automation-mcp.ts', import.meta.url).pathname], {
     stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, PI_COMPANION_URL: 'ws://127.0.0.1:1' }
   });
   let stdout = '', stderr = '';

@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       - id: version
         shell: bash
         run: |
@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       - uses: dtolnay/rust-toolchain@stable
       - run: npm install
       - run: npm run check
@@ -45,7 +45,7 @@ jobs:
       - run: npm run ui:build
       - uses: actions/upload-artifact@v4
         with:
-          name: companion-web-ui
+          name: gentle-companion-web-ui
           path: server/web-dist
           if-no-files-found: error
       - run: cargo test --manifest-path server/Cargo.toml --locked
@@ -58,26 +58,26 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact: pi-companion-server-linux-x86_64
-            binary: pi-companion-server
-          - os: macos-14
+            artifact: gentle-companion-server-linux-x86_64
+            binary: gentle-companion-server
+          - os: macos-15
             target: aarch64-apple-darwin
-            artifact: pi-companion-server-darwin-arm64
-            binary: pi-companion-server
-          - os: macos-14
+            artifact: gentle-companion-server-darwin-arm64
+            binary: gentle-companion-server
+          - os: macos-15
             target: x86_64-apple-darwin
-            artifact: pi-companion-server-darwin-x86_64
-            binary: pi-companion-server
+            artifact: gentle-companion-server-darwin-x86_64
+            binary: gentle-companion-server
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact: pi-companion-server-windows-x86_64
-            binary: pi-companion-server.exe
+            artifact: gentle-companion-server-windows-x86_64
+            binary: gentle-companion-server
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: companion-web-ui
+          name: gentle-companion-web-ui
           path: server/web-dist
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -92,15 +92,15 @@ jobs:
         shell: bash
         run: |
           mkdir dist
-          cp "server/target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/pi-companion-server"
-          tar -C dist -czf "${{ matrix.artifact }}.tar.gz" pi-companion-server
+          cp "server/target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/gentle-companion-server"
+          tar -C dist -czf "${{ matrix.artifact }}.tar.gz" gentle-companion-server
       - name: Package Windows binary
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item "server/target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/pi-companion-server.exe"
-          Compress-Archive -Path "dist/pi-companion-server.exe" -DestinationPath "${{ matrix.artifact }}.zip"
+          Copy-Item "server/target/${{ matrix.target }}/release/${{ matrix.binary }}.exe" "dist/gentle-companion-server.exe"
+          Compress-Archive -Path "dist/gentle-companion-server.exe" -DestinationPath "${{ matrix.artifact }}.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -133,7 +133,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: pi-companion-server-*
+          pattern: gentle-companion-server-*
           merge-multiple: true
           path: dist
       - name: Checksums
@@ -146,4 +146,4 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" dist/* \
             --repo "${GITHUB_REPOSITORY}" \
             --generate-notes \
-            --title "Pi Companion ${{ needs.validate.outputs.version }}"
+            --title "Gentle Companion ${{ needs.validate.outputs.version }}"

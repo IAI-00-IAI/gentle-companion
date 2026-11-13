@@ -2,21 +2,23 @@
   import { page } from '$app/state';
   import Icon from '#lib/Icon.svelte';
   import { pageError } from '#lib/page-error.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
 
   const error = $derived(pageError(page.status, page.error?.message));
+$effect(() => { $langStore; });
 </script>
 
-<svelte:head><title>{page.status} · {error.title} · Pi Companion</title></svelte:head>
+<svelte:head><title>{t('error.status', { code: page.status })} · {error.title} · Gentle Companion</title></svelte:head>
 
 <div class="page error-page">
   <section class="error-card" aria-labelledby="error-title">
     <div class="error-mark" aria-hidden="true"><Icon name="alert" size={44} /></div>
-    <p class="error-status">Error {page.status}</p>
+    <p class="error-status">{t('error.status', { code: page.status })}</p>
     <h1 id="error-title">{error.title}</h1>
     <p class="error-message">{error.message}</p>
     <div class="error-actions">
-      <button class="btn btn-primary" onclick={() => window.location.reload()}><Icon name="refresh" />Reload page</button>
-      <a class="btn" href="/" data-sveltekit-reload><Icon name="home" />Open Overview</a>
+      <button class="btn btn-primary" onclick={() => window.location.reload()}><Icon name="refresh" />{t('error.reload')}</button>
+      <a class="btn" href="/" data-sveltekit-reload><Icon name="home" />{t('error.overview')}</a>
     </div>
   </section>
 </div>

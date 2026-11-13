@@ -11,7 +11,11 @@ export class PopupRelay {
   private frameTimer?: NodeJS.Timeout;
   private generation = 0;
   private active = new Map<string, { frame: TerminalPopup; input: (data: string) => void; close: () => void }>();
-  constructor(private publish: (popups: TerminalPopup[]) => void) {}
+  private publish: (popups: TerminalPopup[]) => void;
+
+  constructor(publish: (popups: TerminalPopup[]) => void) {
+    this.publish = publish;
+  }
 
   wrap<T>(factory: PopupFactory<T>) {
     return async (...args: Parameters<typeof factory>) => {

@@ -1,6 +1,6 @@
 ---
 name: companion-automations
-description: Create, update, delete, enable, disable, run, stop, and inspect Pi Companion automations with the companion_automation tool. Use for recurring repository tasks, scheduled agent work, and automation run history.
+description: Create, update, delete, enable, disable, run, stop, and inspect Gentle Companion automations with the companion_automation tool. Use for recurring repository tasks, scheduled agent work, and automation run history.
 ---
 
 # Companion automations

@@ -1,6 +1,9 @@
 export class ApiError extends Error {
-  constructor(readonly status: number, message: string) {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
   }
 }
 
@@ -35,7 +38,7 @@ export async function workspaceRequest<T>(path: string, init: RequestInit = {}, 
       return await response.blob() as T;
     }
     if (!/\bapplication\/(?:[\w.-]+\+)?json\b/i.test(response.headers.get('content-type') ?? '')) {
-      throw new WorkspaceConnectionError('This address did not return a workspace response. Check that the tunnel is running and you opened the current Pi Companion URL.');
+      throw new WorkspaceConnectionError('This address did not return a workspace response. Check that the tunnel is running and you opened the current Gentle Companion URL.');
     }
     try {
       return await response.json() as T;
@@ -49,7 +52,7 @@ export async function workspaceRequest<T>(path: string, init: RequestInit = {}, 
     if (error instanceof ApiError || error instanceof WorkspaceConnectionError) throw error;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new WorkspaceConnectionError(unreachableMessage(false));
     if (deadline.aborted) {
-      throw new WorkspaceConnectionError('The workspace did not respond in time. Check your network and that the tunnel and Pi Companion daemon are running.');
+      throw new WorkspaceConnectionError('The workspace did not respond in time. Check your network and that the tunnel and Gentle Companion daemon are running.');
     }
     throw new WorkspaceConnectionError(unreachableMessage());
   }

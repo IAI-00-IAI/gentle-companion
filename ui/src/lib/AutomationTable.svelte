@@ -2,32 +2,34 @@
   import AutomationBadge from './AutomationBadge.svelte';
   import Icon from './Icon.svelte';
   import { automationNextRun, automationSchedule } from './automations.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
   import type { Automation } from './types.ts';
   let { automations }: { automations: Automation[] } = $props();
+$effect(() => { $langStore; });
 </script>
 <div class="routine-table clay">
-  <table aria-label="Automations">
-    <thead><tr><th scope="col">Routine</th><th scope="col">Schedule</th><th scope="col">Steps</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+  <table aria-label={t('automations.list.aria')}>
+    <thead><tr><th scope="col">{t('automation.table.routine')}</th><th scope="col">{t('automation.table.schedule')}</th><th scope="col">{t('automation.table.steps')}</th><th scope="col">{t('automation.table.status')}</th><th scope="col"><span class="sr-only">{t('automation.table.open')}</span></th></tr></thead>
     <tbody>{#each automations as automation (automation.id)}<tr>
       <td class="title-cell"><a class="row-link" href={'/automations/' + encodeURIComponent(automation.id)}>{automation.name}</a></td>
-      <td data-label="Schedule">{automationSchedule(automation.schedule, automation.timezone)}<small>Next: {automationNextRun(automation)}</small></td>
-      <td data-label="Steps"><span>{automation.actions.length} {automation.actions.length === 1 ? 'action' : 'actions'}</span><small>{automation.preconditions.length} checks · {automation.postActions.length} finalizers</small></td>
+      <td data-label={t('automation.table.schedule')}>{automationSchedule(automation.schedule, automation.timezone)}<small>{t('automation.table.next')} {automationNextRun(automation)}</small></td>
+      <td data-label={t('automation.table.steps')}><span>{automation.actions.length} {automation.actions.length === 1 ? t('automation.table.action') : t('automation.table.actions')}</span><small>{automation.preconditions.length} {t('automation.table.checks')} · {automation.postActions.length} {t('automation.table.finalizers')}</small></td>
       <td class="status-cell"><AutomationBadge status={automation.enabled ? 'enabled' : 'disabled'} /></td>
       <td class="arrow-cell" aria-hidden="true"><span class="row-arrow"><Icon name="chevron" size={16} /></span></td>
     </tr>{/each}</tbody>
   </table>
 </div>
 
-<div class="routine-cards" aria-label="Automations">
+<div class="routine-cards" aria-label={t('automations.list.aria')}>
   {#each automations as automation (automation.id)}
     <a class="routine-card" href={'/automations/' + encodeURIComponent(automation.id)}>
       <div class="routine-card-head">
         <strong>{automation.name}</strong>
         <AutomationBadge status={automation.enabled ? 'enabled' : 'disabled'} />
       </div>
-      <div class="routine-card-schedule"><Icon name="activity" size={15} /><span>{automationSchedule(automation.schedule, automation.timezone)}<br />Next: {automationNextRun(automation)}</span></div>
+      <div class="routine-card-schedule"><Icon name="activity" size={15} /><span>{automationSchedule(automation.schedule, automation.timezone)}<br />{t('automation.table.next')} {automationNextRun(automation)}</span></div>
       <div class="routine-card-bottom">
-        <span>{automation.actions.length} {automation.actions.length === 1 ? 'action' : 'actions'} · {automation.preconditions.length} checks · {automation.postActions.length} finalizers</span>
+        <span>{automation.actions.length} {automation.actions.length === 1 ? t('automation.table.action') : t('automation.table.actions')} · {automation.preconditions.length} {t('automation.table.checks')} · {automation.postActions.length} {t('automation.table.finalizers')}</span>
         <span class="routine-card-arrow" aria-hidden="true"><Icon name="chevron" size={17} /></span>
       </div>
     </a>

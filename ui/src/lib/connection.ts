@@ -9,7 +9,7 @@ export class LiveConnection {
   private paused = false;
   private running = false;
 
-  constructor(private readonly hooks: {
+  private readonly hooks: {
     enabled: () => boolean;
     create: () => WebSocket;
     state: (state: Connection) => void;
@@ -17,7 +17,19 @@ export class LiveConnection {
     message: (data: string) => void;
     lost: () => void;
     revoked: () => void;
-  }) {}
+  };
+
+  constructor(hooks: {
+    enabled: () => boolean;
+    create: () => WebSocket;
+    state: (state: Connection) => void;
+    online: () => void;
+    message: (data: string) => void;
+    lost: () => void;
+    revoked: () => void;
+  }) {
+    this.hooks = hooks;
+  }
 
   start() {
     this.running = true;

@@ -22,7 +22,7 @@ export function automationTriggerState(automation: Pick<Automation, 'schedule' |
 export function automationDraft(automation?: Automation): AutomationDraft {
   return automation ? { name: automation.name, enabled: automation.enabled, schedule: automation.schedule, timezone: automation.timezone ?? 'UTC', preconditions: automation.preconditions, actions: automation.actions, postActions: automation.postActions, ...(automation.historyLimit !== undefined ? { historyLimit: automation.historyLimit } : {}), ...(automation.maxRetries !== undefined ? { maxRetries: automation.maxRetries } : {}), ...(automation.retryIntervalSeconds !== undefined ? { retryIntervalSeconds: automation.retryIntervalSeconds } : {}) } : {
     name: 'New automation', enabled: true, schedule: null, timezone: 'UTC', preconditions: [],
-    actions: [{ type: 'command', command: 'echo', args: ['Hello from Pi Companion'] }], postActions: []
+    actions: [{ type: 'command', command: 'echo', args: ['Hello from Gentle Companion'] }], postActions: []
   };
 }
 

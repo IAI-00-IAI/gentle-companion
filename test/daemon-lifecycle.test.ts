@@ -11,7 +11,8 @@ test('live spawn-lock owners are not evicted during long downloads; dead owners 
   const source = (await readFile(new URL('../src/daemon.ts', import.meta.url), 'utf8'))
     .replace('const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");', `const PACKAGE_ROOT = ${JSON.stringify(dir)};`)
     .replace('join(tmpdir(), "pi-companion-spawn.lock")', `join(${JSON.stringify(dir)}, "lock")`)
-    .replace('async function acquireLock()', 'export async function acquireLock()');
+    .replace('async function acquireLock()', 'export async function acquireLock()')
+    .replace('import { resolveCompanionHome } from "./home.ts";', "const resolveCompanionHome = () => '';");
   const js = (await import('typescript')).default.transpileModule(source, { compilerOptions: { module: 99, target: 99 } }).outputText;
   const daemon = await import(moduleURL(js));
   const lock = join(dir, 'lock');
@@ -39,7 +40,8 @@ test('failed replacement preparation leaves the running daemon untouched', async
   const source = (await readFile(new URL('../src/daemon.ts', import.meta.url), 'utf8'))
     .replace('const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");', `const PACKAGE_ROOT = ${JSON.stringify(dir)};`)
     .replace('join(tmpdir(), "pi-companion-spawn.lock")', `join(${JSON.stringify(dir)}, "lock")`)
-    .replace('const binary = await resolveDaemonBinary(log);', `const binary = await Promise.reject(new Error('download failed'));`);
+    .replace('const binary = await resolveDaemonBinary(log);', `const binary = await Promise.reject(new Error('download failed'))`)
+    .replace('import { resolveCompanionHome } from "./home.ts";', "const resolveCompanionHome = () => '';")
   const js = (await import('typescript')).default.transpileModule(source, { compilerOptions: { module: 99, target: 99 } }).outputText;
   const previousFetch = globalThis.fetch;
   const previousAutostart = process.env.PI_COMPANION_AUTOSTART;
@@ -78,24 +80,25 @@ test('background services use one fixed identity and a restart supervisor on eac
     for (const platform of ['darwin', 'linux', 'win32']) {
       calls.length = 0;
       const home = join(dir, platform);
+      const explicitHome = join(home, '.pi', 'agent', 'pi-companion');
       const source = original.replace("from 'node:child_process'", `from ${JSON.stringify(childModule)}`)
-        .replace('process.env.PI_COMPANION_HOME ?? join(homedir(),', `undefined ?? join(homedir(),`)
+        .replace("import { resolveCompanionHome } from './home.ts';", `const resolveCompanionHome = () => ${JSON.stringify(explicitHome)};`)
         .replace("import { homedir } from 'node:os';", `const homedir = () => ${JSON.stringify(home)};`)
         .replaceAll('process.platform', JSON.stringify(platform));
       const js = (await import('typescript')).default.transpileModule(source, { compilerOptions: { module: 99, target: 99 } }).outputText;
       const service = await import(moduleURL(js));
       await service.startBackgroundService('/verified/daemon');
       await service.startBackgroundService('/verified/new-daemon');
-      const config = JSON.parse(await readFile(join(home, '.pi', 'agent', 'pi-companion', 'service', 'daemon.json'), 'utf8'));
+      const config = JSON.parse(await readFile(join(explicitHome, 'service', 'daemon.json'), 'utf8'));
       assert.equal(config.binary, '/verified/new-daemon');
-      const script = await readFile(join(home, '.pi', 'agent', 'pi-companion', 'service', 'supervisor.mjs'), 'utf8');
+      const script = await readFile(join(explicitHome, 'service', 'supervisor.mjs'), 'utf8');
       assert.match(script, /child.once\('exit', retry\)/);
       assert.match(script, /readFileSync/);
       if (platform === 'darwin') assert.ok(calls.some(c => c.name === 'launchctl' && c.args.includes('gui/' + process.getuid!() + '/dev.pi-companion.daemon')));
       if (platform === 'linux') assert.ok(calls.some(c => c.name === 'systemctl' && c.args.join(' ') === '--user enable --now pi-companion.service'));
       if (platform === 'win32') {
         assert.ok(calls.some(c => c.name === 'schtasks' && c.args.includes('Pi Companion')));
-        const xml = await readFile(join(home, '.pi', 'agent', 'pi-companion', 'service', 'task.xml'), 'utf16le');
+        const xml = await readFile(join(explicitHome, 'service', 'task.xml'), 'utf16le');
         assert.match(xml, /<MultipleInstancesPolicy>IgnoreNew/);
         assert.match(xml, /<ExecutionTimeLimit>PT0S/);
         assert.match(xml, /<RunLevel>LeastPrivilege/);

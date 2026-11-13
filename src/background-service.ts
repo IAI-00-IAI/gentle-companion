@@ -3,12 +3,14 @@ import { mkdir, writeFile, rename } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { resolveCompanionHome } from './home.ts';
+
 const exec = promisify(execFile);
 const name = 'pi-companion';
 
 /** A fixed, per-user service name: multiple extensions update the same service under the spawn lock. */
 export async function startBackgroundService(binary: string): Promise<void> {
-  const home = process.env.PI_COMPANION_HOME ?? join(homedir(), '.pi', 'agent', 'pi-companion');
+  const home = resolveCompanionHome();
   const dir = join(home, 'service');
   await mkdir(dir, { recursive: true, mode: 0o700 });
   const script = join(dir, 'supervisor.mjs');

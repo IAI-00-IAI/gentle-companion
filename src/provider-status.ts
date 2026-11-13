@@ -36,7 +36,11 @@ export class ProviderQuotaPoller {
   private failures = new Map<string, number>();
   private stopped = false;
   private controllers = new Set<AbortController>();
-  constructor(private publish: (value: unknown) => void) {}
+  private publish: (value: unknown) => void;
+
+  constructor(publish: (value: unknown) => void) {
+    this.publish = publish;
+  }
   stop() { this.stopped = true; for (const controller of this.controllers) controller.abort(); }
   async refresh(ctx: ExtensionContext) {
     if (this.stopped || process.env.PI_COMPANION_QUOTAS === '0') return;

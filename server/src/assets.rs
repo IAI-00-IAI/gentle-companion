@@ -49,7 +49,7 @@ pub async fn serve(uri: Uri, request_headers: HeaderMap) -> Response {
     let Some(asset) = WebAssets::get(name) else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            "Pi Companion UI is not built. Run `npm run ui:build` and restart the daemon.",
+            "Gentle Companion UI is not built. Run `npm run ui:build` and restart the daemon.",
         )
             .into_response();
     };

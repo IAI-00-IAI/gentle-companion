@@ -20,10 +20,9 @@ for (const scenario of [
 test('detail copy distinguishes execution outcomes, host permissions and editing access', () => {
   const page = readFileSync(new URL('../ui/src/routes/automations/[id]/+page.svelte', import.meta.url), 'utf8');
   assert.doesNotMatch(page, /Three phases to a finished routine|capture output, a summary|Enable automation|Disable scheduling/);
-  assert.match(page, /Only a failed main action is retried/);
-  assert.match(page, /retried action may repeat side effects/);
-  assert.match(page, /Run after success, failure or a failed precondition/);
-  assert.match(page, /not sandboxed/);
-  assert.match(page, /Paired devices can start and stop runs/);
-  assert.match(page, /desktop-width window/);
+  assert.match(page, /t\('automation.execution.note'\)/);
+  assert.match(page, /t\('automation.execution.retries'\)/);
+  assert.match(page, /t\('automation.execution.finalizers.text'\)/);
+  assert.match(page, /t\('automation.execution.host'\)/);
+  assert.match(page, /t\('automation.definition.access.admin'\)/);
 });

@@ -4,11 +4,13 @@
   import ArchiveSession from './ArchiveSession.svelte';
   import { companion } from './companion.svelte.ts';
   import { prettyPath, relativeTime, sessionTitle, statusLabel } from './format.ts';
+  import { t , langStore} from './i18n.svelte.ts';;
   import type { Session } from './types.ts';
 
   let { session, highlighted = false }: { session: Session; highlighted?: boolean } = $props();
   const waiting = $derived(companion.pendingAsks(session.id));
   const title = $derived(sessionTitle(session));
+$effect(() => { $langStore; });
 </script>
 
 <article class="session-row clay" class:stopped={session.status === 'stopped'} class:highlighted>
@@ -21,21 +23,21 @@
         {#if session.shortTitle.trim() && session.shortTitle.trim() !== title}<p class="short-title">{session.shortTitle}</p>{/if}
       </div>
       <span class="badge status" class:ok={session.status === 'active'} class:accent={session.status === 'idle'}>
-        <span class="dot {session.status}" aria-hidden="true"></span>{statusLabel[session.status]}
+        <span class="dot {session.status}" aria-hidden="true"></span>{statusLabel(session.status)}
       </span>
     </header>
 
-    <p class="workspace"><Icon name="folder" size={15} /><span><span class="workspace-label">Workspace</span><code title={session.cwd}>{prettyPath(session.cwd)}</code></span></p>
+    <p class="workspace"><Icon name="folder" size={15} /><span><span class="workspace-label">{t('session.workspace')}</span><code title={session.cwd}>{prettyPath(session.cwd)}</code></span></p>
 
-    <dl class="metadata" aria-label="Session metadata">
-      <div><dt>Model</dt><dd>{session.mainModel ?? 'Not reported'}</dd></div>
-      {#if session.effort}<div><dt>Thinking</dt><dd>{session.effort}</dd></div>{/if}
-      <div><dt>Started</dt><dd>{relativeTime(session.connectedAt)}</dd></div>
-      <div><dt>Sharing</dt><dd>{session.remoteEnabled ? 'Shared with devices' : 'Local only'}</dd></div>
+    <dl class="metadata" aria-label={t('session.metadata')}>
+      <div><dt>{t('session.model')}</dt><dd>{session.mainModel ?? t('session.model.none')}</dd></div>
+      {#if session.effort}<div><dt>{t('session.thinking')}</dt><dd>{session.effort}</dd></div>{/if}
+      <div><dt>{t('session.started')}</dt><dd>{relativeTime(session.connectedAt)}</dd></div>
+      <div><dt>{t('session.sharing')}</dt><dd>{session.remoteEnabled ? t('session.sharing.shared') : t('session.sharing.local')}</dd></div>
     </dl>
     {#if waiting || session.status === 'stopped'}
       <div class="row-foot">
-        {#if waiting}<p class="questions"><Icon name="question" size={15} /><span class="badge count">{waiting}</span><strong>{waiting === 1 ? 'question needs' : 'questions need'} your answer</strong></p>{/if}
+        {#if waiting}<p class="questions"><Icon name="question" size={15} /><span class="badge count">{waiting}</span><strong>{waiting === 1 ? t('session.questions.1') : t('session.questions.plural')}</strong></p>{/if}
         {#if session.status === 'stopped'}<div class="row-actions"><ArchiveSession {session} /></div>{/if}
       </div>
     {/if}

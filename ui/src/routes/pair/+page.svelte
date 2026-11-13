@@ -8,6 +8,7 @@
   import { companion } from '#lib/companion.svelte.ts';
   import { errorMessage } from '#lib/toast.svelte.ts';
   import { cameraAvailability, cameraFailure, devicePermissions, openCameraStream } from '#lib/device-permissions.svelte.ts';
+  import { t , langStore} from '#lib/i18n.svelte.ts';;
 
   const invite = $derived(page.url.searchParams.get('invite'));
   let name = $state(guessName());
@@ -28,14 +29,14 @@
   let scanCanvas = $state<HTMLCanvasElement>();
 
   function guessName() {
-    if (typeof navigator === 'undefined') return 'My device';
+    if (typeof navigator === 'undefined') return t('pair.name.my');
     const agent = navigator.userAgent;
     if (/iPhone/.test(agent)) return 'iPhone';
     if (/iPad/.test(agent)) return 'iPad';
-    if (/Android/.test(agent)) return 'Android phone';
-    if (/Mac/.test(agent)) return 'Mac browser';
-    if (/Windows/.test(agent)) return 'Windows browser';
-    return 'My device';
+    if (/Android/.test(agent)) return t('pair.name.android');
+    if (/Mac/.test(agent)) return t('pair.name.mac');
+    if (/Windows/.test(agent)) return t('pair.name.windows');
+    return t('pair.name.my');
   }
 
   onMount(() => {
@@ -111,7 +112,7 @@
       stopCamera();
       void claim({ invite: token });
     } catch {
-      cameraError = 'That QR code is not a valid Pi Companion pairing link.';
+      cameraError = t('pair.cameraerror.invalidqr');
     }
   }
 
@@ -159,7 +160,7 @@
       stopCamera();
       if (acquired) {
         // Playback failure is not permission denial: the camera was acquired.
-        cameraError = 'Camera was allowed, but its preview could not start. Try again, or enter the pairing code.';
+        cameraError = t('pair.cameraerror.preview');
       } else {
         const failure = cameraFailure(e);
         cameraDenied = failure.state === 'denied';
@@ -170,46 +171,51 @@
       if (attempt === cameraAttempt) cameraPending = false;
     }
   }
+$effect(() => { $langStore; });
 </script>
 
-<svelte:head><title>Pair this device · Pi Companion</title></svelte:head>
+<svelte:head><title>{t('pair.title')}</title></svelte:head>
 
 <div class="wrap">
   <section class="card pair">
-    <img src={logo} alt="Pi Companion" width="64" height="64" />
+    <img src={logo} alt="Gentle Companion" width="64" height="64" />
 
     {#if companion.connection === 'revoked' && !invite}
-      <span class="eyebrow">Access removed</span>
-      <h1>This device was unpaired</h1>
-      <p class="muted">Your computer revoked this device. To use it again, scan a new pairing code from <strong>Devices</strong> on your computer.</p>
+      <span class="eyebrow">{t('pair.revoked.eyebrow')}</span>
+      <h1>{t('pair.revoked.title')}</h1>
+      <p class="muted">{t('pair.revoked.body1')}<strong>{t('pair.devices')}</strong>{t('pair.revoked.body2')}</p>
     {:else}
-      <span class="eyebrow">{invite ? 'Pair this device' : 'Not paired yet'}</span>
-      <h1>{invite ? 'Connect to your computer' : 'Connect this device'}</h1>
-      <p class="muted">Scan a pairing QR code or enter the unique code shown in Pi Companion on your computer.</p>
+      <span class="eyebrow">{invite ? t('pair.eyebrow.invite') : t('pair.eyebrow.notpaired')}</span>
+      <h1>{invite ? t('pair.h1.invite') : t('pair.h1.notpaired')}</h1>
+      <p class="muted">{t('pair.intro')}</p>
 
       {#if !invite}
-        <section class="scanner" aria-label="QR code scanner">
+        <section class="scanner" aria-label={t('pair.scanner.label')}>
           {#if scannerAvailable}
             {#if scanning}
               <video bind:this={video} playsinline muted aria-label="Camera view for scanning the pairing QR code"></video>
-              <button class="btn btn-ghost" type="button" onclick={stopCamera}>Stop camera</button>
+              <button class="btn btn-ghost" type="button" onclick={stopCamera}>{t('pair.stopcamera')}</button>
             {:else if cameraPrompt}
               <div class="camera-permission" role="group" aria-label="Camera permission">
                 <Icon name="devices" size={24} />
                 <div>
-                  <strong>Allow camera access?</strong>
-                  <p class="subtle">Pi Companion uses the camera only to scan the pairing QR code. Your browser will ask for permission next.</p>
+                  <strong>{t('pair.camera.prompt')}</strong>
+                  <p class="subtle">{t('pair.camera.explain')}</p>
                 </div>
                 <div class="camera-actions">
-                  <button class="btn btn-primary" type="button" onclick={allowCamera} disabled={cameraPending}>{cameraPending ? 'Requesting camera…' : 'Allow camera'}</button>
-                  <button class="btn btn-ghost" type="button" onclick={() => { stopCamera(); cameraPrompt = false; }}>Not now</button>
+                  <button class="btn btn-primary" type="button" onclick={allowCamera} disabled={cameraPending}>{cameraPending ? t('pair.camera.requesting') : t('pair.camera.allow')}</button>
+                  <button class="btn btn-ghost" type="button" onclick={() => { stopCamera(); cameraPrompt = false; }}>{t('pair.camera.notnow')}</button>
                 </div>
               </div>
             {:else}
-              <button class="btn" type="button" onclick={startCamera}><Icon name="devices" />Scan QR code with camera</button>
+              <button class="btn" type="button" onclick={startCamera}><Icon name="devices" />{t('pair.camera.scan')}</button>
             {/if}
           {:else}
-            <p class="subtle">Live scanning requires a secure camera connection. Scan the QR code with your phone’s camera app to open its pairing link (<code>/pair?invite=…</code>), or enter the code below.</p>
+            <p class="subtle">
+              {t('pair.scanner.unavail1')}
+              <code>/pair?invite=…</code>
+              {t('pair.scanner.unavail2')}
+            </p>
           {/if}
           {#if cameraError}
             <p class="error" role="alert">{cameraError}</p>
@@ -219,25 +225,25 @@
           {/if}
           <canvas bind:this={scanCanvas} class="scan-canvas" aria-hidden="true"></canvas>
         </section>
-        <div class="divider"><span>or enter the code</span></div>
+        <div class="divider"><span>{t('pair.divider')}</span></div>
       {/if}
 
       <form onsubmit={submit}>
         {#if !invite}
           <div class="field">
-            <label for="pair-code">Pairing code</label>
+            <label for="pair-code">{t('pair.code.label')}</label>
             <input id="pair-code" class="input pair-code" value={code} oninput={handleCodeInput} placeholder="XXXX-XXXX" maxlength="9" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required aria-describedby="pair-code-hint" />
-            <span id="pair-code-hint" class="subtle small">Enter the one-time code shown on your computer.</span>
+            <span id="pair-code-hint" class="subtle small">{t('pair.code.hint')}</span>
           </div>
         {/if}
         <div class="field">
-          <label for="device-name">Device name</label>
+          <label for="device-name">{t('pair.name.label')}</label>
           <input id="device-name" class="input" bind:value={name} maxlength="80" required autocomplete="off" />
         </div>
         {#if error}<p class="error" role="alert">{error}</p>{/if}
-        <button class="btn btn-primary" disabled={pairing || !name.trim() || (!invite && code.replace(/[^a-z0-9]/gi, '').length !== 8)}>{pairing ? 'Connecting…' : 'Connect device'}</button>
+        <button class="btn btn-primary" disabled={pairing || !name.trim() || (!invite && code.replace(/[^a-z0-9]/gi, '').length !== 8)}>{pairing ? t('pair.connecting') : t('pair.connect')}</button>
       </form>
-      <p class="subtle small"><Icon name="check" size={14} />The code works once. Your computer can disconnect or revoke this device at any time.</p>
+      <p class="subtle small"><Icon name="check" size={14} />{t('pair.note')}</p>
     {/if}
   </section>
 </div>

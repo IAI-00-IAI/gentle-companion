@@ -21,6 +21,8 @@ use super::*;
 mod archive_tests;
 #[path = "automation_tests.rs"]
 mod automation_tests;
+#[path = "bridge_tests.rs"]
+mod bridge_tests;
 #[path = "usage_tests.rs"]
 mod usage_tests;
 
@@ -152,11 +154,35 @@ async fn add_session(state: &AppState, id: &str, remote: bool) {
     );
 }
 
+fn is_companion_port(port: u16) -> bool {
+    [local_addr(), remote_addr()]
+        .into_iter()
+        .map(|address| address.parse::<SocketAddr>().expect("valid Companion address"))
+        .any(|address| address.port() == port)
+}
+
 async fn serve(router: Router) -> SocketAddr {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    // Linux may assign a Companion port from its ephemeral range. Keep rejected
+    // listeners open until another port is chosen so the kernel cannot reuse them.
+    let mut rejected = Vec::new();
+    let listener = loop {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        if !is_companion_port(listener.local_addr().unwrap().port()) {
+            break listener;
+        }
+        rejected.push(listener);
+    };
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     addr
+}
+
+#[test]
+fn companion_listener_ports_are_excluded_from_test_servers() {
+    for address in [local_addr(), remote_addr()] {
+        let port = address.parse::<SocketAddr>().unwrap().port();
+        assert!(is_companion_port(port));
+    }
 }
 
 async fn ws_connect(addr: SocketAddr, path: &str, origin: Option<&str>, protocols: Option<&str>) -> Result<Ws, tungstenite::Error> {
@@ -709,6 +735,37 @@ fn settings_validate_mime_patterns() {
     assert!(settings(&["text/<script>"]).validate().is_err());
     assert!(valid.allows_upload_type("image/png; charset=binary"));
     assert!(!valid.allows_upload_type("imagex/png"));
+}
+
+#[test]
+fn companion_data_dir_follows_gentle_shell_agent_home_precedence() {
+    let gentle = PathBuf::from("/home/user/.gentle-ai/agent");
+    let pi_dir = PathBuf::from("/opt/pi/agent");
+    let home = PathBuf::from("/home/user");
+
+    // Gentle-shell agent home is the base for companion state.
+    assert_eq!(
+        config::resolve_data_dir(None, config::resolve_agent_home(Some(gentle.clone()), None, home.clone())),
+        gentle.join("pi-companion"),
+    );
+    // PI_CODING_AGENT_DIR is the next fallback.
+    assert_eq!(
+        config::resolve_data_dir(None, config::resolve_agent_home(None, Some(pi_dir.clone()), home.clone())),
+        pi_dir.join("pi-companion"),
+    );
+    // Plain Pi default: <home>/.pi/agent/pi-companion.
+    assert_eq!(
+        config::resolve_data_dir(None, config::resolve_agent_home(None, None, home.clone())),
+        home.join(".pi").join("agent").join("pi-companion"),
+    );
+    // Explicit PI_COMPANION_HOME beats every agent-home fallback.
+    assert_eq!(
+        config::resolve_data_dir(
+            Some(PathBuf::from("/custom/companion")),
+            config::resolve_agent_home(Some(gentle), None, home.clone()),
+        ),
+        PathBuf::from("/custom/companion"),
+    );
 }
 
 // ---------------------------------------------------------------- multi-session isolation

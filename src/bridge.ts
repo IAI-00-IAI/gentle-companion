@@ -56,7 +56,12 @@ export class CompanionBridge implements AskChannel {
     asks: []
   };
 
-  constructor(private readonly pi: ExtensionAPI, readonly sessionId: string = randomUUID()) {
+  private readonly pi: ExtensionAPI;
+  readonly sessionId: string;
+
+  constructor(pi: ExtensionAPI, sessionId: string = randomUUID()) {
+    this.pi = pi;
+    this.sessionId = sessionId;
     this.snapshot.id = sessionId;
   }
 

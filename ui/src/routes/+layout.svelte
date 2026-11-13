@@ -3,25 +3,26 @@
   import { onMount } from 'svelte';
   import { beforeNavigate, goto } from '$app/navigation';
   import { page, updated } from '$app/state';
-  import logo from '../assets/pi-companion.webp';
+  import logo from '../assets/gentle-logo.png';
   import AboutSheet from '#lib/AboutSheet.svelte';
   import ConnectionNotice from '#lib/ConnectionNotice.svelte';
   import Icon, { type IconName } from '#lib/Icon.svelte';
   import { companion } from '#lib/companion.svelte.ts';
   import { devicePermissions } from '#lib/device-permissions.svelte.ts';
   import { theme, type ThemePreference } from '#lib/theme.svelte.ts';
+  import { langStore, setLang, LOCALES, localeName, t } from '#lib/i18n.svelte.ts';
   import { toasts } from '#lib/toast.svelte.ts';
 
   let { children } = $props();
 
   type NavItem = { href: string; label: string; icon: IconName; admin?: boolean };
-  const nav: NavItem[] = [
-    { href: '/', label: 'Overview', icon: 'home' },
-    { href: '/sessions', label: 'Sessions', icon: 'sessions' },
-    { href: '/automations', label: 'Automations', icon: 'lightning' },
-    { href: '/devices', label: 'Devices', icon: 'devices', admin: true },
-    { href: '/settings', label: 'Settings', icon: 'settings' }
-  ];
+  const nav = $derived<NavItem[]>([
+    { href: '/', label: t('shell.nav.overview'), icon: 'home' },
+    { href: '/sessions', label: t('shell.nav.sessions'), icon: 'sessions' },
+    { href: '/automations', label: t('shell.nav.automations'), icon: 'lightning' },
+    { href: '/devices', label: t('shell.nav.devices'), icon: 'devices', admin: true },
+    { href: '/settings', label: t('shell.nav.settings'), icon: 'settings' }
+  ]);
   const visibleNav = $derived(nav.filter((item) => !item.admin || companion.isAdmin));
   const mobileNav = $derived(visibleNav.filter((item) => item.href !== '/settings'));
   const path = $derived(page.url.pathname);
@@ -36,21 +37,19 @@
   let aboutOpen = $state(false);
   let insecureContext = $state(false);
 
-  const connectionLabel = $derived(
-    {
-      connecting: 'Connecting…',
-      online: 'Live',
-      offline: 'Offline',
-      disconnected: 'Disconnected',
-      revoked: 'Access removed'
-    }[companion.connection]
-  );
+  const connectionLabel = $derived({
+    connecting: t('shell.connection.connecting'),
+    online: t('shell.connection.online'),
+    offline: t('shell.connection.offline'),
+    disconnected: t('shell.connection.disconnected'),
+    revoked: t('shell.connection.revoked')
+  }[companion.connection]);
 
-  const themes: { value: ThemePreference; label: string; icon: IconName }[] = [
-    { value: 'system', label: 'Match system', icon: 'monitor' },
-    { value: 'light', label: 'Light', icon: 'sun' },
-    { value: 'dark', label: 'Dark', icon: 'moon' }
-  ];
+  const themes = $derived<{ value: ThemePreference; label: string; icon: IconName }[]>([
+    { value: 'system', label: t('shell.theme.system'), icon: 'monitor' },
+    { value: 'light', label: t('shell.theme.light'), icon: 'sun' },
+    { value: 'dark', label: t('shell.theme.dark'), icon: 'moon' }
+  ]);
 
   function active(href: string) {
     return href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
@@ -121,45 +120,45 @@
 </script>
 
 <svelte:head>
-  <title>Pi Companion</title>
+  <title>Gentle Companion</title>
   <meta name="description" content="Follow and steer your Pi sessions from your browser or phone." />
 </svelte:head>
 
-<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip-link" href="#main">{t('shell.skip')}</a>
 
 {#if bare}
   <main class="bare scroll" id="main"><ConnectionNotice />{@render children()}</main>
 {:else}
   <div class="shell" class:working={Boolean(workPhase)} data-work-phase={workPhase}>
-    <span class="sr-only" role="status">{workPhase === 'thinking' ? 'Pi is thinking.' : workPhase === 'working' ? 'Pi is working.' : ''}</span>
-    <aside class="sidebar scroll" aria-label="Primary">
+    <span class="sr-only" role="status">{workPhase === 'thinking' ? t('shell.working.thinking') : workPhase === 'working' ? t('shell.working.working') : ''}</span>
+    <aside class="sidebar scroll" aria-label={t('shell.nav.aria')}>
       <a class="brand" href="/">
         <img src={logo} alt="" width="36" height="36" />
         <span>
-          <strong>Pi Companion</strong>
-          <small>{companion.remote ? 'Paired device' : 'This computer'}</small>
+          <strong>Gentle Companion</strong>
+          <small>{companion.remote ? t('shell.brand.paired') : t('shell.brand.local')}</small>
         </span>
       </a>
 
-      <nav class="nav">
+      <nav class="nav" aria-label={t('shell.nav.aria')}>
         {#each visibleNav as item (item.href)}
           <a href={item.href} class:active={active(item.href)} aria-current={active(item.href) ? 'page' : undefined}>
             <Icon name={item.icon} />
             <span>{item.label}</span>
             {#if item.href === '/sessions' && waiting}
-              <span class="count" aria-label="{waiting} questions waiting">{waiting}</span>
+              <span class="count" aria-label={t('shell.nav.waiting.aria', { count: waiting })}>{waiting}</span>
             {/if}
           </a>
         {/each}
       </nav>
 
       <div class="sidebar-foot">
-        <button class="status status-trigger" aria-haspopup="dialog" aria-label="Connection: {connectionLabel}. Open connection details" onclick={() => (aboutOpen = true)}>
+        <button class="status status-trigger" aria-haspopup="dialog" aria-label={t('shell.connection.aria', { status: connectionLabel })} onclick={() => (aboutOpen = true)}>
           <span class="dot {companion.connection}" aria-hidden="true"></span>
           <span>{connectionLabel}</span>
           {#if companion.version}<span class="subtle mono">v{companion.version}</span>{/if}
         </button>
-        <div class="segmented theme-switch" role="radiogroup" aria-label="Theme">
+        <div class="segmented theme-switch" role="radiogroup" aria-label={t('shell.theme.aria')}>
           {#each themes as option (option.value)}
             <button
               role="radio"
@@ -169,8 +168,20 @@
               onclick={() => theme.set(option.value)}><Icon name={option.icon} size={16} /></button>
           {/each}
         </div>
-        <nav class="legal-links" aria-label="Information">
-          <a href="/privacy">Privacy</a><span aria-hidden="true">·</span><a href="/terms">Terms</a>
+        <div class="segmented lang-switch" role="radiogroup" aria-label={t('lang.label')}>
+          {#each LOCALES as locale}
+            <button
+              role="radio"
+              aria-checked={$langStore === locale}
+              aria-label={localeName(locale)}
+              onclick={() => setLang(locale)}
+            >
+              {localeName(locale)}
+            </button>
+          {/each}
+        </div>
+        <nav class="legal-links" aria-label={t('shell.legal.aria')}>
+          <a href="/privacy">{t('shell.legal.privacy')}</a><span aria-hidden="true">·</span><a href="/terms">{t('shell.legal.terms')}</a>
         </nav>
       </div>
     </aside>
@@ -179,44 +190,44 @@
       <header class="topbar">
         <a class="brand" href="/">
           <img src={logo} alt="" width="30" height="30" />
-          <strong>Pi Companion</strong>
+          <strong>Gentle Companion</strong>
         </a>
         <div class="topbar-actions">
-          <button class="status compact status-trigger" aria-haspopup="dialog" aria-label="Connection: {connectionLabel}. Open connection details" onclick={() => (aboutOpen = true)} title={connectionLabel}>
+          <button class="status compact status-trigger" aria-haspopup="dialog" aria-label={t('shell.connection.aria', { status: connectionLabel })} onclick={() => (aboutOpen = true)} class:primary={false} title={connectionLabel}>
             <span class="dot {companion.connection}" aria-hidden="true"></span>
             <span>{connectionLabel}</span>
           </button>
-          <a class="btn btn-ghost btn-icon" href="/settings" aria-label="Settings" aria-current={active('/settings') ? 'page' : undefined}><Icon name="settings" /></a>
+          <a class="btn btn-ghost btn-icon" href="/settings" aria-label={t('shell.nav.settings')} aria-current={active('/settings') ? 'page' : undefined}><Icon name="settings" /></a>
         </div>
       </header>
 
       {#if insecureContext}
         <div class="banner danger" role="alert">
           <Icon name="alert" />
-          <span>Install and offline features require HTTPS. Open Pi Companion through its secure remote URL instead of a LAN HTTP address.</span>
+          <span>{t('shell.banner.https')}</span>
         </div>
       {/if}
       {#if companion.connection === 'disconnected'}
         <div class="banner" role="alert">
           <Icon name="unplug" />
-          <span>Your computer ended this connection. You are still paired.</span>
-          <button class="btn btn-sm" onclick={() => companion.reconnect()}>Reconnect</button>
+          <span>{t('shell.banner.disconnected')}</span>
+          <button class="btn btn-sm" onclick={() => companion.reconnect()} class:primary={true}>{t('shell.banner.reconnect')}</button>
         </div>
       {/if}
       <ConnectionNotice />
       {#if showNotificationPrompt}
-        <div class="banner" role="region" aria-label="Notifications">
+        <div class="banner" role="region" aria-label={t('shell.banner.notifications.aria')}>
           <Icon name="bell" />
-          <span>Turn on notifications to hear when Pi asks a question or finishes a task.</span>
-          <button class="btn btn-sm btn-primary" onclick={enableNotifications}>Turn on</button>
-          <button class="btn btn-sm btn-ghost" onclick={dismissNotificationPrompt}>Not now</button>
+          <span>{t('shell.banner.notifications')}</span>
+          <button class="btn btn-sm btn-primary" onclick={enableNotifications}>{t('shell.banner.notifications.on')}</button>
+          <button class="btn btn-sm btn-ghost" onclick={dismissNotificationPrompt}>{t('shell.banner.notifications.later')}</button>
         </div>
       {/if}
       {#if updated.current}
         <div class="banner" role="status">
           <Icon name="sparkle" />
-          <span>A new version of Pi Companion is ready.</span>
-          <button class="btn btn-sm btn-primary" onclick={() => location.reload()}>Reload</button>
+          <span>{t('shell.banner.update')}</span>
+          <button class="btn btn-sm btn-primary" onclick={() => location.reload()} class:primary={true}>{t('shell.banner.reload')}</button>
         </div>
       {/if}
 
@@ -225,13 +236,13 @@
           {@render children()}
         {:else}
           <div class="page connection-placeholder" role="status">
-            <h1>{companion.bootError ? 'Workspace unavailable' : 'Connecting to workspace…'}</h1>
-            <p>{companion.bootError ? 'Your sessions will appear when the connection is restored.' : 'Waiting for Pi Companion to respond.'}</p>
+            <h1>{companion.bootError ? t('shell.boot.unavailable') : t('shell.boot.connecting')}</h1>
+            <p>{companion.bootError ? t('shell.boot.restored') : t('shell.boot.waiting')}</p>
           </div>
         {/if}
       </main>
 
-      <nav class="tabbar" aria-label="Primary">
+      <nav class="tabbar" aria-label={t('shell.nav.aria')}>
         {#each mobileNav as item (item.href)}
           <a href={item.href} class:active={active(item.href)} aria-current={active(item.href) ? 'page' : undefined}>
             <span class="tab-icon">
@@ -252,7 +263,7 @@
     <div class="toast {toast.tone}">
       <Icon name={toast.tone === 'error' ? 'alert' : toast.tone === 'success' ? 'check' : 'sparkle'} size={16} />
       <span>{toast.message}</span>
-      <button class="btn btn-ghost btn-sm" aria-label="Dismiss" onclick={() => toasts.dismiss(toast.id)}><Icon name="close" size={14} /></button>
+      <button class="btn btn-ghost btn-sm" aria-label={t('toast.dismiss')} onclick={() => toasts.dismiss(toast.id)} class:primary={false}><Icon name="close" size={14} /></button>
     </div>
   {/each}
 </div>
@@ -411,6 +422,40 @@
 
   .theme-switch button {
     justify-content: center;
+  }
+
+  .lang-switch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--border);
+    border-radius: var(--clay-radius);
+    background: var(--surface-2);
+    box-shadow: var(--clay-soft);
+  }
+
+  .lang-switch button {
+    border: 1px solid transparent;
+    border-radius: calc(var(--clay-radius) - 2px);
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: .76rem;
+    font-weight: 600;
+    text-align: center;
+    padding: 8px 6px;
+    cursor: pointer;
+  }
+
+  .lang-switch button:hover {
+    color: var(--text);
+    background: var(--surface);
+  }
+
+  .lang-switch button[aria-checked='true'] {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    border-color: var(--accent-line);
+    box-shadow: var(--clay-pressed);
   }
 
   .main-col {

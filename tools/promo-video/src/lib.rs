@@ -266,10 +266,10 @@ fn outro(t: f32) -> Svgr<'static> {
         <text opacity={o2} transform={format!("translate(0 {d2})")} x="960" y="545" text-anchor="middle" font-size="112" font-weight="700" letter-spacing="-3" fill={ACCENT}>"From anywhere."</text>
         <g opacity={o3}>
             <rect x="500" y="626" width="920" height="84" rx="20" fill={SURFACE} stroke={BORDER2} />
-            <text x="960" y="680" text-anchor="middle" font-family={MONO} font-size="34" fill={TEXT}><tspan fill={TEXT3}>"$ "</tspan>"pi install npm:@yunazgr/pi-companion"</text>
+            <text x="960" y="680" text-anchor="middle" font-family={MONO} font-size="34" fill={TEXT}><tspan fill={TEXT3}>"$ "</tspan>"gentle-shell install npm:@rgaricano/gentle-companion"</text>
         </g>
         <text opacity={o4} x="960" y="790" text-anchor="middle" font-size="32" fill={TEXT2}>"Then type "<tspan font-family={MONO} fill={ACCENT_TEXT}>"/remote-control"</tspan>" in any Pi session."</text>
-        <text opacity={o4} x="960" y="960" text-anchor="middle" font-family={MONO} font-size="24" fill={TEXT3}>"github.com/ygrip/pi-companion"</text>
+        <text opacity={o4} x="960" y="960" text-anchor="middle" font-family={MONO} font-size="24" fill={TEXT3}>"github.com/IAI-00-IAI/gentle-companion"</text>
     </g>)
 }
 

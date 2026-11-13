@@ -2,7 +2,8 @@
   import Icon from './Icon.svelte';
   import { companion } from './companion.svelte.ts';
   import { errorMessage } from './toast.svelte.ts';
-  import { filePreviewKind, htmlSnapshot, imagePreviewMime, MAX_PREVIEW_BYTES, previewLink, type FilePreviewKind, type PreviewTarget } from './artifact-preview.ts';
+  import { blocksEmbedding, filePreviewKind, htmlSnapshot, imagePreviewMime, MAX_PREVIEW_BYTES, previewLink, type FilePreviewKind, type PreviewTarget } from './artifact-preview.ts';
+  import { t, langStore } from './i18n.svelte.ts';
 
   let { target, onclose }: { target: PreviewTarget; onclose: () => void } = $props();
   let dialog = $state<HTMLDialogElement | null>(null);
@@ -13,6 +14,7 @@
   let content = $state('');
   let imageUrl = $state('');
   let websiteRequested = $state(false);
+  let fullscreen = $state(false);
   let closing = false;
   let disposed = false;
   const safeUrl = $derived.by(() => {
@@ -20,11 +22,14 @@
     if (typeof location === 'undefined') return undefined;
     return previewLink(target.url, location.origin);
   });
+  const embeddingBlocked = $derived(safeUrl ? blocksEmbedding(safeUrl) : false);
   const title = $derived.by(() => {
     if (target.kind === 'file') return target.file.name;
     if (safeUrl) return new URL(safeUrl).hostname;
-    return 'Website preview unavailable';
+    return t('artifact.preview.unavailable');
   });
+
+  const showFullscreenToggle = $derived((target.kind === 'link' && websiteRequested) || fileKind === 'html' || fileKind === 'image');
 
   $effect(() => {
     if (!dialog) return;
@@ -107,54 +112,64 @@
       if (!disposed && target === selected) downloadBusy = false;
     }
   }
+$effect(() => { $langStore; });
 </script>
 
-<dialog class="artifact-preview" bind:this={dialog} aria-labelledby="artifact-preview-title" aria-describedby="artifact-preview-description" onclose={close} oncancel={(event) => { event.preventDefault(); close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>
+<dialog class="artifact-preview" class:fullscreen bind:this={dialog} aria-labelledby="artifact-preview-title" aria-describedby="artifact-preview-description" onclose={close} oncancel={(event) => { event.preventDefault(); if (fullscreen) fullscreen = false; else close(); }} onclick={(event) => { if (event.target === dialog) close(); }}>
   <header class="preview-header">
     <div class="preview-heading">
-      <span class="eyebrow">Preview</span>
+      <span class="eyebrow">{t('artifact.preview.eyebrow')}</span>
       <h2 id="artifact-preview-title">{title}</h2>
       <p id="artifact-preview-description" class="preview-description">
-        {#if target.kind === 'file'}Session-shared file · read-only preview
-        {:else}External website · isolated from Pi Companion{/if}
+        {#if target.kind === 'file'}{t('artifact.preview.file.description')}{:else}{t('artifact.preview.website.description')}{/if}
       </p>
     </div>
-    <button type="button" class="btn btn-ghost btn-icon" aria-label="Close preview" onclick={close}><Icon name="close" /></button>
+    <div class="preview-actions">
+      {#if showFullscreenToggle}
+        <button type="button" class="btn btn-ghost btn-icon" aria-label={t(fullscreen ? 'artifact.preview.fullscreen.exit' : 'artifact.preview.fullscreen.enter')} aria-pressed={fullscreen} onclick={() => fullscreen = !fullscreen}><Icon name={fullscreen ? 'minimize' : 'maximize'} /></button>
+      {/if}
+      <button type="button" class="btn btn-ghost btn-icon" aria-label={t('artifact.preview.close.aria')} onclick={close}><Icon name="close" /></button>
+    </div>
   </header>
   <div class="preview-body">
     {#if target.kind === 'link'}
       {#if safeUrl}
         <div class="website-controls">
           <code class="preview-address">{safeUrl}</code>
-          <p class="preview-note">Your browser contacts this website directly. The site may receive your IP address and existing cookies. Companion does not open or control the host browser.</p>
-          {#if !websiteRequested}<button type="button" class="btn btn-primary" onclick={() => websiteRequested = true}><Icon name="link" size={16} />Load website preview</button>{/if}
-          <p class="preview-note">Some sites block embedding or require features this sandbox disables. A blank or incomplete frame does not mean the site is unavailable.</p>
-          <a class="btn" href={safeUrl} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Open in new tab<Icon name="chevron" size={16} /></a>
+          <p class="preview-note">{t('artifact.preview.website.note')}</p>
+          {#if embeddingBlocked}
+            <p class="preview-note">{t('artifact.preview.website.embeddingBlocked')}</p>
+            <a class="btn btn-primary" href={safeUrl} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"><Icon name="link" size={16} />{t('artifact.preview.website.open')}</a>
+          {:else}
+            {#if !websiteRequested}<button type="button" class="btn btn-primary" onclick={() => websiteRequested = true}><Icon name="link" size={16} />{t('artifact.preview.website.load')}</button>{/if}
+            <p class="preview-note">{t('artifact.preview.website.note2')}</p>
+            <a class="btn" href={safeUrl} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{t('artifact.preview.website.open')}<Icon name="chevron" size={16} /></a>
+          {/if}
         </div>
         {#if websiteRequested}
-          <iframe class="preview-frame" title={'Website preview: ' + title} src={safeUrl} sandbox="allow-scripts" referrerpolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'; payment 'none'; usb 'none'"></iframe>
+          <iframe class="preview-frame" title={t('artifact.preview.website.aria', { name: title })} src={safeUrl} sandbox="allow-scripts" referrerpolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'; payment 'none'; usb 'none'"></iframe>
         {/if}
       {:else}
-        <div class="preview-message"><Icon name="ban" size={28} /><h3>This link cannot be previewed</h3><p>Only HTTPS links with non-local domain names are supported. Local addresses, IP literals, credentials, and Companion’s own origin are excluded.</p></div>
+        <div class="preview-message"><Icon name="ban" size={28} /><h3>{t('artifact.preview.website.blocked.title')}</h3><p>{t('artifact.preview.website.blocked.body')}</p></div>
       {/if}
     {:else if loading}
-      <div class="preview-message" role="status"><Icon name="file" size={28} /><p>Loading shared file…</p></div>
+      <div class="preview-message" role="status"><Icon name="file" size={28} /><p>{t('artifact.preview.file.loading')}</p></div>
     {:else if loadError}
-      <div class="preview-message" role="alert"><Icon name="alert" size={28} /><h3>Preview unavailable</h3><p>{loadError}</p></div>
+      <div class="preview-message" role="alert"><Icon name="alert" size={28} /><h3>{t('artifact.preview.error.title')}</h3><p>{loadError}</p></div>
     {:else if fileKind === 'html'}
-      <p class="preview-note snapshot-note">Static HTML snapshot. Scripts, links, forms, and network requests are disabled. External assets are not loaded.</p>
-      <iframe class="preview-frame" title={'Static HTML preview: ' + title} srcdoc={content} sandbox="" referrerpolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'; payment 'none'; usb 'none'"></iframe>
+      <p class="preview-note snapshot-note">{t('artifact.preview.html.note')}</p>
+      <iframe class="preview-frame" srcdoc={content} title={t('artifact.preview.html.aria', { name: title })} sandbox="" referrerpolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'; payment 'none'; usb 'none'"></iframe>
     {:else if fileKind === 'image'}
-      <div class="preview-image"><img src={imageUrl} alt={'Preview of ' + title} onerror={() => loadError = 'The file could not be decoded as a supported image. Download the original instead.'} /></div>
+      <div class="preview-image"><img src={imageUrl} alt={t('artifact.preview.image.aria', { name: title })} onerror={() => loadError = t('artifact.preview.image.error')} /></div>
     {:else if fileKind === 'text'}
       <pre class="preview-text">{content}</pre>
     {:else}
-      <div class="preview-message"><Icon name="file" size={28} /><h3>Download to view this file</h3><p>In-app previews support standalone HTML, plain-text formats, and raster images up to 2 MiB. PDFs and other binary files remain downloads.</p></div>
+      <div class="preview-message"><Icon name="file" size={28} /><h3>{t('artifact.preview.download.title')}</h3><p>{t('artifact.preview.download.body')}</p></div>
     {/if}
   </div>
   <footer class="preview-footer">
-    {#if target.kind === 'file'}<button type="button" class="btn" disabled={downloadBusy} onclick={download}><Icon name="download" size={16} />{#if downloadBusy}Downloading…{:else}Download original{/if}</button>{/if}
-    <button type="button" class="btn btn-primary" onclick={close}>Close preview</button>
+    {#if target.kind === 'file'}<button type="button" class="btn" disabled={downloadBusy} onclick={download}><Icon name="download" size={16} />{#if downloadBusy}{t('artifact.preview.download.busy')}{:else}{t('artifact.preview.download')}{/if}</button>{/if}
+    <button type="button" class="btn btn-primary" onclick={close}>{t('artifact.preview.close.aria')}</button>
   </footer>
 </dialog>
 
@@ -183,6 +198,10 @@
   .preview-footer { justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--border); background: var(--surface-2); }
   .artifact-preview .btn { min-width: 44px; min-height: 44px; }
   .preview-header .btn { flex: none; }
+  .preview-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+  .artifact-preview.fullscreen { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; }
+  .artifact-preview.fullscreen .preview-body { flex: 1; display: flex; flex-direction: column; overflow: auto; }
+  .artifact-preview.fullscreen .preview-frame { flex: 1; min-height: 60dvh; }
   @media (max-width: 600px) {
     .artifact-preview { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: var(--radius-lg); }
     .preview-header, .preview-footer, .website-controls { padding: 16px; gap: 12px; }

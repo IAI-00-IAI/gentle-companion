@@ -1,10 +1,13 @@
 //! Persistent daemon state: user settings and paired devices.
 //!
-//! Stored as JSON in `~/.pi/agent/pi-companion/state.json` (override the directory with
-//! `PI_COMPANION_HOME`). Device credentials are kept only as SHA-256 hashes, next to the
-//! device metadata (name, client, pairing and last-seen times). The directory is 0700 and the
-//! file 0600 on Unix; the file is created with 0600 before any byte is written and replaced
-//! atomically, and a looser mode found on load is tightened.
+//! Stored as JSON under the companion data directory `state.json`. The directory is
+//! `~/.pi/agent/pi-companion` by default, overridable with `PI_COMPANION_HOME`; when running
+//! under gentle-shell it is resolved from the agent home (`GENTLE_PI_AGENT_HOME` or
+//! `PI_CODING_AGENT_DIR`, defaulting to `~/.pi/agent`). Device credentials are kept only as
+//! SHA-256 hashes, next to the device metadata (name, client, pairing and last-seen times).
+//! The directory is 0700 and the file 0600 on Unix; the file is created with 0600 before
+//! any byte is written and replaced atomically, and a looser mode found on load is
+//! tightened.
 
 use std::path::{Path, PathBuf};
 
@@ -27,11 +30,14 @@ pub struct Settings {
     pub max_upload_mb: u64,
     /// Optional MIME allowlist for uploads (`image/png`, `image/*`). Empty allows every type.
     pub allowed_upload_types: Vec<String>,
+    /// Lets paired devices fetch files and open localhost servers the agent mentioned, after a
+    /// confirmation prompt on the device. See bridge.rs.
+    pub bridge_enabled: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new() }
+        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true }
     }
 }
 
@@ -116,15 +122,45 @@ pub struct Persisted {
     pub devices: Vec<StoredDevice>,
 }
 
-pub fn data_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("PI_COMPANION_HOME") {
-        return PathBuf::from(dir);
-    }
-    let home = std::env::var_os("HOME")
+/// The base agent home under which companion state lives. Gentle-shell sets
+/// `GENTLE_PI_AGENT_HOME` (and `PI_CODING_AGENT_DIR`) to its agent home; plain Pi
+/// defaults to `~/.pi/agent`.
+fn agent_home() -> PathBuf {
+    resolve_agent_home(
+        std::env::var_os("GENTLE_PI_AGENT_HOME").map(PathBuf::from),
+        std::env::var_os("PI_CODING_AGENT_DIR").map(PathBuf::from),
+        os_home(),
+    )
+}
+
+fn os_home() -> PathBuf {
+    std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir);
-    home.join(".pi").join("agent").join("pi-companion")
+        .unwrap_or_else(std::env::temp_dir)
+}
+
+/// Testable agent-home precedence: gentle-shell agent home, then
+/// `PI_CODING_AGENT_DIR`, then `<home>/.pi/agent`.
+pub(crate) fn resolve_agent_home(
+    gentle_pi_agent_home: Option<PathBuf>,
+    pi_coding_agent_dir: Option<PathBuf>,
+    home: PathBuf,
+) -> PathBuf {
+    gentle_pi_agent_home
+        .or_else(|| pi_coding_agent_dir)
+        .unwrap_or_else(|| home.join(".pi").join("agent"))
+}
+
+pub fn data_dir() -> PathBuf {
+    let companion_home = std::env::var_os("PI_COMPANION_HOME").map(PathBuf::from);
+    resolve_data_dir(companion_home, agent_home())
+}
+
+/// Testable companion data dir: explicit `PI_COMPANION_HOME` wins; otherwise
+/// `<agent home>/pi-companion`.
+pub(crate) fn resolve_data_dir(companion_home: Option<PathBuf>, agent_home: PathBuf) -> PathBuf {
+    companion_home.unwrap_or_else(|| agent_home.join("pi-companion"))
 }
 
 pub fn state_file(dir: &Path) -> PathBuf {
