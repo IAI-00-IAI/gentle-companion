@@ -2,14 +2,15 @@
 // Usage: node bridge/e2e_probe.mjs <tcAddr> <devicePort>
 import { readFile } from "node:fs/promises";
 
-const [addr, port] = process.argv.slice(2);
+const [addr, port, token = ""] = process.argv.slice(2);
 if (!addr || !port) { console.error("usage: node bridge/e2e_probe.mjs <tcAddr> <port>"); process.exit(2); }
 
 // Page-side code, kept as a separate file so C-string escapes stay sane.
 const pageCode = await readFile(new URL("./e2e_page_code.js", import.meta.url), "utf8");
 const filled = pageCode
-  .replace("__ADDR__", JSON.stringify(addr))
-  .replace("__PORT__", JSON.stringify(String(port)));
+  .replace('"__ADDR__"', JSON.stringify(addr))
+  .replace('"__PORT__"', JSON.stringify(String(port)))
+  .replace('"__TOKEN__"', JSON.stringify(token));
 
 const page = await (await fetch("http://127.0.0.1:9333/json/new?about:blank", { method: "PUT" })).json();
 const ws = new WebSocket(page.webSocketDebuggerUrl);
