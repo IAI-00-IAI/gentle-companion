@@ -34,8 +34,17 @@ looks like <code>tc…</code>.</p>
   <p id="error" class="hidden"></p>
 </section>
 
+<section>
+  <h2>WebSocket test</h2>
+  <p>Open a tunneled WebSocket to <code>/ws/browser</code> after dialing:</p>
+  <input type="text" id="ws-token" placeholder="Device token (optional)" autocomplete="off">
+  <button id="ws-btn" disabled>Test WS</button>
+  <p id="ws-status"></p>
+</section>
+
 <script src="vendor/wasm_exec.js"></script>
 <script type="module" src="http.js"></script>
+<script type="module" src="ws.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

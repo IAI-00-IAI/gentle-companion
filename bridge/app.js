@@ -171,3 +171,49 @@ $("dial-btn").onclick = async () => {
   }
   $("dial-btn").disabled = false;
 };
+
+// Enable the WebSocket test once the page is ready (modules run after the
+// DOM is parsed, so the elements already exist).
+$("ws-btn").disabled = false;
+
+// T3 smoke test: open a tunneled WebSocket to /ws/browser and report the
+// handshake result. The token rides the token.<t> subprotocol, like the
+// UI's live connection does.
+$("ws-btn").onclick = async () => {
+  const addr = localStorage.getItem(STORAGE_KEY) || "";
+  const port = parseInt(localStorage.getItem(PORT_STORAGE_KEY) || "", 10);
+  if (!addr) {
+    showError("Dial a tunnel first.");
+    return;
+  }
+  const token = $("ws-token").value.trim();
+  const protocols = token ? ["pi-companion", "token." + token] : ["pi-companion"];
+  $("ws-btn").disabled = true;
+  $("ws-status").textContent = "Opening tunneled WebSocket…";
+  try {
+    const conn = await window.bridge.dial(addr, port);
+    const ws = new window.TunnelWebSocket(conn, "/ws/browser", { protocols });
+    ws.onopen = () => {
+      $("ws-status").textContent = "WebSocket open (readyState=1). Waiting for first frame…";
+    };
+    ws.onmessage = (e) => {
+      const preview = typeof e.data === "string" ? e.data.slice(0, 120) : e.data.byteLength + " bytes";
+      $("ws-status").textContent = "WebSocket open; first frame: " + preview;
+      ws.close();
+    };
+    ws.onerror = () => {
+      $("ws-status").textContent = "WebSocket error.";
+      $("ws-btn").disabled = false;
+    };
+    ws.onclose = (e) => {
+      if (!$("ws-status").textContent.startsWith("WebSocket open;")) {
+        $("ws-status").textContent = "WebSocket closed: code=" + e.code + (e.reason ? " " + e.reason : "");
+      }
+      $("ws-btn").disabled = false;
+    };
+  } catch (err) {
+    $("ws-status").textContent = "";
+    showError("WebSocket test failed: " + err.message);
+    $("ws-btn").disabled = false;
+  }
+};
