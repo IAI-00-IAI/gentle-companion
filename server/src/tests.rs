@@ -23,6 +23,10 @@ mod archive_tests;
 mod automation_tests;
 #[path = "bridge_tests.rs"]
 mod bridge_tests;
+
+#[path = "tailcat_tests.rs"]
+mod tailcat_tests;
+
 #[path = "usage_tests.rs"]
 mod usage_tests;
 
@@ -809,4 +813,50 @@ async fn sessions_are_isolated_from_each_other_and_from_unshared_devices() {
     let event = next_matching(&mut device, |v| v["type"] == "bridge.event").await;
     assert_eq!(event["sessionId"], "shared");
     assert_no_frame(&mut device, 200, |v| v["sessionId"] == "private").await;
+}
+
+// ---------------------------------------------------------------- remote bind address
+// The device surface must bind to a LAN IP from the public URL so paired
+// devices can reach it, while an explicit device address wins and a tunnel/
+// domain public URL stays on loopback (the tunnel handles public reachability).
+
+#[tokio::test]
+async fn remote_bind_addr_prefers_explicit_device_addr_and_lan_public_url() {
+    let state = test_state();
+
+    // An explicit device address always wins over the public URL.
+    unsafe { std::env::set_var("PI_COMPANION_DEVICE_ADDR", "192.168.2.20:43722"); }
+    assert_eq!(remote_bind_addr(&state).await, "192.168.2.20:43722", "explicit device address wins");
+
+    // A device address on a custom port is preserved.
+    unsafe { std::env::set_var("PI_COMPANION_DEVICE_ADDR", "0.0.0.0:9999"); }
+    assert_eq!(remote_bind_addr(&state).await, "0.0.0.0:9999", "custom device port preserved");
+
+    // A malformed device address is ignored and falls through to the default.
+    unsafe { std::env::set_var("PI_COMPANION_DEVICE_ADDR", "not-a-port"); }
+    let malformed = remote_bind_addr(&state).await;
+    assert!(malformed.starts_with("127.0.0.1:"), "malformed device address falls back to loopback: {malformed}");
+    unsafe { std::env::remove_var("PI_COMPANION_DEVICE_ADDR"); }
+
+    // A LAN IP in the public URL becomes the bind address.
+    let state_lan = AppState::new(
+        config::Persisted::default(),
+        scratch("bind-lan-tmp"),
+        scratch("bind-lan-data"),
+        Some("http://192.168.1.10:43722/".into()),
+        Vec::new(),
+    );
+    assert_eq!(remote_bind_addr(&state_lan).await, "192.168.1.10:43722", "LAN public URL used as bind address");
+
+    // A tunnel/domain public URL is not a literal IP, so the device surface
+    // stays on loopback; the tunnel/proxy is responsible for public reachability.
+    let state_domain = AppState::new(
+        config::Persisted::default(),
+        scratch("bind-domain-tmp"),
+        scratch("bind-domain-data"),
+        Some("https://tunnel.example.com:8443/".into()),
+        Vec::new(),
+    );
+    let domain_bind = remote_bind_addr(&state_domain).await;
+    assert!(domain_bind.starts_with("127.0.0.1:"), "domain public URL falls back to loopback: {domain_bind}");
 }

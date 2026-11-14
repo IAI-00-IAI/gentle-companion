@@ -4,6 +4,7 @@ mod automation;
 mod assets;
 mod bridge;
 mod config;
+mod tailcat;
 #[cfg(test)]
 mod tests;
 
@@ -53,7 +54,83 @@ static LOCAL_ADDR_CELL: std::sync::OnceLock<&'static str> = std::sync::OnceLock:
 static REMOTE_ADDR_CELL: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
 
 fn local_addr() -> &'static str { LOCAL_ADDR_CELL.get_or_init(|| listen_addr("PI_COMPANION_ADMIN_ADDR", "127.0.0.1:43721")) }
+/// Loopback default for the device surface; overridden by `remote_bind_addr` when the
+/// public URL points at a LAN IP address.
 fn remote_addr() -> &'static str { REMOTE_ADDR_CELL.get_or_init(|| listen_addr("PI_COMPANION_DEVICE_ADDR", "127.0.0.1:43722")) }
+
+/// Host:port parsed out of an `http(s)://host:port` URL, ignoring path/query.
+/// Returns `None` if the URL has no usable authority.
+fn url_hostport(url: &str) -> Option<(String, u16)> {
+    let url = url.trim();
+    let rest = match url.strip_prefix("http://") {
+        Some(rest) => rest,
+        _ => match url.strip_prefix("https://") {
+            Some(rest) => rest,
+            None => return None,
+        },
+    };
+    let hostport = rest.split(['/', '?', '#']).next().unwrap_or(rest);
+    if let Some((host, port)) = hostport.split_once(':') {
+        if host.is_empty() || port.is_empty() {
+            return None;
+        }
+        return match port.parse::<u16>() {
+            Ok(port) => Some((host.to_string(), port)),
+            Err(_) => None,
+        };
+    }
+    None
+}
+
+/// Whether a host is an IPv4/IPv6 literal (as opposed to a domain name).
+fn is_ip_literal(host: &str) -> bool {
+    let host = host.trim();
+    let bare = if host.starts_with('[') && host.ends_with(']') {
+        &host[1..host.len() - 1]
+    } else {
+        host
+    };
+    bare.parse::<std::net::IpAddr>().is_ok()
+}
+
+/// The address the remote (device) surface listens on.
+///
+/// The device browser opens `public_url`, so the daemon must be reachable there.
+/// If `public_url` points at an IP address (LAN), the device surface listens on that
+/// IP so other devices on the network can reach it. If `public_url` is a domain name
+/// (a tunnel or reverse proxy), it listens on loopback and the tunnel forwards.
+/// An explicit non-loopback `PI_COMPANION_DEVICE_ADDR` always wins.
+/// Extract (host, port) from a full `http(s)://` URL or a bare `host:port`
+/// string. The env var `PI_COMPANION_DEVICE_ADDR` is a bare `host:port`, so
+/// this tolerates both forms so that an explicit non-loopback bind address
+/// is honored rather than silently falling through to loopback.
+fn hostport_any(value: &str) -> Option<(String, u16)> {
+    let value = value.trim();
+    let url: String = if value.starts_with("http://") || value.starts_with("https://") {
+        value.to_string()
+    } else {
+        format!("http://{}", value)
+    };
+    url_hostport(&url)
+}
+
+async fn remote_bind_addr(state: &AppState) -> String {
+    if let Some(addr) = std::env::var("PI_COMPANION_DEVICE_ADDR").ok() {
+        if let Some((_, port)) = hostport_any(&addr) {
+            if (1..=65535).contains(&port) {
+                return addr;
+            }
+        }
+    }
+    let public = public_url(state).await;
+    if let Some((host, port)) = url_hostport(&public) {
+        if is_ip_literal(&host) {
+            return format!("{host}:{port}");
+        }
+    }
+    remote_addr().to_string()
+}
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Close codes sent to paired-device sockets so the UI can explain what happened.
 const CLOSE_DISCONNECTED: u16 = 4001;
@@ -93,6 +170,7 @@ struct AppState {
     /// Open paired-device sockets per device id.
     device_connections: Arc<RwLock<HashMap<String, usize>>>,
     settings: Arc<RwLock<Settings>>,
+    tailcat: Arc<RwLock<tailcat::TailcatManager>>,
     env_public_url: Option<String>,
     /// Extra origins allowed on the paired-device surface (PI_COMPANION_ALLOWED_ORIGINS).
     extra_origins: Vec<String>,
@@ -125,6 +203,7 @@ impl AppState {
             devices: Arc::new(RwLock::new(devices)),
             device_connections: Arc::new(RwLock::new(HashMap::new())),
             settings: Arc::new(RwLock::new(settings)),
+            tailcat: Arc::new(RwLock::new(tailcat::TailcatManager::new())),
             env_public_url,
             extra_origins,
             browser_tx,
@@ -285,13 +364,29 @@ async fn main() {
         }
         Err(error) => panic!("bind local admin {}: {error}", local_addr()),
     };
-    let remote_listener = match tokio::net::TcpListener::bind(remote_addr()).await {
+    // Bind the device surface to the address the devices will actually open: the IP
+    // in the configured public URL (LAN access), or loopback for a tunnel/proxy domain.
+    let remote_bind = remote_bind_addr(&state).await;
+    let remote_listener = match tokio::net::TcpListener::bind(&remote_bind).await {
         Ok(listener) => listener,
         Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
-            eprintln!("gentle-companion-server: {} is used by another program. Free that port and try again.", remote_addr());
+            eprintln!(
+                "gentle-companion-server: {remote_bind} is used by another program. Free that port or IP and try again."
+            );
             std::process::exit(1);
         }
-        Err(error) => panic!("bind remote surface {}: {error}", remote_addr()),
+        Err(error) => {
+            eprintln!(
+                "gentle-companion-server: cannot bind the device surface to {remote_bind}: {error}."
+            );
+            eprintln!(
+                "If the public URL points at a LAN IP, make sure that IP is assigned to this machine."
+            );
+            eprintln!(
+                "Or leave the public URL as a domain (a tunnel/proxy) and it will listen on 127.0.0.1."
+            );
+            std::process::exit(1);
+        },
     };
 
     // A duplicate process must not rewrite the live daemon's run history either.
@@ -308,6 +403,8 @@ async fn main() {
         } }
     });
     print_banner(&state).await;
+    let tailcat_state = state.clone();
+    tokio::spawn(async move { start_tailcat_if_enabled(&tailcat_state).await; });
 
     // Small, latency-sensitive frames (questions, answers, deltas): disable Nagle.
     let (local_result, remote_result) = tokio::join!(
@@ -317,6 +414,7 @@ async fn main() {
             .with_graceful_shutdown(async move { let _ = remote_shutdown.recv().await; })
     );
     automation::cancel_all(&state).await;
+    stop_tailcat(&state).await;
     local_result.expect("local server failed");
     remote_result.expect("remote server failed");
 }
@@ -409,6 +507,72 @@ async fn device_origins(state: &AppState) -> Vec<String> {
     origins
 }
 
+/// Port of the device surface, used by the tailcat tunnel.
+fn device_port() -> u16 {
+    remote_addr().rsplit(':').next().unwrap_or("43722").parse().unwrap_or(43722)
+}
+
+/// Port exposed by the Tailcat tunnel. 0 means the daemon device port.
+async fn tailcat_port(state: &AppState) -> u16 {
+    let settings = state.settings.read().await;
+    if settings.tailcat_port != 0 {
+        return settings.tailcat_port;
+    }
+    device_port()
+}
+
+/// Broadcast the current tailcat status to every browser. The UI uses this as its
+/// live green/red/amber indicator.
+async fn broadcast_tailcat_update(state: &AppState) {
+    let enabled = state.settings.read().await.tailcat_enabled;
+    let status = state.tailcat.read().await.status(enabled);
+    broadcast(&state, serde_json::json!({
+        "type": "tailcat.update",
+        "status": {
+            "enabled": status.enabled,
+            "running": status.running,
+            "address": status.address,
+            "port": status.port,
+            "error": status.error,
+        },
+    }));
+}
+
+/// Start the tailcat tunnel if enabled. Called after the daemon is ready.
+async fn start_tailcat_if_enabled(state: &AppState) {
+    if !state.settings.read().await.tailcat_enabled {
+        return;
+    }
+    let mut manager = state.tailcat.write().await;
+    match manager.start(tailcat_port(state).await).await {
+        Ok(addr) => {
+            tracing::info!(tailcat_address = ?addr, "tailcat tunnel started");
+            let mut settings = state.settings.write().await;
+            settings.tailcat_address = addr;
+        }
+        Err(error) => {
+            tracing::warn!(?error, "failed to start tailcat tunnel; user can enable manually");
+        }
+    }
+    drop(manager);
+    persist(&state).await;
+    broadcast_tailcat_update(state).await;
+}
+
+/// Stop the tailcat tunnel.
+async fn stop_tailcat(state: &AppState) {
+    if state.tailcat.read().await.is_running() {
+        let mut manager = state.tailcat.write().await;
+        if let Ok(()) = manager.stop().await {
+            tracing::info!("tailcat tunnel stopped");
+            let mut settings = state.settings.write().await;
+            settings.tailcat_address.clear();
+        }
+    }
+    persist(&state).await;
+    broadcast_tailcat_update(state).await;
+}
+
 fn forbidden_origin() -> Response {
     (StatusCode::FORBIDDEN, "Origin not allowed. Open Gentle Companion from its own address.").into_response()
 }
@@ -453,6 +617,7 @@ async fn require_console_origin(State(state): State<AppState>, request: Request,
 /// Always printed, independent of RUST_LOG, so `npm run serve` / `cargo run` show where to go.
 async fn print_banner(state: &AppState) {
     let public = public_url(state).await;
+    let remote_bind = remote_bind_addr(state).await;
     let public_note = if state.env_public_url.is_some() {
         "from PI_COMPANION_PUBLIC_URL"
     } else if public == config::DEFAULT_PUBLIC_URL {
@@ -465,9 +630,15 @@ async fn print_banner(state: &AppState) {
     println!("  Gentle Companion v{VERSION}");
     println!();
     println!("  Console          http://{}", local_addr());
-    println!("  Paired devices   http://{}", remote_addr());
+    println!("  Paired devices   {remote_bind}");
     println!("  Pairing links    {public}  ({public_note})");
     println!("  Data             {}  ({devices} paired)", state.data_dir.display());
+    if !is_ip_literal(
+        remote_bind.rsplit(':').next().unwrap_or("127.0.0.1"),
+    ) {
+        // Nothing extra for a domain/tunnel: the daemon listens on loopback and the
+        // tunnel/proxy forwards. For a LAN IP the devices can reach this machine directly.
+    }
     println!();
     println!("  Open the console in your browser. Press Ctrl+C to stop.");
     println!();
@@ -521,6 +692,15 @@ async fn persist(state: &AppState) {
 
 async fn get_settings(State(state): State<AppState>) -> Json<Value> {
     let settings = state.settings.read().await.clone();
+    let tailcat_status = state.tailcat.read().await.status(settings.tailcat_enabled);
+    let tailcat_qr_svg = if !tailcat_status.address.is_empty() {
+        match QrCode::new(settings.tailcat_address.as_bytes()).ok() {
+            Some(code) => Some(code.render::<svg::Color>().min_dimensions(220, 220).build()),
+            None => None,
+        }
+    } else {
+        None
+    };
     Json(serde_json::json!({
         "settings": settings,
         "effective": {
@@ -528,10 +708,18 @@ async fn get_settings(State(state): State<AppState>) -> Json<Value> {
             "publicUrlFromEnv": state.env_public_url.is_some(),
         },
         "limits": { "maxUploadMb": config::MAX_UPLOAD_MB_LIMIT },
+        "tailcatStatus": {
+            "enabled": tailcat_status.enabled,
+            "running": tailcat_status.running,
+            "address": tailcat_status.address,
+            "port": tailcat_status.port,
+            "error": tailcat_status.error,
+        },
+        "tailcatQrSvg": tailcat_qr_svg,
         "about": {
             "version": VERSION,
             "adminUrl": format!("http://{}", local_addr()),
-            "deviceUrl": format!("http://{}", remote_addr()),
+            "deviceUrl": remote_bind_addr(&state).await,
             "dataDir": state.data_dir.to_string_lossy(),
             "tempDir": state.temp_root.to_string_lossy(),
         }
@@ -543,11 +731,41 @@ async fn put_settings(
     Json(next): Json<Settings>,
 ) -> ApiResult<Json<Value>> {
     let valid = next.validate().map_err(|message| (StatusCode::BAD_REQUEST, message))?;
+    let old_settings = state.settings.read().await.clone();
+    // Capture the bind address before the change so we can warn if the device
+    // surface would need to listen on a different address (restart required).
+    let old_bind = remote_bind_addr(&state).await;
     let bridge_stays_on = valid.bridge_enabled;
-    *state.settings.write().await = valid;
+    let tailcat_stays_on = valid.tailcat_enabled;
+    let old_tailcat_on = old_settings.tailcat_enabled;
+    let tailcat_changed = tailcat_stays_on && (old_settings.tailcat_port != valid.tailcat_port || !old_tailcat_on);
+    let mut settings = state.settings.write().await;
+    *settings = valid.clone();
+    drop(settings);
+    let new_bind = remote_bind_addr(&state).await;
+    if old_bind != new_bind {
+        tracing::warn!(
+            old_bind,
+            new_bind,
+            "the device-surface bind address changed; restart the daemon for the new address to take effect"
+        );
+    }
     if !bridge_stays_on {
         // Turning it back on later must not revive links issued before.
         state.bridge.lock().await.revoke_all();
+    }
+    if tailcat_stays_on {
+        if old_tailcat_on && old_settings.tailcat_port != valid.tailcat_port {
+            // Changing the exposed port while enabled: restart the tunnel.
+            stop_tailcat(&state).await;
+        }
+        if tailcat_changed {
+            let tailcat_state = state.clone();
+            tokio::spawn(async move { start_tailcat_if_enabled(&tailcat_state).await; });
+        }
+    } else if !tailcat_stays_on && old_tailcat_on {
+        // Turning tailcat off: stop the tunnel.
+        stop_tailcat(&state).await;
     }
     persist(&state).await;
     broadcast(&state, serde_json::json!({ "type": "settings.update" }));

@@ -236,6 +236,36 @@ Un teléfono se asocia una vez con el daemon. Las sesiones individuales de Gentl
 
 La pérdida de red y los reinicios del daemon se reconectan automáticamente con retrocedimiento acotado. Los latidos (heartbeats) detectan conexiones silenciosas, y volver al primer plano o restaurar el acceso a la red reintentan de inmediato. Las credenciales de asociación y los borradores no enviados sobreviven a los cortes; las capturas de sesión, las preguntas pendientes y las listas de subidas cargadas previamente se refrescan al reconectar. La actividad reciente se reproduce desde el registro acotado del daemon, pero las peticiones/respuestas nunca se reenvían automáticamente. Un **Desconectar** deliberado espera el reintento explícito del dispositivo; **Revocar** elimina el acceso y requiere la asociación otra vez.
 
+## Túnel Tailcat
+
+> **Experimental:** el túnel Tailcat es **experimental y todavía en implementación**. Está incluido detrás del conmutador de **Configuración → Túnel**, pero los binarios de Tailcat incluidos y el flujo de conexión desde el teléfono no están terminados y se revisan/arreglan en una sesión posterior. Úsalo a tu responsabilidad.
+
+Si tu área de trabajo no tiene una IP pública, habilita **Configuración → Túnel** para que el daemon ejecute un túnel Tailcat. El daemon expone el puerto de dispositivo activo a través del túnel y publica la corta dirección Tailcat en la interfaz.
+
+Cuando está habilitado, el daemon:
+
+- Inicia `tailcat serve <devicePort> --json` como proceso hijo.
+- Lee la dirección Tailcat desde la salida de texto estándar del servidor (`{"listenAddr":"tc..."}`).
+- Muestra la dirección en **Configuración → Túnel**, con un botón para copiar y un código QR.
+- Detiene el proceso del túnel al apagar el daemon.
+- Limpia la dirección guardada cuando se deshabilita el túnel.
+
+El puerto de dispositivo proviene de la dirección de dispositivo de Companion, `PI_COMPANION_DEVICE_ADDR`, cuyo valor por defecto es `127.0.0.1:43722`. El túnel expone ese puerto; no cambia el puerto de administración de Companion.
+
+La dirección Tailcat es sensible. Trátala como un código de asociación: otorga acceso a través del túnel, por lo que no la compartas públicamente ni la guardes en un repositorio.
+
+Si el daemon no puede encontrar el binario de `tailcat`, registra una advertencia, muestra un aviso de instalación por plataforma en la interfaz y no se detiene.
+
+El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego binarios incluidos. Los binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`) están previstos pero **no** están incluidos todavía en este PR experimental, así que instala Tailcat tú mismo:
+
+- **Linux**: descarga la release desde [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) y pon `tailcat` en PATH.
+- **macOS**: `brew install tailcat` (recomendado), o `go install github.com/tailscale/tailcat/cmd/tailcat@latest`, `nix profile install nixpkgs#tailcat`, `nix run github:tailscale/tailcat` o `pixi global install tailcat`.
+- **Windows**: descarga el zip de la release desde [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) y pon `tailcat.exe` en PATH.
+
+Un binario llamado `tailcat` en el directorio actual o en `bin/` tiene prioridad sobre cualquier binario incluido, así que puedes sobrescribir la versión localmente.
+
+El túnel usa [Tailcat](https://tailscale.com/products/tailcat), que se encuentra bajo la **licencia BSD 3-Clause** (ver [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md)).
+
 ## Metadatos y uso de la sesión
 
 El título de la sesión compartida, el modelo, el esfuerzo (effort) y el directorio de trabajo se refrescan en eventos de Gentle Shell y una vez por segundo mientras se comparte, incluso mientras esté inactivo. El detalle de la sesión muestra el uso de la ventana de contexto y el costo estimado de la sesión. El contexto nativo de Gentle Shell y los costos de uso registrados tienen prioridad; los informes independientes de la extensión rellenan los campos no disponibles. El uso ausente se muestra como no disponible, no como cero.
@@ -557,3 +587,5 @@ El diseño sigue algunas reglas innegociables:
 ## Licencia
 
 Este fork se distribuye bajo la GNU Affero General Public License, versión 3.0, tal como se especifica en [LICENSE](LICENSE). El código heredado del proyecto original [pi-companion](https://github.com/ygrip/pi-companion) se proporciona bajo su licencia MIT; los archivos originales conservan sus avisos de licencia, y el texto original de la licencia se conserva en [LICENSE-MIT](LICENSE-MIT).
+
+La función opcional de túnel usa [Tailcat](https://tailscale.com/products/tailcat), que se encuentra bajo la **licencia BSD 3-Clause**; el texto completo está disponible en [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md).

@@ -140,11 +140,27 @@ export type Settings = {
   allowedUploadTypes: string[];
   /** Lets devices fetch files and open localhost servers the agent mentioned, after a prompt. */
   bridgeEnabled: boolean;
+  /** When true, the daemon runs a tailcat tunnel to expose the device surface. */
+  tailcatEnabled: boolean;
+  /** Tailcat address published by the daemon. Empty when disabled or not started. */
+  tailcatAddress: string;
+  /** Port exposed by the Tailcat tunnel. 0 means use the daemon device port. */
+  tailcatPort: number;
+};
+
+export type TailcatStatus = {
+  enabled: boolean;
+  running: boolean;
+  address: string;
+  port: number;
+  error: string;
 };
 
 export type SettingsResponse = {
   settings: Settings;
   effective: { publicUrl: string; publicUrlFromEnv: boolean };
   limits: { maxUploadMb: number };
+  tailcatStatus: TailcatStatus;
+  tailcatQrSvg?: string;
   about: { version: string; adminUrl: string; deviceUrl: string; dataDir: string; tempDir: string };
 };
