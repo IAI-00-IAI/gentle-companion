@@ -100,7 +100,7 @@ await ready;
 $("load-progress").remove();
 setStatus("Ready.");
 
-// --- bridge surface for later tasks ---
+// --- bridge surface ---
 
 // window.bridge.dial(addr, port) dials one TCP stream to the daemon
 // through the tailcat tunnel and resolves to a conn object:
@@ -116,6 +116,11 @@ window.bridge = {
     return tailcatDial({ addr, derpMapURL, port, verbose });
   },
 };
+
+// --- HTTP-over-stream shim (T2) ---
+
+const { bridgeFetch } = await import("./http.js");
+window.bridgeFetch = bridgeFetch;
 
 // --- UI ---
 
@@ -145,10 +150,21 @@ $("dial-btn").onclick = async () => {
   $("dial-status").textContent = "Dialing…";
   try {
     const conn = await window.bridge.dial(addr, port);
-    // T1 wiring only: prove the stream opens and report it. T2/T3
-    // build the HTTP and WebSocket shims on top of this conn.
+    // T2 smoke test: issue one real HTTP request over the tunneled stream
+    // against a harmless daemon route and show the response status.
     $("dial-status").textContent =
-      `Connected: tunneled stream open on device port ${conn.port}.`;
+      `Connected: tunneled stream open on device port ${conn.port}; ` +
+      "probing daemon API…";
+    try {
+      const resp = await window.bridgeFetch(addr, port, "GET", "/api/settings");
+      $("dial-status").textContent =
+        `Connected: GET /api/settings → ${resp.status} via tunneled stream ` +
+        `on device port ${conn.port}.`;
+    } catch (httpErr) {
+      $("dial-status").textContent =
+        `Connected: tunneled stream open on device port ${conn.port}; ` +
+        `API probe failed: ${httpErr.message}`;
+    }
   } catch (err) {
     $("dial-status").textContent = "";
     showError(`Dial failed: ${err.message}`);
