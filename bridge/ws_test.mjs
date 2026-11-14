@@ -128,6 +128,8 @@ async function waitFor(fn, ms = 3000) {
 
 // makeConn adapts a node:net Socket to the conn semantics of
 // window.bridge.dial (same pattern as http_test.mjs).
+const clientConns = new Set();
+
 function makeConn(host, port) {
   const socket = net.connect({ host, port });
   const pending = [];
@@ -143,9 +145,10 @@ function makeConn(host, port) {
   socket.on("error", () => {});
   socket.on("close", () => {
     closed = true; eof = true;
+    clientConns.delete(conn);
     while (reads.length) reads.shift()(null);
   });
-  return {
+  const conn = {
     port,
     read() {
       if (pending.length) return Promise.resolve(pending.shift());
@@ -156,6 +159,8 @@ function makeConn(host, port) {
     closeWrite() { socket.end(); },
     close() { if (!closed) socket.destroy(); },
   };
+  clientConns.add(conn);
+  return conn;
 }
 
 // maskBytes applies the XOR mask (verifies client masking round-trips).
@@ -212,6 +217,7 @@ function startWsServer(handler) {
         payload.writeUInt16BE(code, 0);
         r.copy(payload, 2);
         ws.send(0x8, payload);
+        socket.end(); // a real server half-closes after its close frame
       },
     };
     socket.on("error", () => {});
@@ -220,7 +226,7 @@ function startWsServer(handler) {
         headBuf = Buffer.concat([headBuf, data]);
         const idx = headBuf.indexOf("\r\n\r\n");
         if (idx === -1) return;
-        ws.request = headBuf.subarray(0, idx).toString();
+        ws.request = headBuf.subarray(0, idx + 2).toString();
         const keyMatch = /Sec-WebSocket-Key: (\S+)/.exec(ws.request);
         ws.accept = keyMatch
           ? crypto.createHash("sha1").update(keyMatch[1] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64")
@@ -228,6 +234,7 @@ function startWsServer(handler) {
         handshakeDone = true;
         frameBuf = headBuf.subarray(idx + 4);
         handler(ws);
+        server.ws = ws; // expose the connection facade (send/close) to tests
         if (frameBuf.length) processFrameData();
         return;
       }
@@ -272,7 +279,12 @@ function startWsServer(handler) {
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
 }
 
+// closeServer destroys every still-open fake client conn before closing the
+// listener: server.close() waits for established connections to end, and a
+// live TunnelWebSocket pump (conn.read() pending forever) would otherwise
+// hang the runner after the last test.
 function closeServer(server) {
+  for (const conn of clientConns) conn.close();
   return new Promise((resolve) => server.close(resolve));
 }
 
@@ -304,6 +316,16 @@ async function main() {
     const server2 = await startWsServer((ws) => {
       seenRequest = ws.request;
       ws.upgrade("pi-companion");
+      // Echo data frames back, and complete a client-initiated closing
+      // handshake by echoing the close frame (close() half-closes).
+      ws.onframe = (frame) => {
+        if (frame.opcode === 0x1 || frame.opcode === 0x2) {
+          ws.send(frame.opcode, frame.payload);
+        } else if (frame.opcode === 0x8 && frame.payload.length >= 2) {
+          const view = new DataView(frame.payload.buffer, frame.payload.byteOffset, frame.payload.byteLength);
+          ws.close(view.getUint16(0), frame.payload.length > 2 ? decodeUtf8(frame.payload.subarray(2)) : "");
+        }
+      };
     });
     const { port: port2 } = server2.address();
     const ws2 = new TunnelWebSocket(makeConn("127.0.0.1", port2), "/ws/browser", {
@@ -366,14 +388,14 @@ async function main() {
     // Server ping -> client pongs automatically.
     seen = null;
     ws.onmessage = () => {};
-    server.send(0x9, "beat");
+    server.ws.send(0x9, "beat");
     check("ping/pong: client pongs server ping", await waitFor(() => seen?.opcode === 0xa && decodeUtf8(seen.payload) === "beat"));
 
     // Server-initiated close: client echoes the close frame and fires
     // onclose with the server's code.
     seen = null;
     const closeEvent = new Promise((resolve) => { ws.onclose = resolve; });
-    server.close(4001, "kicked");
+    server.ws.close(4001, "kicked");
     const ev = await closeEvent;
     check("server close: onclose code 4001", ev.code === 4001 && ev.reason === "kicked" && ev.wasClean === true, ev);
     check("server close: client echoes close frame", await waitFor(() => seen?.opcode === 0x8));
@@ -388,9 +410,9 @@ async function main() {
     const ws = new TunnelWebSocket(makeConn("127.0.0.1", port), "/ws/browser", { protocols: ["pi-companion"] });
     await waitFor(() => ws.readyState === 1);
     const msg = new Promise((resolve) => { ws.onmessage = (e) => resolve(e.data); });
-    server.send(0x1, "frag", false);
-    server.send(0x0, "ment", false);
-    server.send(0x0, "ed!", true);
+    server.ws.send(0x1, "frag", false);
+    server.ws.send(0x0, "ment", false);
+    server.ws.send(0x0, "ed!", true);
     check("server fragmentation: reassembled", (await msg) === "fragmented!");
     await closeServer(server);
   }
@@ -446,6 +468,10 @@ async function main() {
   {
     const server = net.createServer((socket) => {
       socket.on("error", () => {});
+      // Keep the socket flowing: a paused socket never processes the
+      // client's FIN/RST, never emits close, and server.close() then waits
+      // forever (the runner would hang after the last test).
+      socket.on("data", () => {});
       socket.end(); // close without any response
     });
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -460,7 +486,9 @@ async function main() {
   }
 
   console.log(failures === 0 ? "\nall tests passed" : `\n${failures} test(s) failed`);
-  process.exit(failures === 0 ? 0 : 1);
+  // Exit via exitCode and let the event loop drain: process.exit() would
+  // truncate the pending async stdout write above when output is piped.
+  process.exitCode = failures === 0 ? 0 : 1;
 }
 
 

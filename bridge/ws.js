@@ -399,7 +399,9 @@ export class TunnelWebSocket {
   }
 
   // handle dispatches one decoded frame. Data messages may arrive
-  // fragmented; fragments are accumulated until the fin bit.
+  // fragmented; fragments are accumulated until the fin bit. Control
+  // frames (ping/pong/close) may interleave with fragments, as RFC 6455
+  // section 5.4 requires.
   #handle(frame) {
     switch (frame.opcode) {
       case OP_CONT: {
@@ -415,6 +417,16 @@ export class TunnelWebSocket {
         this.#deliver(opcode, all);
         return;
       }
+      case OP_TEXT:
+      case OP_BINARY:
+        if (!frame.fin) {
+          // Start of a fragmented message: buffer it until the fin bit.
+          this.#fragments = [frame.payload];
+          this.#fragmentOpcode = frame.opcode;
+          return;
+        }
+        this.#deliver(frame.opcode, frame.payload);
+        return;
       case OP_CLOSE:
         this.#handleClose(frame);
         return;
