@@ -13,3 +13,7 @@ ui/.svelte-kit/
 skills/sveltekit-svelte5-tailwind-skill/
 
 .pi/
+
+bridge/vendor/main.wasm
+bridge/vendor/main.wasm.gz
+bridge/vendor/wasm_exec.js

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Companion bridge</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  section { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+  input[type=text] { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace; padding: 0.4rem; }
+  button { padding: 0.4rem 0.8rem; margin-top: 0.5rem; }
+  #status { color: #555; min-height: 1.2em; }
+  #error { color: #b00; white-space: pre-wrap; font-family: ui-monospace, monospace; min-height: 1.2em; }
+  .hidden { display: none; }
+  .notice { background: #fff8e1; border: 1px solid #e0c060; border-radius: 4px; padding: 0.5rem 0.8rem; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<h1>Companion bridge</h1>
+<p class="notice">All traffic is relayed through DERP servers; browsers
+cannot make tailcat's direct peer-to-peer connections. The tunnel address
+looks like <code>tc…</code>.</p>
+<p id="status">Loading WebAssembly…</p>
+<progress id="load-progress" max="1" value="0"></progress>
+
+<section>
+  <h2>Connect</h2>
+  <p>Paste the Companion daemon's tunnel address:</p>
+  <input type="text" id="tunnel-addr" placeholder="tc…" autocomplete="off" inputmode="url">
+  <p><label><input type="number" id="device-port" value="3000" min="1" max="65535" style="width:6rem"> Device port</label>
+  <button id="dial-btn" disabled>Dial</button></p>
+  <p id="dial-status"></p>
+  <p id="error" class="hidden"></p>
+</section>
+
+<script src="vendor/wasm_exec.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
