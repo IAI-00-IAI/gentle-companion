@@ -3,6 +3,7 @@
 // tailcatDial; this page wraps tailcatDial as window.bridge.dial for
 // later tasks (HTTP-over-stream and WebSocket-over-stream shims).
 
+let lastPublicOrigin = "";
 const STORAGE_KEY = "companion-bridge.tunnel-addr";
 const PORT_STORAGE_KEY = "companion-bridge.device-port";
 
@@ -157,6 +158,7 @@ $("dial-btn").onclick = async () => {
       "probing daemon API…";
     try {
       const resp = await window.bridgeFetch(addr, port, "GET", "/api/settings");
+      try { const s = resp.bodyJson(); if (s && s.publicUrl) lastPublicOrigin = new URL(s.publicUrl).origin; } catch {}
       $("dial-status").textContent =
         `Connected: GET /api/settings → ${resp.status} via tunneled stream ` +
         `on device port ${conn.port}.`;
@@ -192,7 +194,7 @@ $("ws-btn").onclick = async () => {
   $("ws-status").textContent = "Opening tunneled WebSocket…";
   try {
     const conn = await window.bridge.dial(addr, port);
-    const ws = new window.TunnelWebSocket(conn, "/ws/browser", { protocols });
+    const ws = new window.TunnelWebSocket(conn, "/ws/browser", { protocols, origin: lastPublicOrigin });
     ws.onopen = () => {
       $("ws-status").textContent = "WebSocket open (readyState=1). Waiting for first frame…";
     };

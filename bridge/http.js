@@ -169,17 +169,29 @@ export function createResponseParser() {
   };
 }
 
+// The dialer used by bridgeFetch. In the browser, window.bridge.dial (set by
+// app.js) is picked up automatically; tests can inject their own with
+// setBridgeDialer.
+let dialer = null;
+export function setBridgeDialer(fn) { dialer = fn; }
+function currentDialer() {
+  if (dialer) return dialer;
+  const bridge = (globalThis.window && globalThis.window.bridge) || globalThis.bridge;
+  if (bridge && typeof bridge.dial === "function") return bridge.dial;
+  return null;
+}
+
 // bridgeFetch(addr, port, method, path, body) dials a stream through the
-// tailcat tunnel (via window.bridge.dial), sends one HTTP/1.1 request, and
+// tailcat tunnel (via the injected dialer, see setBridgeDialer / window.bridge.dial), sends one HTTP/1.1 request, and
 // resolves to { status, statusText, headers, bodyText, bodyJson() }.
 // A plain string body is sent as-is; any other non-null body is JSON-encoded.
 // The stream is always closed before returning.
 export async function bridgeFetch(addr, port, method, path, body) {
-  const bridge = (globalThis.window && globalThis.window.bridge) || globalThis.bridge;
-  if (!bridge || typeof bridge.dial !== "function") {
-    throw new Error("window.bridge.dial is not available");
+  const dial = currentDialer();
+  if (!dial) {
+    throw new Error("no bridge dialer available");
   }
-  const conn = await bridge.dial(addr, port);
+  const conn = await dial(addr, port);
   try {
     const parser = createResponseParser();
     conn.write(encodeRequest(method, path, body));
