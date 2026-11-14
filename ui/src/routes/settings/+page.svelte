@@ -8,7 +8,7 @@
   import { theme, type ThemePreference } from '#lib/theme.svelte.ts';
   import { langStore, setLang, LOCALES, localeName, t } from '#lib/i18n.svelte.ts';
   import { errorMessage, toasts } from '#lib/toast.svelte.ts';
-  import type { Settings, SettingsResponse } from '#lib/types.ts';
+  import type { Settings, SettingsResponse, TailcatStatus } from '#lib/types.ts';
   import { estimatedCost, providerSnapshots, reportedTime, snapshotStatus, usagePercent, weeklyConsumption } from '#lib/usage.ts';
 
   let tab = $state<'general' | 'usage'>('general');
@@ -32,12 +32,14 @@
   }
 
   let data = $state<SettingsResponse | null>(null);
-  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [], bridgeEnabled: true });
+  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [], bridgeEnabled: true, tailcatEnabled: false, tailcatAddress: '', tailcatPort: 0 });
   /** Comma or newline separated MIME patterns, edited as text. */
   let typesText = $state('');
   let saving = $state(false);
   let error = $state('');
   let loadError = $state('');
+  /** Live tailcat tunnel state from the daemon (green/red/amber indicator). */
+  let tailcatStatus = $state<TailcatStatus | null>(null);
 
   const parseTypes = (text: string) =>
     text
@@ -51,6 +53,8 @@
         Number(draft.pairingTtlMinutes) !== data!.settings.pairingTtlMinutes ||
         Number(draft.maxUploadMb) !== data!.settings.maxUploadMb ||
         draft.bridgeEnabled !== data!.settings.bridgeEnabled ||
+        draft.tailcatEnabled !== data!.settings.tailcatEnabled ||
+        Number(draft.tailcatPort) !== data!.settings.tailcatPort ||
         parseTypes(typesText).join(',') !== (data!.settings.allowedUploadTypes ?? []).join(','))
   );
 
@@ -60,6 +64,20 @@
     { value: 'dark' as ThemePreference, label: t('settings.theme.dark.label'), hint: t('settings.theme.dark.hint'), icon: 'moon' as IconName }
   ]);
 
+  const statusClass = (status: TailcatStatus) => {
+    if (status.running) return 'ok';
+    if (status.error) return 'error';
+    if (status.enabled) return 'pending';
+    return 'off';
+  };
+
+  const statusText = (status: TailcatStatus) => {
+    if (status.running) return t('settings.tailcat.running');
+    if (status.error) return t('settings.tailcat.error');
+    if (status.enabled) return t('settings.tailcat.starting');
+    return t('settings.tailcat.disabled');
+  };
+
   function apply(response: SettingsResponse) {
     const settings: Settings = {
       publicUrl: response.settings?.publicUrl ?? '',
@@ -68,8 +86,12 @@
       allowedUploadTypes: Array.isArray(response.settings?.allowedUploadTypes)
         ? response.settings.allowedUploadTypes
         : [],
-      bridgeEnabled: response.settings?.bridgeEnabled ?? true
+      bridgeEnabled: response.settings?.bridgeEnabled ?? true,
+      tailcatEnabled: response.settings?.tailcatEnabled ?? false,
+      tailcatAddress: response.settings?.tailcatAddress ?? '',
+      tailcatPort: Number(response.settings?.tailcatPort ?? 0)
     };
+    tailcatStatus = response.tailcatStatus ?? null;
     data = { ...response, settings };
     draft = { ...settings };
     typesText = settings.allowedUploadTypes.join(', ');
@@ -77,11 +99,15 @@
 
   onMount(async () => {
     if (!companion.isAdmin) return;
+    companion.onTailcatUpdate = (status) => { tailcatStatus = status; };
     try {
       apply(await companion.getSettings());
     } catch (e) {
       loadError = errorMessage(e);
-    }
+    };
+    return () => {
+      companion.onTailcatUpdate = null;
+    };
   });
 
   async function save() {
@@ -94,7 +120,9 @@
           pairingTtlMinutes: Number(draft.pairingTtlMinutes),
           maxUploadMb: Number(draft.maxUploadMb),
           allowedUploadTypes: parseTypes(typesText),
-          bridgeEnabled: draft.bridgeEnabled
+          bridgeEnabled: draft.bridgeEnabled,
+          tailcatEnabled: draft.tailcatEnabled,
+          tailcatPort: Number(draft.tailcatPort)
         })
       );
       toasts.show(t('settings.toast.saved'), 'success');
@@ -216,7 +244,57 @@
         </div>
         <div class="fields">
           <label class="check-field"><input type="checkbox" bind:checked={draft.bridgeEnabled} aria-describedby="bridge-hint" /><span>{t('settings.bridge.label')}</span></label>
-          <span class="hint" id="bridge-hint">Files: only those inside the session’s working directory or Companion’s temp folder, never credential files. Servers: only <code>http://localhost</code> ports the agent mentioned, relayed through Companion in a sandboxed frame. Turning this off also ends open bridge links.</span>
+          <span class="hint" id="bridge-hint">Files: only those inside the session's working directory or Companion's temp folder, never credential files. Servers: only <code>http://localhost</code> ports the agent mentioned, relayed through Companion in a sandboxed frame. Turning this off also ends open bridge links.</span>
+        </div>
+      </section>
+
+      <section class="card tile section" aria-labelledby="tailcat">
+        <div class="section-copy">
+          <h2 id="tailcat">{t('settings.tailcat.title')}</h2>
+          <p class="muted">{t('settings.tailcat.hint')}</p>
+          {#if tailcatStatus}
+            <p class="tailcat-status {statusClass(tailcatStatus)}" aria-live="polite">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="tailcat-status-text">{statusText(tailcatStatus)}</span>
+            </p>
+          {/if}
+          <p class="muted tailcat-status-hint">{t('settings.tailcat.status.hint')}</p>
+        </div>
+        <div class="fields">
+          <label class="check-field">
+            <input type="checkbox" bind:checked={draft.tailcatEnabled} aria-describedby="tailcat-hint" />
+            <span>{t('settings.tailcat.label')}</span>
+          </label>
+          <div class="field">
+            <label for="tailcat-port">{t('settings.tailcat.port.label')}</label>
+            <div class="unit">
+              <input id="tailcat-port" class="input" type="number" min="0" max="65535" bind:value={draft.tailcatPort} />
+            </div>
+            <span class="hint">{t('settings.tailcat.port.hint')}</span>
+          </div>
+          {#if tailcatStatus && tailcatStatus.running}
+            <div class="field">
+              <label for="tailcat-address">{t('settings.tailcat.address.label')}</label>
+              <div class="unit">
+                <input id="tailcat-address" class="input" type="text" readonly value={tailcatStatus.address} />
+                <button type="button" class="btn copy" onclick={() => navigator.clipboard.writeText(tailcatStatus.address)}><Icon name="copy" size={14} /></button>
+              </div>
+              {#if data?.tailcatQrSvg}
+                <div class="qr tailcat-qr" aria-hidden="true">{@html data.tailcatQrSvg}</div>
+              {/if}
+              <span class="hint" id="tailcat-hint">{t('settings.tailcat.address.hint')}</span>
+            </div>
+          {:else if tailcatStatus && tailcatStatus.error}
+            <div class="field field-error">
+              <span class="hint" id="tailcat-hint" role="alert">{t('settings.tailcat.error')}: {tailcatStatus.error}</span>
+            </div>
+          {:else if draft.tailcatEnabled}
+            <div class="field">
+              <span class="hint">{t('settings.tailcat.starting')}</span>
+            </div>
+          {:else}
+            <span class="hint">{t('settings.tailcat.disabled.hint')}</span>
+          {/if}
         </div>
       </section>
 
@@ -577,4 +655,35 @@
       min-height: 48px;
     }
   }
+
+  .tailcat-qr {
+    width: 180px;
+    margin: 10px 0 6px;
+  }
+  .tailcat-qr :global(svg) {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .tailcat-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    margin: 6px 0 2px;
+  }
+  .tailcat-status .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex: none;
+    background: #94a3b8;
+  }
+  .tailcat-status.ok .dot { background: #22c55e; }
+  .tailcat-status.error .dot { background: #ef4444; }
+  .tailcat-status.pending .dot { background: #eab308; }
+  .tailcat-status.off .dot { background: #94a3b8; }
+  .tailcat-status-hint { margin-top: 2px; font-size: 0.85rem; }
+  .field-error .hint { color: var(--danger); }
 </style>

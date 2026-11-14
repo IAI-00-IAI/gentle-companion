@@ -328,6 +328,8 @@ class Companion {
 
   /** Observer for session snapshot changes (device notifications hook in here). */
   onSessionChange?: (previous: Session, next: Session) => void;
+  /** Observer for tailcat tunnel status changes (live green/red/amber indicator). */
+  onTailcatUpdate?: (status: TailcatStatus) => void;
 
   private handle(message: any) {
     switch (message.type) {
@@ -378,6 +380,10 @@ class Companion {
         // Several sockets can open/close at once; coalesce refreshes.
         clearTimeout(this.devicesTimer);
         this.devicesTimer = setTimeout(() => void this.refreshDevices().catch(() => {}), 150);
+        break;
+      case 'tailcat.update':
+        const status = message.status as TailcatStatus;
+        if (status && typeof status.running === 'boolean') this.onTailcatUpdate?.(status);
         break;
       case 'bridge.event':
         this.handleBridge(message.sessionId, message.message);

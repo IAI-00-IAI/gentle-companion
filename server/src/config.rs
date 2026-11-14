@@ -33,11 +33,20 @@ pub struct Settings {
     /// Lets paired devices fetch files and open localhost servers the agent mentioned, after a
     /// confirmation prompt on the device. See bridge.rs.
     pub bridge_enabled: bool,
+    /// When true, the daemon runs a tailcat server to expose the device surface over a
+    /// WireGuard tunnel, so devices can connect without a public IP.
+    pub tailcat_enabled: bool,
+    /// Tailcat address (e.g. `tc...`) published by the daemon's tailcat server.
+    /// Sensitive: exposes the tunnel. Empty when disabled or not yet started.
+    pub tailcat_address: String,
+    /// Port exposed by the Tailcat tunnel. 0 means use the daemon device port.
+    /// The daemon device port comes from `PI_COMPANION_DEVICE_ADDR` (default 127.0.0.1:43722).
+    pub tailcat_port: u16,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true }
+        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true, tailcat_enabled: false, tailcat_address: String::new(), tailcat_port: 0 }
     }
 }
 
@@ -72,6 +81,8 @@ impl Settings {
         if allowed_upload_types.len() > MAX_UPLOAD_TYPES {
             return Err(format!("Allow at most {MAX_UPLOAD_TYPES} upload types."));
         }
+        // `tailcat_port` is a u16 (0..=65535); 0 means "use the daemon device port".
+        // Every in-range value is a valid TCP port, so no extra range check is needed.
         Ok(Settings { public_url, allowed_upload_types, ..self.clone() })
     }
 

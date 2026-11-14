@@ -236,6 +236,36 @@ A phone pairs once with the daemon. Individual Gentle Shell sessions opt in usin
 
 Network loss and daemon restarts reconnect automatically with bounded backoff. Heartbeats detect silent connections, and returning to the foreground or restoring network access retries immediately. Pairing credentials and unsent drafts survive outages; session snapshots, pending questions, and previously loaded upload lists refresh on reconnect. Recent activity is replayed from the daemon’s bounded log, but prompts/answers are never automatically resent. A deliberate **Disconnect** waits for the device’s explicit retry; **Revoke** removes access and requires pairing again.
 
+## Tailcat tunnel
+
+> **Experimental:** the tailcat tunnel is **experimental and still under implementation**. It is included here behind the **Settings → Tunnel** toggle, but the bundled Tailcat binaries and the phone-side connection flow are not finished and are being reviewed/fixed in a follow-up. Use it at your own risk.
+
+If your workspace has no public IP, enable **Settings → Tunnel** to let the daemon run a [Tailcat](https://tailscale.com/products/tailcat) tunnel. The daemon exposes the active device port through the tunnel and publishes the short tailcat address to the UI.
+
+When enabled, the daemon:
+
+- Starts `tailcat serve <devicePort> --json` as a child process.
+- Reads the tailcat address from the server’s stdout JSON (`{"listenAddr":"tc..."}`).
+- Shows the address in **Settings → Tunnel**, with a copy button and QR code.
+- Stops the tunnel process on daemon shutdown.
+- Clears the stored address when the tunnel is disabled.
+
+The device port comes from the Companion device address, `PI_COMPANION_DEVICE_ADDR`, defaulting to `127.0.0.1:43722`. The tunnel exposes that port; it does not change the Companion admin port.
+
+The tailcat address is sensitive. Treat it like a pairing code: it grants access through the tunnel, so do not share it publicly or commit it to a repository.
+
+If the daemon cannot find the `tailcat` binary, it logs a warning, shows a per-platform install hint in the UI, and does not crash.
+
+The daemon looks for `tailcat` in this order: the system PATH, a local binary named `tailcat` in the current directory or `bin/`, and then bundled binaries. Bundled Tailcat binaries for **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) and **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`) are planned but are **not** included in this experimental PR yet, so please install Tailcat yourself:
+
+- **Linux**: download the release from [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) and put `tailcat` on PATH.
+- **macOS**: `brew install tailcat` (recommended), or `go install github.com/tailscale/tailcat/cmd/tailcat@latest`, `nix profile install nixpkgs#tailcat`, `nix run github:tailscale/tailcat`, or `pixi global install tailcat`.
+- **Windows**: download the release zip from [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) and put `tailcat.exe` on PATH.
+
+A binary named `tailcat` in the current directory or `bin/` is preferred over any bundled one, so you can override the version locally.
+
+The tunnel uses [Tailcat](https://tailscale.com/products/tailcat), which is licensed under the **BSD 3-Clause License** (see [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md)).
+
 ## Session metadata and usage
 
 Shared session title, model, effort and working directory refresh on Gentle Shell events and once per second while sharing, including while idle. Session detail shows context-window usage and estimated session cost. Native Gentle Shell context and recorded usage costs take precedence; independent extension reports fill unavailable fields. Missing usage is shown as unavailable, not zero.
@@ -558,3 +588,5 @@ The design follows a few non-negotiable rules:
 ## License
 
 This fork is distributed under the GNU Affero General Public License, version 3.0, as specified in [LICENSE](LICENSE). Code inherited from the original [pi-companion](https://github.com/ygrip/pi-companion) project is provided under its MIT license; original files keep their MIT notices, and the preserved original license text is available in [LICENSE-MIT](LICENSE-MIT).
+
+The optional tunnel feature uses [Tailcat](https://tailscale.com/products/tailcat), which is licensed under the **BSD 3-Clause License**; the full text is available in [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md).
