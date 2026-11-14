@@ -238,31 +238,28 @@ La pérdida de red y los reinicios del daemon se reconectan automáticamente con
 
 ## Túnel Tailcat
 
-> **Experimental:** el túnel Tailcat es **experimental y todavía en implementación**. Está incluido detrás del conmutador de **Configuración → Túnel**, pero los binarios de Tailcat incluidos y el flujo de conexión desde el teléfono no están terminados y se revisan/arreglan en una sesión posterior. Úsalo a tu responsabilidad.
+> **Experimental:** el túnel Tailcat es experimental y todavía está en desarrollo. Está incluido detrás del conmutador de **Configuración → Túnel**, pero el lado del cliente no está terminado; úsalo a tu responsabilidad.
 
-Si tu área de trabajo no tiene una IP pública, habilita **Configuración → Túnel** para que el daemon ejecute un túnel Tailcat. El daemon expone el puerto de dispositivo activo a través del túnel y publica la corta dirección Tailcat en la interfaz.
+Si tu área de trabajo no tiene una IP pública, habilita **Configuración → Túnel** para que el daemon ejecute un túnel [Tailcat](https://tailscale.com/products/tailcat). El daemon expone la superficie de dispositivo a través de una dirección Tailcat (`tc…`) retransmitida vía DERP, así que los dispositivos pueden conectarse sin IP pública ni puertos de entrada.
 
 Cuando está habilitado, el daemon:
 
-- Inicia `tailcat serve <devicePort> --json` como proceso hijo.
-- Lee la dirección Tailcat desde la salida de texto estándar del servidor (`{"listenAddr":"tc..."}`).
-- Muestra la dirección en **Configuración → Túnel**, con un botón para copiar y un código QR.
-- Detiene el proceso del túnel al apagar el daemon.
-- Limpia la dirección guardada cuando se deshabilita el túnel.
+- Inicia `tailcat serve --json <port>` como proceso hijo, usando el binario de Tailcat incluido cuando no se encuentra uno local.
+- Lee la dirección Tailcat desde el JSON de la salida estándar del servidor (`{"listenAddr":"tc..."}`) y la guarda.
+- Muestra la dirección en **Configuración → Túnel**, con un botón para copiar y un código QR, más un indicador de estado en vivo: verde cuando el proceso del túnel está en ejecución, ámbar mientras arranca, rojo con el error del daemon cuando falla (por ejemplo, un binario ausente) y gris cuando está deshabilitado.
+- Reinicia el túnel cuando el daemon se reinicia con la opción habilitada.
+- Detiene el proceso del túnel y limpia la dirección guardada cuando el túnel se deshabilita.
 
-El puerto de dispositivo proviene de la dirección de dispositivo de Companion, `PI_COMPANION_DEVICE_ADDR`, cuyo valor por defecto es `127.0.0.1:43722`. El túnel expone ese puerto; no cambia el puerto de administración de Companion.
+El puerto expuesto es la configuración **Puerto del túnel**. Déjalo en 0 para usar el puerto de dispositivo del daemon (`PI_COMPANION_DEVICE_ADDR`, por defecto `127.0.0.1:43722`); cambiar el puerto con el túnel habilitado reinicia el túnel. El túnel no cambia el puerto de administración de Companion.
 
 La dirección Tailcat es sensible. Trátala como un código de asociación: otorga acceso a través del túnel, por lo que no la compartas públicamente ni la guardes en un repositorio.
 
-Si el daemon no puede encontrar el binario de `tailcat`, registra una advertencia, muestra un aviso de instalación por plataforma en la interfaz y no se detiene.
+Todavía no se ha enviado un cliente de teléfono o navegador que hable tailcat; un puente web está en desarrollo en esta rama. Hasta entonces, la dirección puede usarse desde clientes tailcat como OpenTailcat o pi-remote.
 
-El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego binarios incluidos. Los binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`) están previstos pero **no** están incluidos todavía en este PR experimental, así que instala Tailcat tú mismo:
+El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego el binario incluido para la plataforma actual. Se envían binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); en macOS el daemon usa el `tailcat` del sistema desde el PATH. Si no se encuentra ningún binario, el daemon muestra un aviso de instalación por plataforma y no se detiene:
 
-- **Linux**: descarga la release desde [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) y pon `tailcat` en PATH.
 - **macOS**: `brew install tailcat` (recomendado), o `go install github.com/tailscale/tailcat/cmd/tailcat@latest`, `nix profile install nixpkgs#tailcat`, `nix run github:tailscale/tailcat` o `pixi global install tailcat`.
-- **Windows**: descarga el zip de la release desde [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) y pon `tailcat.exe` en PATH.
-
-Un binario llamado `tailcat` en el directorio actual o en `bin/` tiene prioridad sobre cualquier binario incluido, así que puedes sobrescribir la versión localmente.
+- **Linux/Windows**: instala una release desde [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) y ponla en PATH para usar una versión distinta de la incluida.
 
 El túnel usa [Tailcat](https://tailscale.com/products/tailcat), que se encuentra bajo la **licencia BSD 3-Clause** (ver [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md)).
 
