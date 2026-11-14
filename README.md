@@ -238,31 +238,28 @@ Network loss and daemon restarts reconnect automatically with bounded backoff. H
 
 ## Tailcat tunnel
 
-> **Experimental:** the tailcat tunnel is **experimental and still under implementation**. It is included here behind the **Settings → Tunnel** toggle, but the bundled Tailcat binaries and the phone-side connection flow are not finished and are being reviewed/fixed in a follow-up. Use it at your own risk.
+> **Experimental:** the tailcat tunnel is experimental and still under development. It is included behind the **Settings → Tunnel** toggle, but the client side is not finished; use it at your own risk.
 
-If your workspace has no public IP, enable **Settings → Tunnel** to let the daemon run a [Tailcat](https://tailscale.com/products/tailcat) tunnel. The daemon exposes the active device port through the tunnel and publishes the short tailcat address to the UI.
+If your workspace has no public IP, enable **Settings → Tunnel** to let the daemon run a [Tailcat](https://tailscale.com/products/tailcat) tunnel. The daemon exposes the device surface through a tailcat address (`tc…`) relayed via DERP, so devices can connect without a public IP or inbound ports.
 
 When enabled, the daemon:
 
-- Starts `tailcat serve <devicePort> --json` as a child process.
-- Reads the tailcat address from the server’s stdout JSON (`{"listenAddr":"tc..."}`).
-- Shows the address in **Settings → Tunnel**, with a copy button and QR code.
-- Stops the tunnel process on daemon shutdown.
-- Clears the stored address when the tunnel is disabled.
+- Starts `tailcat serve --json <port>` as a child process, using the bundled Tailcat binary when no local one is found.
+- Reads the tailcat address from the server’s stdout JSON (`{"listenAddr":"tc..."}`) and stores it.
+- Shows the address in **Settings → Tunnel**, with a copy button and a QR code, plus a live status indicator: green when the tunnel process is running, amber while it is starting, red with the daemon’s error when it fails (for example a missing binary), and grey when disabled.
+- Restarts the tunnel when the daemon restarts while the setting is enabled.
+- Stops the tunnel process and clears the stored address when the tunnel is disabled.
 
-The device port comes from the Companion device address, `PI_COMPANION_DEVICE_ADDR`, defaulting to `127.0.0.1:43722`. The tunnel exposes that port; it does not change the Companion admin port.
+The exposed port is the **Tunnel port** setting. Leave it at 0 to use the daemon device port (`PI_COMPANION_DEVICE_ADDR`, default `127.0.0.1:43722`); changing the port while the tunnel is enabled restarts the tunnel. The tunnel does not change the Companion admin port.
 
 The tailcat address is sensitive. Treat it like a pairing code: it grants access through the tunnel, so do not share it publicly or commit it to a repository.
 
-If the daemon cannot find the `tailcat` binary, it logs a warning, shows a per-platform install hint in the UI, and does not crash.
+A phone or browser client that speaks tailcat is not shipped yet; a web bridge is in development on this branch. Until then, the address can be used from tailcat clients such as OpenTailcat or pi-remote.
 
-The daemon looks for `tailcat` in this order: the system PATH, a local binary named `tailcat` in the current directory or `bin/`, and then bundled binaries. Bundled Tailcat binaries for **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) and **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`) are planned but are **not** included in this experimental PR yet, so please install Tailcat yourself:
+The daemon looks for `tailcat` in this order: the system PATH, a local binary named `tailcat` in the current directory or `bin/`, and then the bundled binary for the current platform. Bundled Tailcat binaries ship for **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) and **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); on macOS the daemon uses the system `tailcat` from PATH. If no binary is found, the daemon shows a per-platform install hint and does not crash:
 
-- **Linux**: download the release from [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) and put `tailcat` on PATH.
 - **macOS**: `brew install tailcat` (recommended), or `go install github.com/tailscale/tailcat/cmd/tailcat@latest`, `nix profile install nixpkgs#tailcat`, `nix run github:tailscale/tailcat`, or `pixi global install tailcat`.
-- **Windows**: download the release zip from [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) and put `tailcat.exe` on PATH.
-
-A binary named `tailcat` in the current directory or `bin/` is preferred over any bundled one, so you can override the version locally.
+- **Linux/Windows**: install a release from [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) and put it on PATH to use a different version than the bundled one.
 
 The tunnel uses [Tailcat](https://tailscale.com/products/tailcat), which is licensed under the **BSD 3-Clause License** (see [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md)).
 
