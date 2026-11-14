@@ -254,7 +254,7 @@ El puerto expuesto es la configuración **Puerto del túnel**. Déjalo en 0 para
 
 La dirección Tailcat es sensible. Trátala como un código de asociación: otorga acceso a través del túnel, por lo que no la compartas públicamente ni la guardes en un repositorio.
 
-Todavía no se ha enviado un cliente de teléfono o navegador que hable tailcat; un puente web está en desarrollo en esta rama. Hasta entonces, la dirección puede usarse desde clientes tailcat como OpenTailcat o pi-remote.
+Todavía no se ha enviado un cliente de teléfono o navegador que hable tailcat. Existe un puente web experimental en [`bridge/`](bridge/README.md): una página estática que carga la compilación WASM de tailcat, marca la dirección del túnel `tc…` del daemon y retransmite tráfico HTTP y WebSocket a través de él. Hasta que llegue un cliente de primera clase, la dirección también puede usarse desde clientes tailcat como OpenTailcat o pi-remote.
 
 El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego el binario incluido para la plataforma actual. Se envían binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); en macOS el daemon usa el `tailcat` del sistema desde el PATH. Si no se encuentra ningún binario, el daemon muestra un aviso de instalación por plataforma y no se detiene:
 

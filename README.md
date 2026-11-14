@@ -254,7 +254,7 @@ The exposed port is the **Tunnel port** setting. Leave it at 0 to use the daemon
 
 The tailcat address is sensitive. Treat it like a pairing code: it grants access through the tunnel, so do not share it publicly or commit it to a repository.
 
-A phone or browser client that speaks tailcat is not shipped yet; a web bridge is in development on this branch. Until then, the address can be used from tailcat clients such as OpenTailcat or pi-remote.
+A phone or browser client that speaks tailcat is not shipped yet. An experimental web bridge exists in [`bridge/`](bridge/README.md): a static page that loads the tailcat WASM build, dials the daemon's `tc…` tunnel address, and relays HTTP and WebSocket traffic over it. Until a first-class client ships, the address can also be used from tailcat clients such as OpenTailcat or pi-remote.
 
 The daemon looks for `tailcat` in this order: the system PATH, a local binary named `tailcat` in the current directory or `bin/`, and then the bundled binary for the current platform. Bundled Tailcat binaries ship for **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) and **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); on macOS the daemon uses the system `tailcat` from PATH. If no binary is found, the daemon shows a per-platform install hint and does not crash:
 

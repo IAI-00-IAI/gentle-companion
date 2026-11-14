@@ -33,3 +33,7 @@ tunnel using the existing WebAssembly tailcat client, with no native app.
   T5 docs), following «¿y lo que comentamos de webasembly o similar: ej
   /home/ricardo/Trabajo/IAI/tailcat/webdemo y /home/r…».
 - L2: Context backstop fired (91%); T1+ delegated to a worker.
+- L3: README tailcat sections were stale (EN claimed binaries "not included yet"); refreshed both languages, commits e35fd5b / eb5829b. Slice boundary: ~400 lines reached (6 commits).
+- L4: E2E found a real defect: `tailcat serve` always forwards to loopback, but the daemon bound the device surface only on the LAN IP (public_url is an IP). Fixed with a loopback mirror listener (same router, same origin middleware) enabled only while the tunnel is on; 141 cargo tests pass; commit d8a7136. Second slice boundary: ~2176 lines / 10 commits since origin/main.
+- L5: T5 docs delegated and done: bridge/README.md (new) + README.md / README.es.md tailcat client paragraphs updated to point at the experimental bridge.
+- L6: E2E probe over the tunnel: GET /api/context returned 200 (HTML from the SPA fallback — /api/settings does not exist on the device surface; /api/context is the auth-free JSON probe). WS leg pending the running E2E worker.
