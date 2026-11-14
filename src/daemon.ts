@@ -263,7 +263,7 @@ export async function ensureDaemon(log: DaemonLog) {
     // Download and validate before touching the healthy running process.
     const binary = await resolveDaemonBinary(log);
     const { stdout } = await execFileAsync(binary, ["--version"], { timeout: 10_000 });
-    if (stdout.trim() !== "pi-companion-server " + expectedVersion) {
+    if (stdout.trim() !== "gentle-companion-server " + expectedVersion) {
       throw new Error("replacement daemon version does not match installed extension v" + expectedVersion);
     }
     let managed = false;
