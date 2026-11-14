@@ -131,6 +131,30 @@ async fn remote_bind_addr(state: &AppState) -> String {
     remote_addr().to_string()
 }
 
+/// The loopback address the tailcat tunnel mirror should listen on, or `None` when no
+/// mirror is needed. `tailcat serve` always forwards tunneled connections to the SAME
+/// port on 127.0.0.1, so when the device surface binds a non-loopback address (a LAN IP
+/// from an IP public_url), the daemon must also serve it on 127.0.0.1 at that port.
+/// When the primary bind is already loopback, tailcat's forwarding target is the device
+/// surface itself and no second listener is needed.
+fn tunnel_loopback_bind(primary_bind: &str) -> Option<String> {
+    let (host, port) = primary_bind.trim().rsplit_once(':')?;
+    let port: u16 = port.parse().ok()?;
+    let host: std::net::IpAddr = host.parse().ok()?;
+    if host.is_loopback() {
+        return None;
+    }
+    Some(format!("127.0.0.1:{port}"))
+}
+
+/// Handle for the extra loopback listener serving the device surface while the
+/// tailcat tunnel is running. Dropping the shutdown sender ends the serve task;
+/// the join handle lets the stopper wait until the port is actually released.
+struct TunnelHandle {
+    shutdown: tokio::sync::oneshot::Sender<()>,
+    task: tokio::task::JoinHandle<()>,
+}
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Close codes sent to paired-device sockets so the UI can explain what happened.
 const CLOSE_DISCONNECTED: u16 = 4001;
@@ -171,6 +195,8 @@ struct AppState {
     device_connections: Arc<RwLock<HashMap<String, usize>>>,
     settings: Arc<RwLock<Settings>>,
     tailcat: Arc<RwLock<tailcat::TailcatManager>>,
+    /// Extra loopback listener serving the device surface while the tailcat tunnel runs.
+    tunnel_listener: Arc<Mutex<Option<TunnelHandle>>>,
     env_public_url: Option<String>,
     /// Extra origins allowed on the paired-device surface (PI_COMPANION_ALLOWED_ORIGINS).
     extra_origins: Vec<String>,
@@ -204,6 +230,7 @@ impl AppState {
             device_connections: Arc::new(RwLock::new(HashMap::new())),
             settings: Arc::new(RwLock::new(settings)),
             tailcat: Arc::new(RwLock::new(tailcat::TailcatManager::new())),
+            tunnel_listener: Arc::new(Mutex::new(None)),
             env_public_url,
             extra_origins,
             browser_tx,
@@ -405,6 +432,10 @@ async fn main() {
     print_banner(&state).await;
     let tailcat_state = state.clone();
     tokio::spawn(async move { start_tailcat_if_enabled(&tailcat_state).await; });
+    // `tailcat serve` forwards to 127.0.0.1, so when the primary bind is a LAN IP the
+    // device surface must also be reachable on loopback at the same port.
+    let tunnel_state = state.clone();
+    tokio::spawn(async move { start_tunnel_listener(&tunnel_state).await; });
 
     // Small, latency-sensitive frames (questions, answers, deltas): disable Nagle.
     let (local_result, remote_result) = tokio::join!(
@@ -569,8 +600,59 @@ async fn stop_tailcat(state: &AppState) {
             settings.tailcat_address.clear();
         }
     }
+    stop_tunnel_listener(state).await;
     persist(&state).await;
     broadcast_tailcat_update(state).await;
+}
+
+/// Serve the device surface on 127.0.0.1 at the same device port while the tailcat
+/// tunnel is enabled. `tailcat serve` always forwards to loopback, so when the primary
+/// device-surface bind is a LAN IP, this extra listener is what makes tunneled
+/// connections reach the device handlers. Skipped (with a log, not an error) when the
+/// primary bind is already loopback or the loopback port is taken. The listener is
+/// stored in `state.tunnel_listener` and closed by `stop_tunnel_listener`.
+async fn start_tunnel_listener(state: &AppState) {
+    if !state.settings.read().await.tailcat_enabled {
+        return;
+    }
+    let mut guard = state.tunnel_listener.lock().await;
+    if guard.is_some() {
+        return;
+    }
+    let Some(loopback_bind) = tunnel_loopback_bind(&remote_bind_addr(state).await) else {
+        tracing::debug!("tailcat tunnel: device surface already listens on loopback; no extra listener needed");
+        return;
+    };
+    let listener = match tokio::net::TcpListener::bind(&loopback_bind).await {
+        Ok(listener) => listener,
+        Err(error) => {
+            tracing::warn!(%loopback_bind, %error, "tailcat tunnel: cannot bind the loopback device surface; skipping the extra listener");
+            return;
+        },
+    };
+    let router = remote_router(state.clone());
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let task = tokio::spawn(async move {
+        let server = axum::serve(listener, router).with_graceful_shutdown(async move {
+            let _ = shutdown_rx.await;
+        });
+        if let Err(error) = server.await {
+            tracing::warn!(%error, "tailcat loopback device-surface listener failed");
+        }
+    });
+    tracing::info!(%loopback_bind, "tailcat tunnel: serving the device surface on loopback for forwarded connections");
+    *guard = Some(TunnelHandle { shutdown: shutdown_tx, task });
+}
+
+/// Close the extra loopback device-surface listener, if one is running.
+async fn stop_tunnel_listener(state: &AppState) {
+    let handle = state.tunnel_listener.lock().await.take();
+    if let Some(handle) = handle {
+        let _ = handle.shutdown.send(());
+        // Wait so the port is released before tailcat could be restarted on it.
+        let _ = handle.task.await;
+        tracing::info!("tailcat tunnel: loopback device-surface listener stopped");
+    }
 }
 
 fn forbidden_origin() -> Response {
