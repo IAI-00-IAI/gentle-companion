@@ -29,7 +29,15 @@ const send = (method, params = {}) => new Promise((res) => {
 
 await send("Page.enable");
 await send("Page.navigate", { url: "http://127.0.0.1:8077/index.html" });
-await new Promise((r) => setTimeout(r, 4000));
+// Wait until the bridge page finished booting (app.js sets these globals)
+// instead of a fixed sleep, which is flaky under load.
+let ready = false;
+for (let i = 0; i < 100 && !ready; i++) {
+  await new Promise((r) => setTimeout(r, 100));
+  const rr = await send("Runtime.evaluate", { expression: "!!(window.bridge && window.bridge.dial && window.bridgeFetch && window.TunnelWebSocket)", returnByValue: true });
+  ready = rr.result?.result?.value === true;
+}
+if (!ready) { console.error("bridge page never became ready"); process.exit(1); }
 const r = await send("Runtime.evaluate", { expression: filled, awaitPromise: true, returnByValue: true });
 const v = r.result?.result?.value;
 console.log(typeof v === "string" ? v : JSON.stringify(r).slice(0, 400));

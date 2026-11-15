@@ -7,9 +7,46 @@
   const token = "__TOKEN__";
   const out = [];
   const t0 = Date.now();
+  const trace = [];
+  const t = () => Date.now() - t0;
+  const origDial = window.bridge.dial.bind(window.bridge);
+  window.bridge.dial = async (a, p) => {
+    trace.push(t() + "ms dial start " + a + ":" + p);
+    const c = await origDial(a, p);
+    trace.push(t() + "ms dial done");
+    return {
+      port: c.port,
+      read: async () => {
+        const chunk = await c.read();
+        if (chunk === null) {
+          trace.push(t() + "ms read -> EOF");
+        } else {
+          let hex = "";
+          for (let i = 0; i < Math.min(chunk.length, 48); i++) hex += chunk[i].toString(16).padStart(2, "0");
+          trace.push(t() + "ms read len=" + chunk.length + " head=" + hex);
+        }
+        return chunk;
+      },
+      write: (b) => { trace.push(t() + "ms write len=" + b.length); return c.write(b); },
+      closeWrite: () => { trace.push(t() + "ms closeWrite"); return c.closeWrite(); },
+      close: () => { trace.push(t() + "ms close"); return c.close(); },
+    };
+  };
   try {
-    // 1. HTTP over the tunnel.
-    const resp = await window.bridgeFetch(addr, port, "GET", "/api/context");
+  // 1. HTTP over the tunnel. A tunnel stream torn down before any response
+  // byte arrives (EOF before headers) is retried once: the dial is fresh
+  // and the daemon never saw the request.
+  let resp;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      resp = await window.bridgeFetch(addr, port, "GET", "/api/context");
+      break;
+    } catch (err) {
+      const sawBytes = trace.some((s) => s.includes("read len="));
+      if (attempt >= 2 || sawBytes) throw err;
+      trace.push(t() + "ms retry after: " + err.message);
+    }
+  }
     const body = resp.bodyJson();
     out.push("HTTP " + resp.status + " remote=" + body.remote + " version=" + (body.version || "?") + " in " + (Date.now() - t0) + "ms");
 
@@ -36,6 +73,6 @@
     }
     return out.join(" || ");
   } catch (e) {
-    return "FAIL in " + (Date.now() - t0) + "ms: " + e.message;
+    return "FAIL in " + (Date.now() - t0) + "ms: " + e.message + "\nTRACE:\n" + trace.join("\n");
   }
 })()
