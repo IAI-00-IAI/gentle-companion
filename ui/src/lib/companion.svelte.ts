@@ -6,7 +6,7 @@ import { LiveConnection, type Connection } from './connection.ts';
 export type { Connection } from './connection.ts';
 import { ApiError, WorkspaceConnectionError, unreachableMessage, workspaceRequest } from './workspace-connection.ts';
 export { ApiError } from './workspace-connection.ts';
-import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TempFile } from './types.ts';
+import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TailcatStatus, TempFile } from './types.ts';
 
 /**
  * Single live connection to the daemon, shared by every page.

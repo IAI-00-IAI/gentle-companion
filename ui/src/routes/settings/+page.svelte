@@ -97,16 +97,18 @@
     typesText = settings.allowedUploadTypes.join(', ');
   }
 
-  onMount(async () => {
+  onMount(() => {
     if (!companion.isAdmin) return;
     companion.onTailcatUpdate = (status) => { tailcatStatus = status; };
-    try {
-      apply(await companion.getSettings());
-    } catch (e) {
-      loadError = errorMessage(e);
-    };
+    void (async () => {
+      try {
+        apply(await companion.getSettings());
+      } catch (e) {
+        loadError = errorMessage(e);
+      }
+    })();
     return () => {
-      companion.onTailcatUpdate = null;
+      companion.onTailcatUpdate = undefined;
     };
   });
 
@@ -122,6 +124,7 @@
           allowedUploadTypes: parseTypes(typesText),
           bridgeEnabled: draft.bridgeEnabled,
           tailcatEnabled: draft.tailcatEnabled,
+          tailcatAddress: draft.tailcatAddress,
           tailcatPort: Number(draft.tailcatPort)
         })
       );
@@ -277,7 +280,7 @@
               <label for="tailcat-address">{t('settings.tailcat.address.label')}</label>
               <div class="unit">
                 <input id="tailcat-address" class="input" type="text" readonly value={tailcatStatus.address} />
-                <button type="button" class="btn copy" onclick={() => navigator.clipboard.writeText(tailcatStatus.address)}><Icon name="copy" size={14} /></button>
+                <button type="button" class="btn copy" onclick={() => { if (tailcatStatus) navigator.clipboard.writeText(tailcatStatus.address); }}><Icon name="copy" size={14} /></button>
               </div>
               {#if data?.tailcatQrSvg}
                 <div class="qr tailcat-qr" aria-hidden="true">{@html data.tailcatQrSvg}</div>
