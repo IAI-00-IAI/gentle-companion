@@ -5,8 +5,9 @@ Artefactos precompilados del cliente de navegador tailcat (globales
 
 - `main.wasm` — la build js/wasm de la aplicación web tailcat
   (`GOOS=js GOARCH=wasm go build -o bridge/vendor/main.wasm ./web`,
-  ejecutado desde el repositorio tailcat en
-  `/home/ricardo/Trabajo/IAI/tailcat`).
+  ejecutado desde un checkout del repositorio
+  [tailscale/tailcat](https://github.com/tailscale/tailcat) en el commit
+  `e00cdde6f` (main, correspondiente a los artefactos incluidos)).
 - `main.wasm.gz` — copia precomprimida con gzip de `main.wasm` para
   hosts estáticos que no pueden negociar Content-Encoding; `app.js` la
   descomprime en el navegador mediante `DecompressionStream`.
