@@ -1,6 +1,6 @@
 {
   "name": "@rgaricano/gentle-companion",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Local-first remote control for Gentle Shell sessions: live activity feed, steering, git diff, file drop and phone pairing from a single Rust daemon.",
   "keywords": [
     "pi-package",

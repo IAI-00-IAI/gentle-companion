@@ -41,6 +41,39 @@ sleep 3
 }
 
 #[tokio::test]
+async fn tailcat_manager_records_error_when_binary_does_not_emit_address() {
+    let tmp = scratch("tailcat-error-test");
+    std::fs::create_dir_all(&tmp).unwrap();
+
+    let fake = tmp.join("tailcat");
+    std::fs::write(
+        &fake,
+        r#"#!/bin/sh
+echo '{"noAddress": true}'
+"#
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake, std::os::unix::fs::PermissionsExt::from_mode(0o755))
+        .unwrap();
+
+    let cwd = std::env::current_dir().unwrap();
+    let link = cwd.join("tailcat");
+    let _ = std::fs::remove_file(&link); // Clean up any previous symlink
+    let _ = std::os::unix::fs::symlink(&fake, &link);
+
+    let mut manager = TailcatManager::new();
+    let error = manager.start(43722).await.expect_err("invalid fake binary should not produce an address");
+
+    assert_eq!(error, TailcatError::AddressTimeout);
+    assert!(!manager.is_running());
+    assert!(manager.address().is_empty());
+    assert!(!manager.status(false).error.is_empty());
+
+    let _ = std::fs::remove_file(&link);
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
 async fn tailcat_manager_stop_when_not_running_is_error() {
     let mut manager = TailcatManager::new();
     assert!(matches!(manager.stop().await, Err(TailcatError::NotRunning)));

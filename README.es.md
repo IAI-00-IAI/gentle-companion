@@ -8,7 +8,9 @@ Control remoto ligero, centrado en lo local, para sesiones de Gentle Shell.
 
 **[Mira el recorrido narrado de 2 minutos](docs/pi-companion-promo.mp4)**: una sesión real de Gentle Shell compartida con `/remote-control`, un teléfono asociado desde el panel, las preguntas de Gentle Shell respondidas desde el teléfono, y una automatización creada, disparada y revisada. Está grabada desde el terminal y la interfaz reales y compuesta mediante código en [`tools/promo-video`](tools/promo-video).
 
-**Nuevo en 0.4.3:** Companion es ahora un puente hacia el ordenador que ejecuta Gentle Shell. Los enlaces y el `code` en línea que escribe el agente pueden abrir **servidores localhost** (`http://localhost:3000`) en un marco aislado (sandbox) retransmitido por el daemon, y los **archivos** que menciona el agente (rutas, enlaces `file://`) pueden recuperarse, verse en vista previa o descargarse en el dispositivo. Cada apertura o recuperación pide antes; los archivos se limitan al directorio de trabajo de la sesión y a las carpetas temporales de Companion de esa sesión; los archivos que se parecen a credenciales se omiten (best-effort). Puedes desactivar todo el puente en **Configuración → Puente**. Ver [Puente de Companion](#puente-de-companion).
+**Nuevo en 0.5.0:** un **puente web tailcat** experimental (`bridge/`) permite que un navegador de teléfono alcance el daemon a través de un túnel tailcat usando el cliente WASM de tailcat, así un dispositivo se conecta sin compartir una LAN. El daemon ahora también sirve su superficie de dispositivo en un espejo loopback mientras el túnel está activo, porque `tailcat serve` siempre reenvía a loopback. Ver [bridge/README.md](bridge/README.md).
+
+**En 0.4.3:** Companion pasó a ser un puente hacia el ordenador que ejecuta Gentle Shell. Los enlaces y el `code` en línea que escribe el agente pueden abrir **servidores localhost** (`http://localhost:3000`) en un marco aislado (sandbox) retransmitido por el daemon, y los **archivos** que menciona el agente (rutas, enlaces `file://`) pueden recuperarse, verse en vista previa o descargarse en el dispositivo. Cada apertura o recuperación pide antes; los archivos se limitan al directorio de trabajo de la sesión y a las carpetas temporales de Companion de esa sesión; los archivos que se parecen a credenciales se omiten (best-effort). Puedes desactivar todo el puente en **Configuración → Puente**. Ver [Puente de Companion](#puente-de-companion).
 
 **Nuevo en 0.3.16:** El endurecimiento de compatibilidad con Gentle Shell 1.4.0 mantiene las sesiones activas durante el inicio y los reintentos automáticos, coloca en cola de forma segura las peticiones remotas durante ejecuciones ocupadas y evita que las respuestas de automatización canceladas o truncadas se reporten como exitosas. La cobertura de pruebas de regresión ahora incluye diálogos retransmitidos superpuestos. Los controles de desarrollo usan Gentle Shell 1.4.0. Los detalles de automatización rediseñados distinguen las ejecuciones manuales de las programaciones activas/pausadas y explican el manejo de fallas. Los enlaces de agente y los informes compartidos ofrecen vistas previas con sandbox de opt-in sin un controlador del navegador del host ni un proxy de URL.
 
@@ -238,31 +240,28 @@ La pérdida de red y los reinicios del daemon se reconectan automáticamente con
 
 ## Túnel Tailcat
 
-> **Experimental:** el túnel Tailcat es **experimental y todavía en implementación**. Está incluido detrás del conmutador de **Configuración → Túnel**, pero los binarios de Tailcat incluidos y el flujo de conexión desde el teléfono no están terminados y se revisan/arreglan en una sesión posterior. Úsalo a tu responsabilidad.
+> **Experimental:** el túnel Tailcat es experimental y todavía está en desarrollo. Está incluido detrás del conmutador de **Configuración → Túnel**, pero el lado del cliente no está terminado; úsalo a tu responsabilidad.
 
-Si tu área de trabajo no tiene una IP pública, habilita **Configuración → Túnel** para que el daemon ejecute un túnel Tailcat. El daemon expone el puerto de dispositivo activo a través del túnel y publica la corta dirección Tailcat en la interfaz.
+Si tu área de trabajo no tiene una IP pública, habilita **Configuración → Túnel** para que el daemon ejecute un túnel [Tailcat](https://tailscale.com/products/tailcat). El daemon expone la superficie de dispositivo a través de una dirección Tailcat (`tc…`) retransmitida vía DERP, así que los dispositivos pueden conectarse sin IP pública ni puertos de entrada.
 
 Cuando está habilitado, el daemon:
 
-- Inicia `tailcat serve <devicePort> --json` como proceso hijo.
-- Lee la dirección Tailcat desde la salida de texto estándar del servidor (`{"listenAddr":"tc..."}`).
-- Muestra la dirección en **Configuración → Túnel**, con un botón para copiar y un código QR.
-- Detiene el proceso del túnel al apagar el daemon.
-- Limpia la dirección guardada cuando se deshabilita el túnel.
+- Inicia `tailcat serve --json <port>` como proceso hijo, usando el binario de Tailcat incluido cuando no se encuentra uno local.
+- Lee la dirección Tailcat desde el JSON de la salida estándar del servidor (`{"listenAddr":"tc..."}`) y la guarda.
+- Muestra la dirección en **Configuración → Túnel**, con un botón para copiar y un código QR, más un indicador de estado en vivo: verde cuando el proceso del túnel está en ejecución, ámbar mientras arranca, rojo con el error del daemon cuando falla (por ejemplo, un binario ausente) y gris cuando está deshabilitado.
+- Reinicia el túnel cuando el daemon se reinicia con la opción habilitada.
+- Detiene el proceso del túnel y limpia la dirección guardada cuando el túnel se deshabilita.
 
-El puerto de dispositivo proviene de la dirección de dispositivo de Companion, `PI_COMPANION_DEVICE_ADDR`, cuyo valor por defecto es `127.0.0.1:43722`. El túnel expone ese puerto; no cambia el puerto de administración de Companion.
+El puerto expuesto es la configuración **Puerto del túnel**. Déjalo en 0 para usar el puerto de dispositivo del daemon (`PI_COMPANION_DEVICE_ADDR`, por defecto `127.0.0.1:43722`); cambiar el puerto con el túnel habilitado reinicia el túnel. El túnel no cambia el puerto de administración de Companion.
 
 La dirección Tailcat es sensible. Trátala como un código de asociación: otorga acceso a través del túnel, por lo que no la compartas públicamente ni la guardes en un repositorio.
 
-Si el daemon no puede encontrar el binario de `tailcat`, registra una advertencia, muestra un aviso de instalación por plataforma en la interfaz y no se detiene.
+Todavía no se ha enviado un cliente de teléfono o navegador que hable tailcat. Existe un puente web experimental en [`bridge/`](bridge/README.md): una página estática que carga la compilación WASM de tailcat, marca la dirección del túnel `tc…` del daemon y retransmite tráfico HTTP y WebSocket a través de él. Hasta que llegue un cliente de primera clase, la dirección también puede usarse desde clientes tailcat como OpenTailcat o pi-remote.
 
-El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego binarios incluidos. Los binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`) están previstos pero **no** están incluidos todavía en este PR experimental, así que instala Tailcat tú mismo:
+El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego el binario incluido para la plataforma actual. Se envían binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); en macOS el daemon usa el `tailcat` del sistema desde el PATH. Si no se encuentra ningún binario, el daemon muestra un aviso de instalación por plataforma y no se detiene:
 
-- **Linux**: descarga la release desde [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) y pon `tailcat` en PATH.
 - **macOS**: `brew install tailcat` (recomendado), o `go install github.com/tailscale/tailcat/cmd/tailcat@latest`, `nix profile install nixpkgs#tailcat`, `nix run github:tailscale/tailcat` o `pixi global install tailcat`.
-- **Windows**: descarga el zip de la release desde [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) y pon `tailcat.exe` en PATH.
-
-Un binario llamado `tailcat` en el directorio actual o en `bin/` tiene prioridad sobre cualquier binario incluido, así que puedes sobrescribir la versión localmente.
+- **Linux/Windows**: instala una release desde [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) y ponla en PATH para usar una versión distinta de la incluida.
 
 El túnel usa [Tailcat](https://tailscale.com/products/tailcat), que se encuentra bajo la **licencia BSD 3-Clause** (ver [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md)).
 

@@ -860,3 +860,90 @@ async fn remote_bind_addr_prefers_explicit_device_addr_and_lan_public_url() {
     let domain_bind = remote_bind_addr(&state_domain).await;
     assert!(domain_bind.starts_with("127.0.0.1:"), "domain public URL falls back to loopback: {domain_bind}");
 }
+
+// ------------------------------------------------------------- tailcat loopback mirror
+// `tailcat serve` always forwards tunneled connections to the SAME port on 127.0.0.1,
+// so when the tunnel is enabled and the device surface binds a LAN IP, the daemon must
+// also serve the same router on 127.0.0.1 at that port.
+
+/// An ephemeral loopback port that is not one of the daemon's own ports.
+async fn free_test_port() -> u16 {
+    loop {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        if !is_companion_port(port) {
+            drop(listener);
+            return port;
+        }
+    }
+}
+
+#[tokio::test]
+async fn tailcat_tunnel_serves_the_device_surface_on_loopback() {
+    let state = test_state();
+    state.settings.write().await.tailcat_enabled = true;
+    let port = free_test_port().await;
+    // A non-loopback primary bind, as remote_bind_addr produces for an IP public_url.
+    unsafe { std::env::set_var("PI_COMPANION_DEVICE_ADDR", format!("192.168.1.10:{port}")); }
+    start_tunnel_listener(&state).await;
+    unsafe { std::env::remove_var("PI_COMPANION_DEVICE_ADDR"); }
+    assert!(state.tunnel_listener.lock().await.is_some(), "loopback mirror listener started for a non-loopback primary bind");
+
+    // A request to 127.0.0.1:<device port> reaches the device surface.
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).await.expect("loopback mirror must be reachable");
+    stream.write_all(b"GET /api/context HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n").await.unwrap();
+    let mut buf = Vec::new();
+    stream.read_to_end(&mut buf).await.unwrap();
+    let text = String::from_utf8_lossy(&buf);
+    assert!(text.contains("200 OK"), "expected 200 from the device surface via loopback: {text}");
+    assert!(text.contains("\"remote\":true"), "the loopback mirror serves the device (remote) surface: {text}");
+
+    // Tearing the tunnel down also removes the loopback listener.
+    stop_tunnel_listener(&state).await;
+    assert!(state.tunnel_listener.lock().await.is_none(), "mirror listener handle cleared");
+    let refused = TcpStream::connect(("127.0.0.1", port)).await;
+    assert!(refused.is_err(), "the mirror listener must be closed after stop_tunnel_listener");
+}
+
+#[tokio::test]
+async fn tunnel_listener_is_skipped_when_the_primary_bind_is_already_loopback() {
+    let state = test_state();
+    state.settings.write().await.tailcat_enabled = true;
+    start_tunnel_listener(&state).await;
+    assert!(state.tunnel_listener.lock().await.is_none(), "no second listener when the device surface already listens on loopback");
+}
+
+#[tokio::test]
+async fn tunnel_listener_skips_a_taken_loopback_port_instead_of_failing() {
+    let state = test_state();
+    state.settings.write().await.tailcat_enabled = true;
+    let port = free_test_port().await;
+    let occupied = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+    unsafe { std::env::set_var("PI_COMPANION_DEVICE_ADDR", format!("192.168.1.10:{port}")); }
+    start_tunnel_listener(&state).await;
+    unsafe { std::env::remove_var("PI_COMPANION_DEVICE_ADDR"); }
+    assert!(state.tunnel_listener.lock().await.is_none(), "a taken loopback port is skipped with a log, not a failure");
+    drop(occupied);
+}
+
+#[test]
+fn tunnel_loopback_bind_mirrors_lan_binds_and_skips_loopback() {
+    assert_eq!(tunnel_loopback_bind("192.168.2.20:43722").as_deref(), Some("127.0.0.1:43722"));
+    assert_eq!(tunnel_loopback_bind("127.0.0.1:43722"), None, "primary already on loopback needs no mirror");
+    assert_eq!(tunnel_loopback_bind("::1:43722"), None, "IPv6 loopback needs no mirror");
+    assert_eq!(tunnel_loopback_bind("not-an-ip:43722"), None, "non-IP hosts are not mirrored");
+    assert_eq!(tunnel_loopback_bind("192.168.1.10"), None, "a bind without a port is not mirrored");
+}
+
+#[tokio::test]
+async fn remote_bind_addr_still_returns_the_lan_ip_for_an_ip_public_url() {
+    let state = AppState::new(
+        config::Persisted::default(),
+        scratch("bind-pin-tmp"),
+        scratch("bind-pin-data"),
+        Some("http://192.168.7.42:43722/".into()),
+        Vec::new(),
+    );
+    assert_eq!(remote_bind_addr(&state).await, "192.168.7.42:43722");
+}

@@ -8,10 +8,10 @@ use std::time::Duration;
 
 use tokio::io::AsyncBufReadExt;
 use tokio::process::Command;
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// Errors that can occur while managing the tailcat tunnel.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TailcatError {
     NotFound(String),
     Spawn(String),
@@ -89,19 +89,25 @@ impl TailcatManager {
         self.error.clear();
 
         let hint = tailcat_install_hint().to_string();
-        let tailcat_bin = find_tailcat_bin()
-            .ok_or_else(|| TailcatError::NotFound(hint))
-            ?;
+        let tailcat_bin = find_tailcat_bin().ok_or_else(|| {
+            let error = TailcatError::NotFound(hint);
+            self.error = error.to_string();
+            error
+        })?;
 
         debug!(tailcat_bin = ?tailcat_bin, "starting tailcat server");
 
         let mut output = Command::new(&tailcat_bin)
-            .args(["serve", &port.to_string(), "--json"])
+            .args(["serve", "--json", &port.to_string()])
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::inherit())
             .spawn()
-            .map_err(|e| TailcatError::Spawn(e.to_string()))?;
+            .map_err(|e| {
+                let error = TailcatError::Spawn(e.to_string());
+                self.error = error.to_string();
+                error
+            })?;
 
         // Read the JSON address from stdout.
         let stdout = output.stdout.take().unwrap();
@@ -143,7 +149,7 @@ impl TailcatManager {
                     let _ = output.kill().await;
                     let _ = output.wait().await;
                     self.error = err.to_string();
-                    debug!(error = ?err, "tailcat server failed to start");
+                    warn!(error = ?err, "tailcat server failed to start: address was never read");
                     Err(err)
                 }
             },
@@ -152,7 +158,7 @@ impl TailcatManager {
                 let _ = output.kill().await;
                 let _ = output.wait().await;
                 self.error = TailcatError::AddressTimeout.to_string();
-                debug!("tailcat server failed to start: timeout waiting for address");
+                warn!("tailcat server failed to start: timeout waiting for tailcat address");
                 Err(TailcatError::AddressTimeout)
             },
         }
@@ -272,6 +278,24 @@ fn find_tailcat_bin() -> Option<String> {
         candidates.push(cwd.join("server").join("tailcat"));
     }
 
+    // If the daemon binary is not started from the repository root, also look for
+    // the bundled binary near the executable. This covers installed or shipped builds
+    // where the working directory is unrelated to the source tree.
+    if let Some(name) = bundled_tailcat_name() {
+        for candidate in bundled_tailcat_candidates_from_executable(name) {
+            candidates.push(candidate);
+        }
+    }
+
+    // If the daemon binary is not started from the repository root, also look for
+    // the bundled binary near the executable. This covers installed or shipped builds
+    // where the working directory is unrelated to the source tree.
+    if let Some(name) = bundled_tailcat_name() {
+        for candidate in bundled_tailcat_candidates_from_executable(name) {
+            candidates.push(candidate);
+        }
+    }
+
     // Common system locations (Unix only).
     #[cfg(unix)]
     {
@@ -291,4 +315,24 @@ fn find_tailcat_bin() -> Option<String> {
         }
     }
     None
+}
+
+/// Bundled binary candidates found by walking up from the daemon executable.
+fn bundled_tailcat_candidates_from_executable(bin_name: &'static str) -> Vec<std::path::PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        let mut base = match exe.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => return candidates,
+        };
+        for _ in 0..=6 {
+            candidates.push(base.join("vendor").join("tailcat").join(bin_name));
+            candidates.push(base.join("server").join("vendor").join("tailcat").join(bin_name));
+            base = match base.parent() {
+                Some(parent) => parent.to_path_buf(),
+                None => break,
+            };
+        }
+    }
+    candidates
 }
