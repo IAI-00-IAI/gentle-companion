@@ -17,14 +17,13 @@ superficie de dispositivos emparejados.
 - Un daemon en ejecución con **Configuración → Túnel** activado, de modo
   que muestre una dirección `tc…` de tailcat (visible en
   **Configuración → Túnel**, con un botón de copiar y un código QR).
-- La distribución WASM de vendor (ver abajo), porque el cliente de
-  navegador tailcat no está commiteado en este repositorio.
+- La distribución WASM de vendor (ver abajo), que se incluye en este repositorio.
 
 ## Compilar la distribución vendor
 
 La página necesita los artefactos WASM precompilados de tailcat en
 `bridge/vendor/`: `main.wasm`, `main.wasm.gz` y `wasm_exec.js`
-(~35 MB, gitignored). Se compilan desde el repositorio tailcat; ver
+(~35 MB, ahora incluidos en el repositorio). Se compilan desde el repositorio tailcat; ver
 [vendor/README_es-ES.md](vendor/README_es-ES.md) para los comandos exactos.
 
 ## Alojar la página

@@ -17,13 +17,12 @@ surface uses.
 - A running daemon with **Settings → Tunnel** enabled, so it prints a
   `tc…` tailcat address (shown in **Settings → Tunnel**, with a copy
   button and a QR code).
-- The vendor WASM distribution (see below), because the tailcat browser
-  client is not committed to this repository.
+- The vendor WASM distribution (see below), which ships in this repository.
 
 ## Building the vendor distribution
 
 The page needs the prebuilt tailcat WASM artifacts in `bridge/vendor/`:
-`main.wasm`, `main.wasm.gz` and `wasm_exec.js` (~35 MB, gitignored).
+`main.wasm`, `main.wasm.gz` and `wasm_exec.js` (~35 MB, committed to the repository now).
 They are built from the tailcat repository; see
 [vendor/README.md](vendor/README.md) / [es-ES](vendor/README_es-ES.md) for the exact build commands.
 
