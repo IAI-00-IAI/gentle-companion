@@ -25,7 +25,7 @@ superficie de dispositivos emparejados.
 La página necesita los artefactos WASM precompilados de tailcat en
 `bridge/vendor/`: `main.wasm`, `main.wasm.gz` y `wasm_exec.js`
 (~35 MB, gitignored). Se compilan desde el repositorio tailcat; ver
-[vendor/README.md](vendor/README.md) para los comandos exactos.
+[vendor/README_es-ES.md](vendor/README_es-ES.md) para los comandos exactos.
 
 ## Alojar la página
 

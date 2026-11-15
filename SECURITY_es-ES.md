@@ -36,12 +36,12 @@ Las respuestas HTML mantienen los scripts, estilos, fuentes y conexiones de la a
 
 Los enlaces de agente abren una confirmación de vista previa, no un navegador del host. Solo se aceptan URLs HTTPS absolutas con nombres DNS de aspecto público para las vistas previas de sitios web; se rechazan credenciales, IP literales, nombres locales/reservados y el origen de Companion. Las vistas previas se muestran como instantáneas estáticas en un `srcdoc` con sandbox (scripts, red, formularios y navegación desactivados). Companion nunca copia su credencial de dispositivo emparejado en URLs de marco ni en documentos.
 
-### Companion bridge
+### Puente de Companion
 
 El puente permite a un dispositivo emparejado (o a la consola local) usar servidores localhost y archivos que el agente menciona. Está cerrado con llave varias veces: verificación de mención (la referencia debe aparecer en lo que la sesión produjo), comprobaciones de Origin estrictas, y revocación atómica de tokens. Las respuestas del proxy llevan `Content-Security-Policy: sandbox allow-scripts allow-forms allow-modals; frame-ancestors 'self'`, y las páginas enmarcadas no pueden leer el almacenamiento de Companion ni su credencial de dispositivo. `Cookie` y `Referer` no se reenvían upstream; las redirecciones se reescriben para permanecer dentro del puente. WebSockets y Web Workers no están soportados.
 
 Los archivos recuperados deben ser archivos regulares dentro del límite de tamaño de subida y la lista de MIME permitida. Las ubicaciones habituales de credenciales (`.git`, `.ssh`, `.gnupg`, `.aws`, `.kube`, `.azure`, `.docker`, `.config/{gcloud,gh,git}`, `.env*`, `.netrc`, `.npmrc`, `.pypirc`, archivos de historial de shell, nombres de claves SSH, `*.pem|*.key|*.p12|*.pfx|*.kdbx|*.keystore|*.jks|*.tfstate|*.tfvars` y el propio directorio de datos del daemon) se omiten como red de seguridad best-effort. La copia se abre sin seguir un enlace simbólico final, el handle abierto se revalida contra la ruta canónica (mismo inode, ámbito y credencial), y la copia lee de ese handle con un presupuesto estricto de bytes.
 
-### Pi bridge
+### Puente de Pi
 
 Cada proceso Pi mantiene un WebSocket saliente hacia el daemon. El navegador no puede invocar herramientas de extensión arbitrarias. El conjunto de comandos permitidos es un protocolo cerrado.

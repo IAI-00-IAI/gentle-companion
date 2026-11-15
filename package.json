@@ -32,8 +32,9 @@
     "src",
     "skills",
     "docs/automations.md",
+    "docs/automations_es-ES.md",
     "README.md",
-    "README.es.md",
+    "README_es-ES.md",
     "SECURITY.md",
     "LICENSE",
     "LICENSE-MIT"

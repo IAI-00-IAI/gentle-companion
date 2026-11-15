@@ -2,11 +2,11 @@
 
 Lightweight, local-first remote control for Gentle Shell sessions.
 
-> Fork of [pi-companion](https://github.com/ygrip/pi-companion), adapted for Gentle Shell. This repository lives at [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion). [Leer en español](README.es.md)
+> Fork of [pi-companion](https://github.com/ygrip/pi-companion), adapted for Gentle Shell. This repository lives at [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion). [Leer en español](README_es-ES.md)
 
 [![Watch the Gentle Companion walkthrough (2 min)](docs/pi-companion-promo.webp)](docs/pi-companion-promo.mp4)
 
-[Leer en español](README.es.md)
+[Leer en español](README_es-ES.md)
 
 **[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Gentle Shell session shared with `/remote-control`, a phone paired from the dashboard, Gentle Shell's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
 
@@ -32,7 +32,7 @@ When a session is shared, Companion fetches OpenAI Codex and Anthropic subscript
 
 Filename search is case-insensitive. New browser uploads are marked **You**; local agent uploads can declare **Agent** by posting to `/api/sessions/{session_id}/files?source=agent`. This query is honored only on the local admin endpoint; remote uploads always remain user uploads. Older files without provenance show **Unknown**. Source badges describe upload provenance, not file-content authorship.
 
-**New in 0.3.2:** responsive automation and run-history tables, rounded status chips, matching clay-icon headers, and a single-column automation workspace with full-width mobile controls. **Edit automation** scrolls to and focuses the inline editor. Pull to refresh Overview, Sessions, Automations, or Settings—with a gesture; unsaved settings stay intact. Camera-policy guidance now explains HTTPS proxy configuration. Existing rich results, staged job editing, optional retries, and answers-only automation sessions are retained. See [automations](docs/automations.md) / [es](docs/automations.es.md).
+**New in 0.3.2:** responsive automation and run-history tables, rounded status chips, matching clay-icon headers, and a single-column automation workspace with full-width mobile controls. **Edit automation** scrolls to and focuses the inline editor. Pull to refresh Overview, Sessions, Automations, or Settings—with a gesture; unsaved settings stay intact. Camera-policy guidance now explains HTTPS proxy configuration. Existing rich results, staged job editing, optional retries, and answers-only automation sessions are retained. See [automations](docs/automations.md) / [es-ES](docs/automations_es-ES.md).
 
 Gentle Companion is deliberately not another agent runtime. Gentle Shell owns execution and conversation state. A single Rust daemon owns session discovery, pairing, temporary file exchange, browser fan-out, and the embedded web UI.
 

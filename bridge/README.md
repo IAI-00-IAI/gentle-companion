@@ -25,7 +25,7 @@ surface uses.
 The page needs the prebuilt tailcat WASM artifacts in `bridge/vendor/`:
 `main.wasm`, `main.wasm.gz` and `wasm_exec.js` (~35 MB, gitignored).
 They are built from the tailcat repository; see
-[vendor/README.md](vendor/README.md) for the exact build commands.
+[vendor/README.md](vendor/README.md) / [es-ES](vendor/README_es-ES.md) for the exact build commands.
 
 ## Hosting the page
 

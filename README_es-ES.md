@@ -10,7 +10,7 @@ Control remoto ligero, centrado en lo local, para sesiones de Gentle Shell.
 
 **[Mira el recorrido narrado de 2 minutos](docs/pi-companion-promo.mp4)**: una sesión real de Gentle Shell compartida con `/remote-control`, un teléfono asociado desde el panel, las preguntas de Gentle Shell respondidas desde el teléfono, y una automatización creada, disparada y revisada. Está grabada desde el terminal y la interfaz reales y compuesta mediante código en [`tools/promo-video`](tools/promo-video).
 
-**Nuevo en 0.5.0:** un **puente web tailcat** experimental (`bridge/`) permite que un navegador de teléfono alcance el daemon a través de un túnel tailcat usando el cliente WASM de tailcat, así un dispositivo se conecta sin compartir una LAN. El daemon ahora también sirve su superficie de dispositivo en un espejo loopback mientras el túnel está activo, porque `tailcat serve` siempre reenvía a loopback. Ver [bridge/README.md](bridge/README.md).
+**Nuevo en 0.5.0:** un **puente web tailcat** experimental (`bridge/`) permite que un navegador de teléfono alcance el daemon a través de un túnel tailcat usando el cliente WASM de tailcat, así un dispositivo se conecta sin compartir una LAN. El daemon ahora también sirve su superficie de dispositivo en un espejo loopback mientras el túnel está activo, porque `tailcat serve` siempre reenvía a loopback. Ver [bridge/README_es-ES.md](bridge/README_es-ES.md).
 
 **En 0.4.3:** Companion pasó a ser un puente hacia el ordenador que ejecuta Gentle Shell. Los enlaces y el `code` en línea que escribe el agente pueden abrir **servidores localhost** (`http://localhost:3000`) en un marco aislado (sandbox) retransmitido por el daemon, y los **archivos** que menciona el agente (rutas, enlaces `file://`) pueden recuperarse, verse en vista previa o descargarse en el dispositivo. Cada apertura o recuperación pide antes; los archivos se limitan al directorio de trabajo de la sesión y a las carpetas temporales de Companion de esa sesión; los archivos que se parecen a credenciales se omiten (best-effort). Puedes desactivar todo el puente en **Configuración → Puente**. Ver [Puente de Companion](#puente-de-companion).
 
@@ -32,7 +32,7 @@ Cuando una sesión se comparte, Companion obtiene el uso de las suscripciones de
 
 La búsqueda por nombre de archivo no distingue mayúsculas de minúsculas. Las nuevas subidas del navegador se marcan como **Tú**; las subidas locales del agente pueden declarar **Agente** enviando una petición POST a `/api/sessions/{session_id}/files?source=agent`. Esta consulta se honra solo en el punto de administración local; las subidas remotas siempre permanecen como subidas de usuario. Los archivos más antiguos sin origen se muestran como **Desconocido**. Las insignias de origen describen el origen de la subida, no la autoría del contenido del archivo.
 
-**Nuevo en 0.3.2:** tablas de automatizaciones y de historial de ejecución responsivas, insignias de estado con esquinas redondeadas, encabezados con iconos de clay que coinciden, y un área de trabajo de automatización de una sola columna con controles de ancho completo para móvil. **Editar automatización** hace desplazamiento hasta el editor en línea y lo enfoca. Arrastra para actualizar General, Sesiones, Automatizaciones o Configuración, con un gesto; los ajustes no guardados permanecen intactos. La guía de la política de cámara ahora explica la configuración del proxy HTTPS. Se conservan los resultados enriquecidos existentes, la edición de trabajos en etapa, los reintentos opcionales y las sesiones de automatización solo de respuestas. Ver [automatizaciones](docs/automations.md) / [es](docs/automations.es.md).
+**Nuevo en 0.3.2:** tablas de automatizaciones y de historial de ejecución responsivas, insignias de estado con esquinas redondeadas, encabezados con iconos de clay que coinciden, y un área de trabajo de automatización de una sola columna con controles de ancho completo para móvil. **Editar automatización** hace desplazamiento hasta el editor en línea y lo enfoca. Arrastra para actualizar General, Sesiones, Automatizaciones o Configuración, con un gesto; los ajustes no guardados permanecen intactos. La guía de la política de cámara ahora explica la configuración del proxy HTTPS. Se conservan los resultados enriquecidos existentes, la edición de trabajos en etapa, los reintentos opcionales y las sesiones de automatización solo de respuestas. Ver [automatizaciones](docs/automations.md) / [es-ES](docs/automations_es-ES.md).
 
 Gentle Companion no es deliberadamente otro runtime de agente. Gentle Shell es dueño de la ejecución y del estado de la conversación. Un único daemon escrito en Rust se encarga de detectar sesiones, la asociación de dispositivos, el intercambio de archivos temporales, la difusión a navegadores (fan-out) y la interfaz web integrada.
 
@@ -258,14 +258,14 @@ El puerto expuesto es la configuración **Puerto del túnel**. Déjalo en 0 para
 
 La dirección Tailcat es sensible. Trátala como un código de asociación: otorga acceso a través del túnel, por lo que no la compartas públicamente ni la guardes en un repositorio.
 
-Todavía no se ha enviado un cliente de teléfono o navegador que hable tailcat. Existe un puente web experimental en [`bridge/`](bridge/README.md): una página estática que carga la compilación WASM de tailcat, marca la dirección del túnel `tc…` del daemon y retransmite tráfico HTTP y WebSocket a través de él. Hasta que llegue un cliente de primera clase, la dirección también puede usarse desde clientes tailcat como OpenTailcat o pi-remote.
+Todavía no se ha enviado un cliente de teléfono o navegador que hable tailcat. Existe un puente web experimental en [`bridge/`](bridge/README_es-ES.md): una página estática que carga la compilación WASM de tailcat, marca la dirección del túnel `tc…` del daemon y retransmite tráfico HTTP y WebSocket a través de él. Hasta que llegue un cliente de primera clase, la dirección también puede usarse desde clientes tailcat como OpenTailcat o pi-remote.
 
 El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego el binario incluido para la plataforma actual. Se envían binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); en macOS el daemon usa el `tailcat` del sistema desde el PATH. Si no se encuentra ningún binario, el daemon muestra un aviso de instalación por plataforma y no se detiene:
 
 - **macOS**: `brew install tailcat` (recomendado), o `go install github.com/tailscale/tailcat/cmd/tailcat@latest`, `nix profile install nixpkgs#tailcat`, `nix run github:tailscale/tailcat` o `pixi global install tailcat`.
 - **Linux/Windows**: instala una release desde [https://github.com/tailscale/tailcat/releases](https://github.com/tailscale/tailcat/releases) y ponla en PATH para usar una versión distinta de la incluida.
 
-El túnel usa [Tailcat](https://tailscale.com/products/tailcat), que se encuentra bajo la **licencia BSD 3-Clause** (ver [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md)).
+El túnel usa [Tailcat](https://tailscale.com/products/tailcat), que se encuentra bajo la **licencia BSD 3-Clause** (ver [THIRD-PARTY-LICENSES_es-ES.md](THIRD-PARTY-LICENSES_es-ES.md)).
 
 ## Metadatos y uso de la sesión
 
@@ -345,7 +345,7 @@ Selecciona un enlace en una respuesta del agente o en la salida de automatizaci�
 
 En **Archivos compartidos**, elige **Vista previa** para una subida registrada. Los archivos de hasta 2 MiB pueden mostrarse como imágenes raster seguras, texto escapado o una captura HTML estática. Los scripts, la navegación y los activos externos de HTML se deshabilitan; las páginas que dependen de JavaScript necesitan el archivo original fuera de Companion. Los archivos no soportados o más grandes siguen siendo descargables.
 
-Para compartir un informe local generado, el agente debe primero subir el archivo elegido a través de la API de subida de administración local existente (`POST /api/sessions/{session_id}/files?source=agent`, campo multipart `file`). El agente luego puede enlazar su nombre de archivo compartido único, la ruta del sandbox devuelta o la URL de descarga de la sesión. Companion resuelve estas referencias a una ID de archivo opaca existente; nunca lee una ruta del sistema de archivos no compartida. La vista previa no inicia, transmite ni controla el navegador del host. Ver [Modelo de seguridad](SECURITY.md#web-ui-hardening) para los límites de aislamiento y privacidad.
+Para compartir un informe local generado, el agente debe primero subir el archivo elegido a través de la API de subida de administración local existente (`POST /api/sessions/{session_id}/files?source=agent`, campo multipart `file`). El agente luego puede enlazar su nombre de archivo compartido único, la ruta del sandbox devuelta o la URL de descarga de la sesión. Companion resuelve estas referencias a una ID de archivo opaca existente; nunca lee una ruta del sistema de archivos no compartida. La vista previa no inicia, transmite ni controla el navegador del host. Ver [Modelo de seguridad](SECURITY_es-ES.md#interfaz-web-endurecida) para los límites de aislamiento y privacidad.
 
 ### Puente de Companion
 
@@ -364,7 +364,7 @@ Límites, todos aplicados por el daemon, no por la interfaz:
 - Las páginas proxyadas se ejecutan en un origen opaco: no se retransmiten cookies y los WebSockets no se proxyan. Las URLs raíz-relativas y las URLs absolutas al puerto puenteado (`http://localhost:3000/app.js` en `src`/`href`/`url()`/`@import`) se reescriben en HTML, CSS y JS; `fetch`/`Request`, XHR, `EventSource` y `sendBeacon` se redirigen en tiempo de ejecución. Esto es best-effort (`srcset` y las URLs construidas en script no están cubiertas). Los WebSockets (incluidos los sockets HMR) y los Web Workers no están soportados: el marco aislado tiene un origen opaco, por lo que los servidores de desarrollo con recarga caliente pueden renderizarse pero no actualizarse en vivo.
 - Las sesiones de automatización no pueden usar el puente.
 
-Ver [Modelo de seguridad](SECURITY.md#companion-bridge).
+Ver [Modelo de seguridad](SECURITY_es-ES.md#puente-de-companion).
 
 ### Acceso a la cámara a través de Cloudflare u otro proxy HTTPS
 
@@ -589,4 +589,4 @@ El diseño sigue algunas reglas innegociables:
 
 Este fork se distribuye bajo la GNU Affero General Public License, versión 3.0, tal como se especifica en [LICENSE](LICENSE). El código heredado del proyecto original [pi-companion](https://github.com/ygrip/pi-companion) se proporciona bajo su licencia MIT; los archivos originales conservan sus avisos de licencia, y el texto original de la licencia se conserva en [LICENSE-MIT](LICENSE-MIT).
 
-La función opcional de túnel usa [Tailcat](https://tailscale.com/products/tailcat), que se encuentra bajo la **licencia BSD 3-Clause**; el texto completo está disponible en [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md).
+La función opcional de túnel usa [Tailcat](https://tailscale.com/products/tailcat), que se encuentra bajo la **licencia BSD 3-Clause**; el texto completo está disponible en [THIRD-PARTY-LICENSES_es-ES.md](THIRD-PARTY-LICENSES_es-ES.md).
