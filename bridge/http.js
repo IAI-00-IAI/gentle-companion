@@ -194,8 +194,11 @@ export async function bridgeFetch(addr, port, method, path, body) {
   const conn = await dial(addr, port);
   try {
     const parser = createResponseParser();
-    conn.write(encodeRequest(method, path, body));
-    conn.closeWrite(); // half-close: the request is complete
+    // Await the write before half-closing: tailcat's WASM conn runs write and
+    // closeWrite on independent goroutines, so an un-awaited write lets the FIN
+    // overtake the request bytes and the daemon sees an empty stream.
+    await conn.write(encodeRequest(method, path, body));
+    await conn.closeWrite(); // half-close: the request is complete
     for (;;) {
       const chunk = await conn.read();
       if (chunk === null) {

@@ -485,6 +485,63 @@ async function main() {
     await closeServer(server);
   }
 
+  // --- integration: close frame is flushed before the half-close ---
+  // Reproduces the tunnel failure "connection closed before response
+  // headers were complete": the tailcat WASM conn runs write() and
+  // closeWrite() on independent goroutines, so calling closeWrite() before
+  // the write's promise resolves sends the FIN before the payload bytes
+  // and the peer sees an empty stream. The shim must await the write
+  // before half-closing.
+  {
+    const log = [];
+    const writes = [];
+    let pendingWrite = Promise.resolve();
+    let reads = 0;
+    // Scripted conn: handshake succeeds on first read, then blocks; write
+    // resolves on a later macrotask (like the WASM goroutine), closeWrite
+    // logs a FIN the moment it is called.
+    const conn = {
+      port: 43722,
+      write(bytes) {
+        const copy = Uint8Array.from(bytes);
+        pendingWrite = pendingWrite.then(() => new Promise((res) => setTimeout(() => {
+          writes.push(copy);
+          log.push({ type: "data", bytes: copy });
+          res();
+        }, 0)));
+        return pendingWrite;
+      },
+      closeWrite() {
+        log.push({ type: "fin" });
+        return Promise.resolve();
+      },
+      close() { log.push({ type: "close" }); },
+      read: async () => {
+        if (reads++ === 0) {
+          await pendingWrite;
+          const req = decodeUtf8(writes[0]);
+          const key = /Sec-WebSocket-Key: (\S+)/.exec(req)[1];
+          return utf8(
+            "HTTP/1.1 101 Switching Protocols\r\n" +
+            "Upgrade: websocket\r\n" +
+            "Connection: Upgrade\r\n" +
+            `Sec-WebSocket-Accept: ${computeAccept(key)}\r\n` +
+            "Sec-WebSocket-Protocol: pi-companion\r\n\r\n");
+        }
+        return new Promise(() => {}); // pump blocks; no handle, exits cleanly
+      },
+    };
+    const ws = new TunnelWebSocket(conn, "/ws/browser", { protocols: ["pi-companion"] });
+    check("close ordering: handshake reaches OPEN", await waitFor(() => ws.readyState === 1));
+    ws.close(1000, "bye");
+    await new Promise((r) => setTimeout(r, 50));
+    const finIdx = log.findIndex((e) => e.type === "fin");
+    const closeFrameIdx = log.findIndex((e) => e.type === "data" && e.bytes[0] === 0x88);
+    check("close ordering: close frame flushed before half-close",
+      closeFrameIdx !== -1 && finIdx > closeFrameIdx,
+      log.map((e) => e.type + (e.type === "data" ? ` op=0x${e.bytes[0].toString(16)}` : "")));
+  }
+
   console.log(failures === 0 ? "\nall tests passed" : `\n${failures} test(s) failed`);
   // Exit via exitCode and let the event loop drain: process.exit() would
   // truncate the pending async stdout write above when output is piped.

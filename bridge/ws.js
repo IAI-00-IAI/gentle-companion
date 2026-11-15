@@ -272,7 +272,7 @@ export class TunnelWebSocket {
   // close starts the closing handshake. While OPEN it sends a close frame
   // and half-closes the stream; the peer's close echo (or EOF) completes
   // it. While still CONNECTING it simply drops the stream.
-  close(code = 1000, reason = "") {
+  async close(code = 1000, reason = "") {
     if (this.readyState === TunnelWebSocket.OPEN) {
       const reasonBytes = utf8(reason);
       const payload = new Uint8Array(2 + reasonBytes.length);
@@ -281,8 +281,12 @@ export class TunnelWebSocket {
       this.#sentClose = true;
       this.readyState = TunnelWebSocket.CLOSING;
       try {
-        this.#conn.write(encodeFrame(OP_CLOSE, payload));
-        this.#conn.closeWrite();
+        // The tailcat WASM conn runs write() and closeWrite() on
+        // independent goroutines: closeWrite() called before the write's
+        // promise resolves can deliver the FIN before the frame bytes,
+        // so the peer sees an empty stream. Await the write first.
+        await this.#conn.write(encodeFrame(OP_CLOSE, payload));
+        await this.#conn.closeWrite();
       } catch {}
     } else if (this.readyState === TunnelWebSocket.CONNECTING) {
       this.#sentClose = true;
@@ -452,7 +456,7 @@ export class TunnelWebSocket {
     }
   }
 
-  #handleClose(frame) {
+  async #handleClose(frame) {
     let code = 1005;
     let reason = "";
     if (frame.payload.length >= 2) {
@@ -465,8 +469,11 @@ export class TunnelWebSocket {
       // Echo the close frame, then half-close so the peer sees EOF.
       this.#sentClose = true;
       try {
-        this.#conn.write(encodeFrame(OP_CLOSE, frame.payload));
-        this.#conn.closeWrite();
+        // Await the write before closeWrite(): see the ordering note in
+        // close() — the WASM conn's closeWrite can otherwise beat the
+        // frame bytes onto the wire.
+        await this.#conn.write(encodeFrame(OP_CLOSE, frame.payload));
+        await this.#conn.closeWrite();
       } catch {}
     }
     this.#fireClose({ code, reason, wasClean: true });
