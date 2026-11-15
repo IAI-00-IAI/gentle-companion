@@ -6,6 +6,8 @@ Lightweight, local-first remote control for Gentle Shell sessions.
 
 [![Watch the Gentle Companion walkthrough (2 min)](docs/pi-companion-promo.webp)](docs/pi-companion-promo.mp4)
 
+[Leer en español](README.es.md)
+
 **[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Gentle Shell session shared with `/remote-control`, a phone paired from the dashboard, Gentle Shell's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
 
 **New in 0.5.0:** an experimental **tailcat web bridge** (`bridge/`) lets a phone browser reach the daemon through a tailcat tunnel using tailcat's WASM client, so a device can connect without sharing a LAN. The daemon now also serves its device surface on a loopback mirror while the tunnel is enabled, because `tailcat serve` always forwards to loopback. See [bridge/README.md](bridge/README.md).

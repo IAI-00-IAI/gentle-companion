@@ -4,6 +4,8 @@ Control remoto ligero, centrado en lo local, para sesiones de Gentle Shell.
 
 > Fork de [pi-companion](https://github.com/ygrip/pi-companion), adaptado para Gentle Shell. Este repositorio se encuentra en [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion).
 
+[Leer en inglés](README.md)
+
 [![Mira el recorrido de Gentle Companion (2 min)](docs/pi-companion-promo.webp)](docs/pi-companion-promo.mp4)
 
 **[Mira el recorrido narrado de 2 minutos](docs/pi-companion-promo.mp4)**: una sesión real de Gentle Shell compartida con `/remote-control`, un teléfono asociado desde el panel, las preguntas de Gentle Shell respondidas desde el teléfono, y una automatización creada, disparada y revisada. Está grabada desde el terminal y la interfaz reales y compuesta mediante código en [`tools/promo-video`](tools/promo-video).
