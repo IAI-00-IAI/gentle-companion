@@ -166,3 +166,8 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   fallo; unavailable() la olvida para re-evaluar al moverse entre redes.
   E2E: direct probe -> true, context ok, notice null. Suites: 402/402,
   ui:check limpio.
+- L13 (user report, parent): el panel "workspace connection interrupted"
+  cubría la pantalla del teléfono durante los reintentos (la página
+  detrás funcionaba). Fix: notice colapsable por defecto (franja fina
+  con chevron, tap para expandir), auto-colapsa al recuperar conexión,
+  role=alert conservado. Suites: 402/402, ui:check limpio.
