@@ -130,3 +130,22 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   boot de la UI lo alimenta al indicador. Verificado: remote context
   devuelve running:true; cargo 145, test:extension 401, ui:check
   limpio; web-dist reconstruido. Commit 324a397.
+- L10 (debug round, parent): la sesión del teléfono en bucle "Cannot reach
+  your workspace" — cadena causal resuelta con registro sistemático
+  (diagnostics.ts + botón Copiar diagnóstico, pedido del usuario):
+  (a) CSP bloqueaba instantiateStreaming → 'wasm-unsafe-eval';
+  (b) transport sin header Origin → daemon rechazaba POST (claim);
+  (c) bridgeFetch con closeWrite inmediato → el relay DERP perdía bytes
+  (medido 2/10 GET, 3/3 POST) → sin half-close, el daemon delimita con
+  connection:close;
+  (d) dialer global único pisado por requests concurrentes → dial
+  explícito por request (7º arg de bridgeFetch, retrocompatible);
+  (e) RAÍZ: el parser de http.js NUNCA acumulaba el body entre chunks
+  cuando había Content-Length → toda respuesta >1 chunk fallaba con
+  'after 1050 of 22929' (determinístico). Fix: plegar buf en body antes
+  del check. Latente desde siempre: todos los tests previos usaban
+  respuestas de un solo chunk (/api/context = 197B).
+  (f) timeout de túnel 30s (dial DERP 0.5-6s vs 10s LAN).
+  Verificado E2E: pair → landing → estable, notice=null, 1 ciclo WS.
+  Suites: http_test 42, ws_test ok, cargo 145, test:extension 402.
+  Commits 29182b7 + 07ea52b. Slice: 2139 líneas / 14 commits.
