@@ -29,15 +29,20 @@ function concatBytes(dst, src) {
 // HTTP/1.1 bytes ready to write on a tunneled conn. A plain string body is
 // sent as-is; any other non-null body is JSON-encoded. When a body is
 // present, Content-Type: application/json and Content-Length are included.
-// The Host header is a placeholder: the daemon serves the API regardless of
-// host, and the tunnel carries no virtual-host routing.
-export function encodeRequest(method, path, body) {
+// headers (optional) adds extra request headers (e.g. Authorization for the
+// daemon's device surface); keys are emitted as given, first letter uppercased
+// like the fixed headers. The Host header is a placeholder: the daemon serves
+// the API regardless of host, and the tunnel carries no virtual-host routing.
+export function encodeRequest(method, path, body, headers) {
   const lines = [
     `${method.toUpperCase()} ${path} HTTP/1.1`,
     "Host: companion.device",
     "Connection: close",
     "Accept: */*",
   ];
+  for (const [name, value] of Object.entries(headers ?? {})) {
+    lines.push(`${name.replace(/(^|-)(\w)/g, (_, sep, ch) => sep + ch.toUpperCase())}: ${value}`);
+  }
   let bodyBytes = null;
   if (body !== undefined && body !== null) {
     bodyBytes = typeof body === "string" ? utf8(body) : utf8(JSON.stringify(body));
@@ -181,12 +186,13 @@ function currentDialer() {
   return null;
 }
 
-// bridgeFetch(addr, port, method, path, body) dials a stream through the
+// bridgeFetch(addr, port, method, path, body, headers) dials a stream through the
 // tailcat tunnel (via the injected dialer, see setBridgeDialer / window.bridge.dial), sends one HTTP/1.1 request, and
 // resolves to { status, statusText, headers, bodyText, bodyJson() }.
 // A plain string body is sent as-is; any other non-null body is JSON-encoded.
-// The stream is always closed before returning.
-export async function bridgeFetch(addr, port, method, path, body) {
+// headers (optional) adds extra request headers, e.g. the device token's
+// Authorization line. The stream is always closed before returning.
+export async function bridgeFetch(addr, port, method, path, body, headers) {
   const dial = currentDialer();
   if (!dial) {
     throw new Error("no bridge dialer available");
@@ -197,7 +203,7 @@ export async function bridgeFetch(addr, port, method, path, body) {
     // Await the write before half-closing: tailcat's WASM conn runs write and
     // closeWrite on independent goroutines, so an un-awaited write lets the FIN
     // overtake the request bytes and the daemon sees an empty stream.
-    await conn.write(encodeRequest(method, path, body));
+    await conn.write(encodeRequest(method, path, body, headers));
     await conn.closeWrite(); // half-close: the request is complete
     for (;;) {
       const chunk = await conn.read();
@@ -209,12 +215,12 @@ export async function bridgeFetch(addr, port, method, path, body) {
         break;
       }
     }
-    const { status, statusText, headers, body: bodyBytes } = parser.result();
+    const { status, statusText, headers: responseHeaders, body: bodyBytes } = parser.result();
     const bodyText = new TextDecoder().decode(bodyBytes);
     return {
       status,
       statusText,
-      headers,
+      headers: responseHeaders,
       bodyText,
       bodyJson() {
         return JSON.parse(bodyText);

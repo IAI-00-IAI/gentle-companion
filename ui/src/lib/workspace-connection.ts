@@ -15,12 +15,23 @@ export function unreachableMessage(online = typeof navigator === 'undefined' || 
     : 'Your device is offline. Connect to the internet to reach your workspace.';
 }
 
+/**
+ * Alternative transport for workspaceRequest: performs one request and resolves to a
+ * Response. The tunnel mode (tailcat-transport.ts) injects one so requests ride the
+ * tailcat tunnel; when omitted, workspaceRequest uses plain fetch exactly as before.
+ * responseType is passed so a transport can refuse shapes it cannot carry (e.g. binary
+ * downloads over the tunnel shim).
+ */
+export type RequestTransport = (path: string, init: RequestInit, responseType: 'json' | 'blob') => Promise<Response>;
+
 /** Never expose a reverse proxy's HTML error page as an API error or JSON parse error. */
-export async function workspaceRequest<T>(path: string, init: RequestInit = {}, timeoutMs = 10_000, responseType: 'json' | 'blob' = 'json'): Promise<T> {
+export async function workspaceRequest<T>(path: string, init: RequestInit = {}, timeoutMs = 10_000, responseType: 'json' | 'blob' = 'json', transport?: RequestTransport): Promise<T> {
   const deadline = AbortSignal.timeout(timeoutMs);
   const signal = init.signal ? AbortSignal.any([init.signal, deadline]) : deadline;
   try {
-    const response = await fetch(path, { ...init, signal, cache: 'no-store' });
+    const response = transport
+      ? await transport(path, { ...init, signal }, responseType)
+      : await fetch(path, { ...init, signal, cache: 'no-store' });
     if ([502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 530].includes(response.status)) {
       throw new WorkspaceConnectionError(`Workspace unavailable (HTTP ${response.status}). The tunnel or its connection to your workspace may be down.`);
     }

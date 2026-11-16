@@ -82,10 +82,8 @@ function startServer() {
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       if (req.method === "GET" && req.url === "/api/settings") {
-        // Send Content-Length explicitly, like the Rust daemon does, so the
-        // response is Content-Length-delimited rather than chunked (the shim
-        // implements strict Content-Length, not chunked transfer decoding).
-        const body = JSON.stringify({ theme: "dark", port: 3000 });
+        // Echo the Authorization header back so header tests assert the wire.
+        const body = JSON.stringify({ theme: "dark", port: 3000, authorization: req.headers.authorization ?? null });
         res.writeHead(200, {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(body),
@@ -136,6 +134,18 @@ async function main() {
 
     const raw = new TextDecoder().decode(encodeRequest("POST", "/x", "raw-body"));
     check("encode POST: string body as-is", raw.endsWith("raw-body"), raw);
+
+    // Optional headers parameter: extra request headers ride the head.
+    const auth = new TextDecoder().decode(
+      encodeRequest("GET", "/api/sessions", undefined, { authorization: "Bearer dev-token" }));
+    check("encode headers: authorization line", auth.includes("Authorization: Bearer dev-token\r\n"), auth);
+    check("encode headers: default headers kept", auth.includes("Connection: close\r\n") && auth.includes("Host: companion.device\r\n"), auth);
+    check("encode headers: head still well-formed", auth.endsWith("\r\n\r\n") && !auth.includes("\r\n\r\n\r\n"), auth);
+    const authPost = new TextDecoder().decode(
+      encodeRequest("POST", "/x", { a: 1 }, { "x-custom": "v1", authorization: "Bearer t" }));
+    check("encode headers: multiple extra headers", authPost.includes("X-Custom: v1\r\n") && authPost.includes("Authorization: Bearer t\r\n"), authPost);
+    const noHeaders = new TextDecoder().decode(encodeRequest("GET", "/y"));
+    check("encode headers: omitted param keeps request unchanged", !noHeaders.includes("Authorization"), noHeaders);
   }
 
   // --- unit: response parser, Content-Length strictness ---
@@ -194,7 +204,7 @@ async function main() {
     const get = await bridgeFetch(addr, port, "GET", "/api/settings");
     check("fetch GET: status", get.status === 200, `got ${get.status}`);
     check("fetch GET: content-type header", get.headers["content-type"] === "application/json");
-    check("fetch GET: bodyText", get.bodyText === '{"theme":"dark","port":3000}', get.bodyText);
+    check("fetch GET: bodyText", get.bodyText === '{"theme":"dark","port":3000,"authorization":null}', get.bodyText);
     check("fetch GET: bodyJson", get.bodyJson().theme === "dark" && get.bodyJson().port === 3000);
 
     // POST /api/pairing/start with a JSON body
@@ -210,6 +220,14 @@ async function main() {
     // Unknown route -> 404
     const nf = await bridgeFetch(addr, port, "GET", "/api/nope");
     check("fetch GET: 404 status", nf.status === 404, `got ${nf.status}`);
+
+    // Optional headers parameter rides through to the real request. The server
+    // echoes the Authorization header back in the body so the test asserts the
+    // wire bytes, not just the client-side encoding.
+    const authed = await bridgeFetch(addr, port, "GET", "/api/settings", undefined, { authorization: "Bearer dev-token" });
+    check("fetch headers: status", authed.status === 200, `got ${authed.status}`);
+    check("fetch headers: authorization reached the server", authed.bodyJson().authorization === "Bearer dev-token", authed.bodyText);
+    check("fetch headers: omitted param unchanged", (await bridgeFetch(addr, port, "GET", "/api/settings")).bodyJson().authorization === null);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

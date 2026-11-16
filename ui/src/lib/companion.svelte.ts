@@ -2,10 +2,12 @@ import { reduceBridgeMessage, replayActivity, type ActivityEntry } from './activ
 import { sortSessions } from './format.ts';
 import { retainUsageSnapshots, type UsageSnapshot } from './usage.ts';
 import { toasts } from './toast.svelte.ts';
-import { LiveConnection, type Connection } from './connection.ts';
+import { LiveConnection, type Connection, type LiveSocket } from './connection.ts';
 export type { Connection } from './connection.ts';
-import { ApiError, WorkspaceConnectionError, unreachableMessage, workspaceRequest } from './workspace-connection.ts';
+import { ApiError, WorkspaceConnectionError, unreachableMessage, workspaceRequest, type RequestTransport } from './workspace-connection.ts';
 export { ApiError } from './workspace-connection.ts';
+import { readTunnelConfig } from './tailcat-tunnel.ts';
+import { createTunnelSocket, createTunnelTransport } from './tailcat-transport.ts';
 import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TailcatStatus, TempFile } from './types.ts';
 
 /**
@@ -18,6 +20,9 @@ import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Sessio
  *   credential is deleted and the device must pair again.
  */
 const TOKEN_KEY = 'piCompanionDeviceToken';
+
+/** Tunnel mode, read once at startup: set by the bridge page or the QR pairing flow. */
+const tunnel = readTunnelConfig(typeof localStorage === 'undefined' ? null : localStorage);
 
 type Diff = { staged: boolean; text: string; at: number; error?: string; scope?: 'session'; files?: { path: string; untracked: boolean }[]; worktree?: string; branch?: string; worktrees?: GitWorktree[]; warnings?: string[]; loading?: boolean };
 type UploadPolicy = { maxUploadMb: number; allowedUploadTypes: string[] };
@@ -43,7 +48,8 @@ class Companion {
 
   private live = new LiveConnection({
     enabled: () => this.booted && this.paired && navigator.onLine !== false,
-    create: () => {
+    create: (): LiveSocket => {
+      if (tunnel) return createTunnelSocket(tunnel, { token: this.token ?? '' });
       const url = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws/browser';
       return this.remote ? new WebSocket(url, ['pi-companion', 'token.' + this.token]) : new WebSocket(url);
     },
@@ -82,6 +88,8 @@ class Companion {
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private devicesTimer: ReturnType<typeof setTimeout> | undefined;
   private booting = false;
+  /** Tunnel-mode HTTP transport; undefined keeps the plain-fetch path for local/remote. */
+  private tunnelTransport: RequestTransport | undefined = tunnel ? createTunnelTransport(tunnel) : undefined;
 
   get isAdmin() {
     return !this.remote;
@@ -114,7 +122,7 @@ class Companion {
     this.connection = 'connecting';
     clearTimeout(this.retryTimer);
     try {
-      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy }>('/api/context');
+      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy }>('/api/context', {}, 10_000, 'json', this.tunnelTransport);
       if (!context || typeof context.remote !== 'boolean' || typeof context.version !== 'string') {
         throw new WorkspaceConnectionError('This address is not responding as a Gentle Companion workspace. Check the current tunnel URL.');
       }
@@ -169,7 +177,7 @@ class Companion {
     const token = this.token;
     if (this.remote && token) headers.set('authorization', 'Bearer ' + token);
     try {
-      return await workspaceRequest<T>(path, { ...init, headers }, timeoutMs, responseType);
+      return await workspaceRequest<T>(path, { ...init, headers }, timeoutMs, responseType, this.tunnelTransport);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401 && this.remote && this.token === token && path !== '/api/pairing/claim') this.forget();
       else if (error instanceof WorkspaceConnectionError) this.unavailable(error.message);

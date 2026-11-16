@@ -1,8 +1,30 @@
 /** One live socket, bounded retries, and liveness checks (including silent network loss). */
 export type Connection = 'connecting' | 'online' | 'offline' | 'disconnected' | 'revoked';
 
+export interface LiveSocketMessage {
+  /** String for text frames; binary frames stay bytes (companion only sends/receives text). */
+  data: string | Uint8Array;
+}
+
+/**
+ * Minimal socket surface LiveConnection uses. Satisfied by the browser WebSocket
+ * (local/remote modes) and by the tunnel mode's DeferredTunnelSocket, which is
+ * created synchronously while its tunnel dial resolves in the background. The
+ * handler types use the browser event shapes; LiveConnection only reads
+ * `event.data` and `event.code`, and the tunnel socket's wrapper satisfies them.
+ */
+export interface LiveSocket {
+  readyState: number;
+  send(data: string): void;
+  close(): unknown;
+  onopen: ((event: Event) => unknown) | null;
+  onmessage: ((event: MessageEvent) => unknown) | null;
+  onerror: ((event: Event) => unknown) | null;
+  onclose: ((event: CloseEvent) => unknown) | null;
+}
+
 export class LiveConnection {
-  private socket: WebSocket | null = null;
+  private socket: LiveSocket | null = null;
   private retry: ReturnType<typeof setTimeout> | undefined;
   private watchdog: ReturnType<typeof setTimeout> | undefined;
   private retryMs = 1000;
@@ -11,7 +33,7 @@ export class LiveConnection {
 
   private readonly hooks: {
     enabled: () => boolean;
-    create: () => WebSocket;
+    create: () => LiveSocket;
     state: (state: Connection) => void;
     online: () => void;
     message: (data: string) => void;
@@ -21,7 +43,7 @@ export class LiveConnection {
 
   constructor(hooks: {
     enabled: () => boolean;
-    create: () => WebSocket;
+    create: () => LiveSocket;
     state: (state: Connection) => void;
     online: () => void;
     message: (data: string) => void;
@@ -96,7 +118,7 @@ export class LiveConnection {
     if (!this.running || this.paused || !this.hooks.enabled() || this.socket) return;
     clearTimeout(this.retry);
     this.hooks.state('connecting');
-    let socket: WebSocket;
+    let socket: LiveSocket;
     try {
       socket = this.hooks.create();
     } catch {
@@ -138,12 +160,12 @@ export class LiveConnection {
     };
   }
 
-  private arm(socket: WebSocket, delay: number) {
+  private arm(socket: LiveSocket, delay: number) {
     clearTimeout(this.watchdog);
     this.watchdog = setTimeout(() => this.fail(socket), delay);
   }
 
-  private fail(socket: WebSocket) {
+  private fail(socket: LiveSocket) {
     if (this.socket !== socket) return;
     clearTimeout(this.watchdog);
     this.retire();
