@@ -36,7 +36,7 @@ const IMMUTABLE_PREFIX: &str = "_app/immutable/";
 /// App resources remain same-origin. HTTPS frames are reserved for explicit,
 /// sandboxed website previews; shared HTML uses a stricter sandboxed srcdoc policy.
 /// Inline scripts support SvelteKit/bootstrap and inline styles support the UI.
-const CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; \
+const CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; \
 img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://tailcat.dev ws: wss:; font-src 'self'; object-src 'none'; \
 base-uri 'self'; form-action 'self'; frame-src 'self' https:; frame-ancestors 'none'";
 
@@ -191,6 +191,9 @@ mod tests {
         assert!(policy.contains("frame-ancestors 'none'"));
         assert!(policy.contains("connect-src 'self' https://tailcat.dev ws: wss:"));
         // The canonical tailcat DERP map is the only cross-origin connect the UI needs.
+        // The tailcat WASM runtime compiles in the browser: wasm-unsafe-eval, not
+        // blanket unsafe-eval (JS is still barred from eval()).
+        assert!(policy.contains("script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'"));
         assert!(response.headers()[header::ETAG].to_str().unwrap().contains("-preview-v1"));
         let mut headers = HeaderMap::new();
         headers.insert(header::IF_NONE_MATCH, response.headers()[header::ETAG].clone());

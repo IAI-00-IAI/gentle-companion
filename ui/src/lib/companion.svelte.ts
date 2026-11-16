@@ -8,6 +8,7 @@ import { ApiError, WorkspaceConnectionError, unreachableMessage, workspaceReques
 export { ApiError } from './workspace-connection.ts';
 import { readTunnelConfig, type TunnelConfig } from './tailcat-tunnel.ts';
 import { createTunnelSocket, createTunnelTransport } from './tailcat-transport.ts';
+import { diag, diagSeq } from './diagnostics.ts';
 import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TailcatStatus, TempFile } from './types.ts';
 
 /**
@@ -52,11 +53,13 @@ class Companion {
     enabled: () => this.booted && this.paired && navigator.onLine !== false,
     create: (): LiveSocket => {
       const tunnel = tunnelConfig();
+      diag('ws', `create tunnel=${tunnel ? tunnel.addr.slice(0, 10) + '…:' + tunnel.port : 'off'} remote=${this.remote} token=${this.token ? 'yes' : 'no'}`);
       if (tunnel) return createTunnelSocket(tunnel, { token: this.token ?? '' });
       const url = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws/browser';
       return this.remote ? new WebSocket(url, ['pi-companion', 'token.' + this.token]) : new WebSocket(url);
     },
     state: (state) => {
+      diag('ws', `state -> ${state}`);
       if (state === 'online') return; // Confirm the workspace snapshot before enabling commands.
       this.connectionEpoch++;
       this.connection = state;
@@ -66,6 +69,7 @@ class Companion {
       }
     },
     online: () => {
+      diag('ws', 'socket open, confirming snapshot');
       const epoch = this.connectionEpoch;
       void this.refresh().then(() => {
         if (epoch !== this.connectionEpoch) return;
@@ -77,6 +81,7 @@ class Companion {
     },
     message: (data) => { try { this.handle(JSON.parse(data)); } catch { /* ignore malformed frames */ } },
     lost: () => {
+      diag('ws', `lost: navigator.onLine=${navigator.onLine} connection=${this.connection}`);
       this.connectionError ||= navigator.onLine ? 'Live updates disconnected. Retrying automatically.' : unreachableMessage(false);
       if (this.remote) void this.request('/api/sessions').catch(() => {});
     },
@@ -137,7 +142,9 @@ class Companion {
     this.connection = 'connecting';
     clearTimeout(this.retryTimer);
     try {
+      diag('boot', `start #${diagSeq()} tunnel=${JSON.stringify(tunnelConfig())}`);
       const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus }>('/api/context', {}, 10_000, 'json', this.currentTunnelTransport());
+      diag('boot', `context ok remote=${context.remote} version=${context.version}`);
       if (!context || typeof context.remote !== 'boolean' || typeof context.version !== 'string') {
         throw new WorkspaceConnectionError('This address is not responding as a Gentle Companion workspace. Check the current tunnel URL.');
       }
@@ -150,6 +157,7 @@ class Companion {
       this.connectionError = '';
       this.booted = true;
     } catch (error) {
+      diag('boot', `context FAILED: ${error instanceof Error ? error.message : String(error)}`);
       this.bootError = error instanceof Error ? error.message : unreachableMessage();
       this.unavailable(this.bootError);
       this.booted = true;
@@ -195,6 +203,7 @@ class Companion {
     try {
       return await workspaceRequest<T>(path, { ...init, headers }, timeoutMs, responseType, this.currentTunnelTransport());
     } catch (error) {
+      diag('req', `${path} FAILED: ${error instanceof Error ? error.message : String(error)}`);
       if (error instanceof ApiError && error.status === 401 && this.remote && this.token === token && path !== '/api/pairing/claim') this.forget();
       else if (error instanceof WorkspaceConnectionError) this.unavailable(error.message);
       else if (error instanceof ApiError && error.status === 403 && path === '/api/sessions') {

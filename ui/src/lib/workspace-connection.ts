@@ -25,8 +25,13 @@ export function unreachableMessage(online = typeof navigator === 'undefined' || 
 export type RequestTransport = (path: string, init: RequestInit, responseType: 'json' | 'blob') => Promise<Response>;
 
 /** Never expose a reverse proxy's HTML error page as an API error or JSON parse error. */
-export async function workspaceRequest<T>(path: string, init: RequestInit = {}, timeoutMs = 10_000, responseType: 'json' | 'blob' = 'json', transport?: RequestTransport): Promise<T> {
-  const deadline = AbortSignal.timeout(timeoutMs);
+export async function workspaceRequest<T>(path: string, init: RequestInit = {}, timeoutMs?: number, responseType: 'json' | 'blob' = 'json', transport?: RequestTransport): Promise<T> {
+  // Tunnel dials are slow (DERP relay handshake: 0.5-6s observed) and every tunnel
+  // request pays one; the LAN default of 10s aborts them mid-flight (net::ERR_ABORTED)
+  // and the UI drops to 'interrupted' despite a healthy WS. 30s still bounds a hung
+  // stream while leaving room for two slow dials (retry + response).
+  const timeout = timeoutMs ?? (transport ? 30_000 : 10_000);
+  const deadline = AbortSignal.timeout(timeout);
   const signal = init.signal ? AbortSignal.any([init.signal, deadline]) : deadline;
   try {
     const response = transport

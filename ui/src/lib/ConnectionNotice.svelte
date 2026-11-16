@@ -2,6 +2,11 @@
   import Icon from './Icon.svelte';
   import { companion } from './companion.svelte.ts';
   import { t , langStore} from './i18n.svelte.ts';;
+  import { diagDump } from './diagnostics.ts';
+  let diagCopied = $state(false);
+  async function copyDiagnostics() {
+    try { await navigator.clipboard.writeText(diagDump()); diagCopied = true; setTimeout(() => { diagCopied = false; }, 2000); } catch { /* clipboard unavailable */ }
+  }
 $effect(() => { $langStore; });
 </script>
 
@@ -26,6 +31,7 @@ $effect(() => { $langStore; });
     <button class="btn btn-sm" disabled={companion.connection === 'connecting'} onclick={() => companion.reconnect()}>
       {companion.connection === 'connecting' ? t('shell.connection.error.retrying') : t('shell.connection.error.retry')}
     </button>
+    <button class="btn btn-sm btn-ghost" onclick={copyDiagnostics}>{diagCopied ? t('shell.connection.error.diag.copied') : t('shell.connection.error.diag')}</button>
   </section>
 {/if}
 
