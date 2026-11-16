@@ -760,7 +760,11 @@ async fn local_context(State(state): State<AppState>) -> Json<Value> {
 }
 
 async fn remote_context(State(state): State<AppState>) -> Json<Value> {
-    Json(serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await }))
+    // Tunnel status rides the boot context so a phone opening the client sees the
+    // live indicator immediately, not only after the next tunnel state change.
+    let enabled = state.settings.read().await.tailcat_enabled;
+    let status = state.tailcat.read().await.status(enabled);
+    Json(serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await, "tailcatStatus": { "enabled": status.enabled, "running": status.running, "address": "", "port": status.port, "error": status.error } }))
 }
 
 /// Local-admin only. Used by the extension to replace an older daemon after a package upgrade.
@@ -1443,6 +1447,11 @@ async fn browser_ws_remote(
 
 /// Whether a broadcast event may be shown to a paired device.
 async fn visible_to_device(state: &AppState, value: &Value) -> bool {
+    // Tunnel status is connection state, not session content: a paired phone needs
+    // it for its live indicator, and it carries no session data.
+    if value.get("type").and_then(Value::as_str) == Some("tailcat.update") {
+        return true;
+    }
     let session_id = value
         .get("sessionId")
         .and_then(Value::as_str)

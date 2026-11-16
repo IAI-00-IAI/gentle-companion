@@ -137,7 +137,7 @@ class Companion {
     this.connection = 'connecting';
     clearTimeout(this.retryTimer);
     try {
-      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy }>('/api/context', {}, 10_000, 'json', this.currentTunnelTransport());
+      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus }>('/api/context', {}, 10_000, 'json', this.currentTunnelTransport());
       if (!context || typeof context.remote !== 'boolean' || typeof context.version !== 'string') {
         throw new WorkspaceConnectionError('This address is not responding as a Gentle Companion workspace. Check the current tunnel URL.');
       }
@@ -145,6 +145,7 @@ class Companion {
       this.remote = context.remote;
       this.version = context.version;
       this.token = this.remote ? localStorage.getItem(TOKEN_KEY) : null;
+      if (context.tailcatStatus && typeof context.tailcatStatus.running === 'boolean') this.onTailcatUpdate?.(context.tailcatStatus);
       this.bootError = '';
       this.connectionError = '';
       this.booted = true;
