@@ -1821,9 +1821,11 @@ export function t(
   if (message === undefined) message = messages.en[key];
   if (message === undefined) return key;
   if (!params) return message;
-  return message.replace(/\{\{(\w+)\}\}/g, (_m, group) => {
-    const raw = params[group];
-    return raw === undefined || raw === null ? '' : String(raw);
+  // Both brace styles exist in the catalog ({{n}} and {n}); accept both so a
+  // single-brace entry still interpolates instead of leaking '{count}' verbatim.
+  return message.replace(/\{\{(\w+)\}\}|\{(\w+)\}/g, (_m, double, single) => {
+    const raw = params[double ?? single];
+    return raw === undefined || raw === null ? _m : String(raw);
   });
 }
 
