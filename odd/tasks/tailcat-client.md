@@ -110,3 +110,12 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   (server/), en paralelo; T3 espera a ambos (depende del cliente túnel y del
   serving); T5 cierra la feature. Serving contract fijado entre writers:
   /bridge/vendor/main.wasm, /bridge/vendor/wasm_exec.js, /bridge/derpmap.json.
+- L8 (user report, parent): dos defectos de uso real en el teléfono. (1) Al
+  salir de la LAN se caía la conexión: el modo túnel se leía UNA vez al cargar
+  el módulo, pero el fragmento del QR se consume después en boot → la primera
+  sesión corría por LAN. Fix (ece0b31): la config se relee en cada creación de
+  socket y en cada request HTTP, con transporte reconstruido si cambia.
+  (2) El banner HTTPS ocupaba la pantalla sin poder cerrarse: ahora tiene
+  botón Cerrar (shell.banner.dismiss EN+es-ES). Verificado: ui:check limpio,
+  test:extension 401/401, E2E túnel real verde. Nota: falta smoke test en
+  teléfono real para confirmar el (1) fuera de la LAN.
