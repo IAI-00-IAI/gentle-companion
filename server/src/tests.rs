@@ -906,6 +906,39 @@ async fn tailcat_tunnel_serves_the_device_surface_on_loopback() {
     assert!(refused.is_err(), "the mirror listener must be closed after stop_tunnel_listener");
 }
 
+// The daemon serves the tailcat client runtime from its own origin (S4) on both
+// surfaces: the console (LAN) and the paired-device surface (tunnel loopback mirror).
+#[tokio::test]
+async fn bridge_vendor_assets_are_served_with_correct_content_types_on_both_routers() {
+    let state = test_state();
+    for (router, origin) in [
+        (local_router(state.clone()), CONSOLE_ORIGIN),
+        (remote_router(state.clone()), DEVICE_ORIGIN),
+    ] {
+        for (path, expected_type) in [
+            ("/bridge/vendor/main.wasm", "application/wasm"),
+            ("/bridge/vendor/wasm_exec.js", "application/javascript; charset=utf-8"),
+        ] {
+            let response = router.clone().oneshot(get(path, Some(origin), None)).await.expect("router call");
+            assert_eq!(response.status(), StatusCode::OK, "{path} on {origin}");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], expected_type, "{path} on {origin}");
+            assert!(!response.into_body().collect().await.unwrap().to_bytes().is_empty(), "{path} on {origin}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn bridge_vendor_assets_are_not_served_without_an_allowed_origin() {
+    let state = test_state();
+    for (router, origin) in [
+        (local_router(state.clone()), EVIL_ORIGIN),
+        (remote_router(state.clone()), EVIL_ORIGIN),
+    ] {
+        let response = router.clone().oneshot(get("/bridge/vendor/main.wasm", Some(origin), None)).await.expect("router call");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "a foreign origin must not fetch the client runtime");
+    }
+}
+
 #[tokio::test]
 async fn tunnel_listener_is_skipped_when_the_primary_bind_is_already_loopback() {
     let state = test_state();

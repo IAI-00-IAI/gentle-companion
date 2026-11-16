@@ -452,6 +452,10 @@ async fn main() {
 
 fn local_router(state: AppState) -> Router {
     let guarded = Router::new()
+        // Vendored tailcat client runtime, served from the daemon's origin (feature
+        // tailcat-client S4); exact paths, so they win over the bridge proxy catch-all.
+        .route("/bridge/vendor/main.wasm", get(assets::serve_bridge_vendor))
+        .route("/bridge/vendor/wasm_exec.js", get(assets::serve_bridge_vendor))
         .merge(automation::router(false))
         .route("/api/context", get(local_context))
         .route("/api/sessions", get(list_sessions))
@@ -485,6 +489,10 @@ fn local_router(state: AppState) -> Router {
 
 fn remote_router(state: AppState) -> Router {
     let guarded = Router::new()
+        // Same vendored client runtime on the device surface, which the tailcat
+        // tunnel loopback mirror also serves.
+        .route("/bridge/vendor/main.wasm", get(assets::serve_bridge_vendor))
+        .route("/bridge/vendor/wasm_exec.js", get(assets::serve_bridge_vendor))
         .merge(automation::router(true).layer(middleware::from_fn_with_state(state.clone(), automation::authenticate)))
         .route("/api/context", get(remote_context))
         .route("/api/pairing/claim", post(claim_pairing))

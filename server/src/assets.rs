@@ -20,6 +20,16 @@ use rust_embed::RustEmbed;
 #[folder = "web-dist/"]
 struct WebAssets;
 
+/// Tailcat client runtime vendored in the repository (see `bridge/vendor/`). Embedded
+/// directly from its source folder instead of copying it into `web-dist/`, so the
+/// ~35 MB WASM binary is not duplicated at build time. Only the two files the client
+/// UI needs are embedded; the precompressed `.gz` and the READMEs are not.
+#[derive(RustEmbed)]
+#[folder = "../bridge/vendor/"]
+#[include = "main.wasm"]
+#[include = "wasm_exec.js"]
+struct BridgeVendorAssets;
+
 const SPA_SHELL: &str = "200.html";
 const IMMUTABLE_PREFIX: &str = "_app/immutable/";
 
@@ -92,6 +102,52 @@ pub async fn serve(uri: Uri, request_headers: HeaderMap) -> Response {
         format!("{}; charset=utf-8", mime.essence_str())
     } else {
         mime.essence_str().to_string()
+    };
+    if let Ok(value) = HeaderValue::from_str(&content_type) {
+        headers.insert(header::CONTENT_TYPE, value);
+    }
+    (headers, asset.data.into_owned()).into_response()
+}
+
+/// Serve the vendored tailcat client runtime from the daemon's origin, on both the
+/// console and the device surface, so the client works over LAN and through the
+/// tunnel loopback mirror. `WebAssembly.instantiateStreaming` requires the exact
+/// `application/wasm` Content-Type, and the Go support script must run as JavaScript.
+pub async fn serve_bridge_vendor(uri: Uri, request_headers: HeaderMap) -> Response {
+    // Embed keys are relative to the vendor folder ("main.wasm"), while requests
+    // arrive as "/bridge/vendor/main.wasm".
+    const PREFIX: &str = "bridge/vendor/";
+    let requested = uri.path().trim_start_matches('/');
+    let name = requested.strip_prefix(PREFIX).unwrap_or(requested);
+    let Some(asset) = BridgeVendorAssets::get(name) else {
+        return (StatusCode::NOT_FOUND, "Not found").into_response();
+    };
+
+    let hash = asset.metadata.sha256_hash();
+    let etag = format!("\"{}\"", hash.iter().take(16).map(|b| format!("{b:02x}")).collect::<String>());
+    let mut headers = HeaderMap::new();
+    // Vendored artifacts change with tailcat releases, so revalidate instead of
+    // caching forever.
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    if let Ok(value) = HeaderValue::from_str(&etag) {
+        headers.insert(header::ETAG, value);
+    }
+    headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    let not_modified = request_headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.split(',').any(|tag| tag.trim() == etag || tag.trim() == "*"));
+    if not_modified {
+        return (StatusCode::NOT_MODIFIED, headers).into_response();
+    }
+
+    let mime = mime_guess::from_path(requested).first_or_octet_stream();
+    let content_type = match mime.essence_str() {
+        // The contract fixes these types: WebAssembly.instantiateStreaming requires
+        // `application/wasm`, and the Go support script must run as JavaScript.
+        "application/wasm" => "application/wasm".to_string(),
+        "application/javascript" | "text/javascript" => "application/javascript; charset=utf-8".to_string(),
+        other => other.to_string(),
     };
     if let Ok(value) = HeaderValue::from_str(&content_type) {
         headers.insert(header::CONTENT_TYPE, value);
