@@ -24,16 +24,17 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
 ## Tasks
 
 - T1 (S2): la UI consume los shims de bridge/ sin duplicarlos (adaptación TS
-  si hace falta). Route: worker A (T1+T2). Commit: —
+  si hace falta). Route: worker A (T1+T2). Commit: 3286edb
 - T2 (S1): modo túnel en la UI con transporte inyectable en
   companion.svelte.ts; modos existentes sin regresión. Route: worker A
-  (T1+T2). Commit: —
+  (T1+T2). Commit: 3286edb
 - T3 (S3): QR desde el teléfono + copiar token como alternativa; arranque del
-  cliente ya autenticado. Route: pending. Commit: —
+  cliente ya autenticado. Route: worker C. Commit: d795f39
 - T4 (S4): el daemon sirve el cliente buildado desde su origen. Route:
   worker B. Commit: 5f9cf7f
-- T5 (S1-S4): E2E extremo a extremo + docs bilingüe _es-ES. Route: pending.
-  Commit: —
+- T5 (S1-S4): E2E extremo a extremo + docs bilingüe _es-ES. Route: parent
+  (workers fallaron 4 veces sin reporte; docs inline + E2E inline). Commit:
+  2516d90
 
 ## Log
 
@@ -56,6 +57,45 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   Aprendizajes: claves de rust-embed relativas a la carpeta; mime_guess da
   text/javascript para .js (normalizado a application/javascript);
   instantiateStreaming exige application/wasm exacto.
+- L4 (worker A, T1+T2): UI consume shims reales vía wrapper tipado + .d.ts
+  ambientales (cero copias, verificado en bundle). Modo túnel: detección por
+  las claves localStorage del bridge (companion-bridge.tunnel-addr /
+  device-port, puerto por defecto 43722), WS vía DeferredTunnelSocket (dial
+  async bajo create() sync), HTTP vía bridgeFetch con transporte inyectable
+  en workspaceRequest (clasificación de errores preservada). Interacción
+  resuelta por el padre: headers opcionales en encodeRequest/bridgeFetch
+  (retrocompatible, test wire-level) + guard de auth eliminado. CSP del
+  daemon ampliada con https://tailcat.dev (padre, assets.rs:40 + test :192).
+  Evidencia: http_test 38 checks, ws_test ok, tunnel suite 31/31,
+  test:extension 390/390 (ui/tests cableado a package.json), ui:check 0
+  errores, cargo 143/143. Deuda anotada: política DERP reexpresada en TS
+  (~15 líneas, app.js no importable); uploads FormData y downloads blob
+  rechazados con error claro (alcance T3/T5). Commits 5f9cf7f + 3286edb;
+  límite de slice: 1328 líneas (chocará en publicación: chained PR).
+- L5 (worker C, T3): QR con dirección de túnel en el FRAGMENTO de la URL
+  (#tunnel=<addr>&port=<port>, nunca llega al servidor → sin fuga en logs);
+  invite sigue siendo el único query param y el claim no cambia; sin túnel la
+  URL es byte a byte la anterior (test de conservación). La UI consume el
+  fragmento en boot (parse → claves T2 → replaceState), la página devices
+  muestra hint de copiar enlace (devices.token.hint EN+es-ES) y
+  PairingResponse expone tunnelAddr/tunnelPort. Sin dependencias nuevas. TDD:
+  cargo 145 (+2), test:extension 401 (+11), ui:check limpio. Commit d795f39.
+  Aprendizaje: el SVG de la crate qrcode es solo datos de path (asertar
+  estructura, no payload); location de SvelteKit no tiene replaceState
+  (usar history.replaceState con history.state).
+- L6 (parent, T5): workers fallaron 4 veces (provider_unavailable / sin
+  reporte) → docs y E2E ejecutados inline por el padre. Docs: README EN+ES
+  (cliente de primera clase servido por el daemon, QR con fragmento, fallback
+  copiable), bridge/README EN+ES reposicionado como arnés manual de los shims
+  compartidos. E2E inline contra túnel real (chromium CDP :9333 + static
+  :8077, daemon con el build nuevo): GET / 200 SPA, main.wasm 200
+  application/wasm (35610962B), wasm_exec.js 200 application/javascript,
+  URL de pairing con #tunnel=<addr>&port=43722 (fragment parser validado
+  contra la URL real), probe tunelado HTTP 200 remote=true version=0.5.0 ||
+  WS-OK resync — 3/3 corridas consecutivas. Dispositivos de prueba
+  revocados (4x 204). Gotcha: el daemon autoiniciado por la sesión Pi
+  corre el binario viejo (deleted); hay que matarlo y relanzar el build
+  nuevo para probar. Commit 2516d90.
 - L3 (user): «Ok, adelante, y lanza en paralelo la mayor cantidad de
   subagentes que puedas» — T1+T2 van a un writer (superficie ui/), T4 a otro
   (server/), en paralelo; T3 espera a ambos (depende del cliente túnel y del
