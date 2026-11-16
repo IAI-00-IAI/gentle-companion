@@ -52,8 +52,12 @@ class Companion {
   private live = new LiveConnection({
     enabled: () => this.booted && this.paired && navigator.onLine !== false,
     create: (): LiveSocket => {
-      const tunnel = tunnelConfig();
-      diag('ws', `create tunnel=${tunnel ? tunnel.addr.slice(0, 10) + '…:' + tunnel.port : 'off'} remote=${this.remote} token=${this.token ? 'yes' : 'no'}`);
+      // Same direct-first policy as effectiveTransport(): LAN when the probe said
+      // the page origin serves the daemon, tunnel only otherwise. Emitting a tunnel
+      // socket while LAN works detours through the DERP relay (slow) and dies when
+      // the phone's WAN is down even though the daemon is one hop away.
+      const tunnel = this.directUsable === true ? null : tunnelConfig();
+      diag('ws', `create tunnel=${tunnel ? tunnel.addr.slice(0, 10) + '…:' + tunnel.port : 'off'} direct=${this.directUsable} remote=${this.remote} token=${this.token ? 'yes' : 'no'}`);
       if (tunnel) return createTunnelSocket(tunnel, { token: this.token ?? '' });
       const url = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws/browser';
       return this.remote ? new WebSocket(url, ['pi-companion', 'token.' + this.token]) : new WebSocket(url);
