@@ -37,7 +37,7 @@ const IMMUTABLE_PREFIX: &str = "_app/immutable/";
 /// sandboxed website previews; shared HTML uses a stricter sandboxed srcdoc policy.
 /// Inline scripts support SvelteKit/bootstrap and inline styles support the UI.
 const CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; \
-img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws: wss:; font-src 'self'; object-src 'none'; \
+img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://tailcat.dev ws: wss:; font-src 'self'; object-src 'none'; \
 base-uri 'self'; form-action 'self'; frame-src 'self' https:; frame-ancestors 'none'";
 
 fn looks_like_file(path: &str) -> bool {
@@ -189,7 +189,8 @@ mod tests {
         assert!(policy.contains("media-src 'self' blob:"));
         assert!(policy.contains("frame-src 'self' https:"));
         assert!(policy.contains("frame-ancestors 'none'"));
-        assert!(policy.contains("connect-src 'self' ws: wss:"));
+        assert!(policy.contains("connect-src 'self' https://tailcat.dev ws: wss:"));
+        // The canonical tailcat DERP map is the only cross-origin connect the UI needs.
         assert!(response.headers()[header::ETAG].to_str().unwrap().contains("-preview-v1"));
         let mut headers = HeaderMap::new();
         headers.insert(header::IF_NONE_MATCH, response.headers()[header::ETAG].clone());
