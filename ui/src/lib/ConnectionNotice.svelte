@@ -9,6 +9,7 @@
   // user reported the full notice covering a working client on the phone.
   let collapsed = $state(true);
   let wasConnected = false;
+  let diagText = $state('');
   $effect(() => { $langStore; });
   // Auto-collapse again once the connection recovers.
   $effect(() => {
@@ -17,7 +18,16 @@
     wasConnected = online;
   });
   async function copyDiagnostics() {
-    try { await navigator.clipboard.writeText(diagDump()); diagCopied = true; setTimeout(() => { diagCopied = false; }, 2000); } catch { /* clipboard unavailable */ }
+    const dump = diagDump();
+    try {
+      await navigator.clipboard.writeText(dump);
+      diagCopied = true; setTimeout(() => { diagCopied = false; }, 2000);
+      return;
+    } catch {
+      // Clipboard API needs a secure context; on a LAN HTTP origin, show the
+      // dump in a selectable area instead so the user can still hand-copy it.
+      diagText = dump; diagCopied = false;
+    }
   }
 $effect(() => { $langStore; });
 </script>
@@ -47,6 +57,10 @@ $effect(() => { $langStore; });
           {companion.connection === 'connecting' ? t('shell.connection.error.retrying') : t('shell.connection.error.retry')}
         </button>
         <button class="btn btn-sm btn-ghost" onclick={copyDiagnostics}>{diagCopied ? t('shell.connection.error.diag.copied') : t('shell.connection.error.diag')}</button>
+        {#if diagText}
+          <textarea class="diag-dump" readonly rows={8} onclick={(e) => (e.currentTarget as HTMLTextAreaElement).select()}>{diagText}</textarea>
+          <p class="muted">{t('shell.connection.error.diag.manual')}</p>
+        {/if}
       </div>
     {/if}
   </section>
