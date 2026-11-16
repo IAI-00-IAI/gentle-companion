@@ -283,7 +283,8 @@
                 <button type="button" class="btn copy" onclick={() => { if (tailcatStatus) navigator.clipboard.writeText(tailcatStatus.address); }}><Icon name="copy" size={14} /></button>
               </div>
               {#if data?.tailcatQrSvg}
-                <div class="qr tailcat-qr" aria-hidden="true">{@html data.tailcatQrSvg}</div>
+                <div class="qr tailcat-qr">{@html data.tailcatQrSvg}</div>
+                <span class="hint">{t('settings.tailcat.qr.hint')}</span>
               {/if}
               <span class="hint" id="tailcat-hint">{t('settings.tailcat.address.hint')}</span>
             </div>

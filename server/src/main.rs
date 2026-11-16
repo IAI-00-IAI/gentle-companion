@@ -791,11 +791,26 @@ async fn persist(state: &AppState) {
 async fn get_settings(State(state): State<AppState>) -> Json<Value> {
     let settings = state.settings.read().await.clone();
     let tailcat_status = state.tailcat.read().await.status(settings.tailcat_enabled);
+    // The tunnel QR must be openable by a phone camera: it encodes the pairing URL
+    // (with the tunnel fragment when the tunnel runs), not the raw tc… address. A QR
+    // holding the bare address shows up in a browser as an opaque token string.
     let tailcat_qr_svg = if !tailcat_status.address.is_empty() {
-        match QrCode::new(settings.tailcat_address.as_bytes()).ok() {
-            Some(code) => Some(code.render::<svg::Color>().min_dimensions(220, 220).build()),
-            None => None,
+        let token = Uuid::new_v4().simple().to_string() + &Uuid::new_v4().simple().to_string();
+        let compact = Uuid::new_v4().simple().to_string().to_uppercase();
+        let code = format!("{}-{}", &compact[0..4], &compact[4..8]);
+        let ttl = settings.pairing_ttl_minutes * 60;
+        let expires_at = now_secs() + ttl;
+        {
+            let mut pairings = state.pairings.write().await;
+            let now = now_secs();
+            pairings.retain(|_, invite| invite.expires_at >= now);
+            pairings.insert(token.clone(), PairingInvite { expires_at, code: compact[0..8].to_string() });
         }
+        let mut url = format!("{}/pair?invite={}", public_url(&state).await, token);
+        if tailcat_status.running {
+            url.push_str(&format!("#tunnel={}&port={}", tailcat_status.address, tailcat_status.port));
+        }
+        QrCode::new(url.as_bytes()).ok().map(|code| code.render::<svg::Color>().min_dimensions(220, 220).build())
     } else {
         None
     };
