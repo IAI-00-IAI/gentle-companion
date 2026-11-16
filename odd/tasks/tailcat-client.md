@@ -186,3 +186,13 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   Confirmado en repro local: el WS directo por LAN cicla igual — la
   causa es la misma política direct-first que el HTTP ya corregida
   (directUsable respetado en el create hook). Sin cambios de shim.
+- L16 (infra, parent): topología del usuario — teléfono 4G compartiendo por USB
+  y WiFi AP (SSID ricardoA2) al router OpenWrt (192.168.2.1/24); PC por LAN
+  wired 192.168.2.20 y por WiFi ricardoA2 DHCP 192.168.43.73. HALLAZGO: el
+  daemon escucha SOLO en 192.168.2.20 (device surface); 192.168.43.73
+  devuelve 000 (no escucha). publicUrl = http://192.168.2.20:43722.
+  Consecuencia: un teléfono en la WiFi ricardoA2 (subred 192.168.43.x) no
+  alcanza el daemon salvo que el router enrute entre subredes. Verificar
+  desde el teléfono si http://192.168.2.20:43722 carga; si no, el daemon
+  debe escuchar también en la interfaz WiFi o el QR debe usar una IP
+  alcanzable.
