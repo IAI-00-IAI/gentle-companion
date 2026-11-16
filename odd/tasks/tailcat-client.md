@@ -149,3 +149,11 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   Verificado E2E: pair → landing → estable, notice=null, 1 ciclo WS.
   Suites: http_test 42, ws_test ok, cargo 145, test:extension 402.
   Commits 29182b7 + 07ea52b. Slice: 2139 líneas / 14 commits.
+- L11 (user report, parent): tras reinicios del daemon, (a) tailcat
+  "inactivo" en teléfono y PC, (b) 'Mostrando {count} de {total} {unit}'
+  sin interpolar en sesiones. Causas: (a) 11 procesos tailcat serve
+  huérfanos acumulados de reinicios (stop_tailcat no mata hijos de
+  daemons muertos) + dirección vieja en localStorage del teléfono →
+  limpiados; el QR actual tiene la dirección nueva. (b) el interpolador
+  solo reemplazaba {{var}} pero 30 entradas usan {var} → acepta ambos
+  (9beff96). Deuda anotada: matar hijos tailcat al morir el daemon.
