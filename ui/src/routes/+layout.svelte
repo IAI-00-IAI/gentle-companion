@@ -37,6 +37,9 @@
     : '');
   let aboutOpen = $state(false);
   let insecureContext = $state(false);
+  let httpsBannerDismissed = $state(false);
+
+  function dismissHttpsBanner() { httpsBannerDismissed = true; }
 
   const connectionLabel = $derived({
     connecting: t('shell.connection.connecting'),
@@ -211,10 +214,11 @@
         </div>
       </header>
 
-      {#if insecureContext}
+      {#if insecureContext && !httpsBannerDismissed}
         <div class="banner danger" role="alert">
           <Icon name="alert" />
           <span>{t('shell.banner.https')}</span>
+          <button class="btn btn-sm btn-ghost" onclick={dismissHttpsBanner} aria-label={t('shell.banner.dismiss')}>{t('shell.banner.dismiss')}</button>
         </div>
       {/if}
       {#if companion.connection === 'disconnected'}

@@ -6,7 +6,7 @@ import { LiveConnection, type Connection, type LiveSocket } from './connection.t
 export type { Connection } from './connection.ts';
 import { ApiError, WorkspaceConnectionError, unreachableMessage, workspaceRequest, type RequestTransport } from './workspace-connection.ts';
 export { ApiError } from './workspace-connection.ts';
-import { readTunnelConfig } from './tailcat-tunnel.ts';
+import { readTunnelConfig, type TunnelConfig } from './tailcat-tunnel.ts';
 import { createTunnelSocket, createTunnelTransport } from './tailcat-transport.ts';
 import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TailcatStatus, TempFile } from './types.ts';
 
@@ -21,8 +21,10 @@ import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Sessio
  */
 const TOKEN_KEY = 'piCompanionDeviceToken';
 
-/** Tunnel mode, read once at startup: set by the bridge page or the QR pairing flow. */
-const tunnel = readTunnelConfig(typeof localStorage === 'undefined' ? null : localStorage);
+/** Tunnel mode: re-read on each use so the QR pairing fragment (consumed at boot) activates it. */
+function tunnelConfig(): TunnelConfig | null {
+  return readTunnelConfig(typeof localStorage === 'undefined' ? null : localStorage);
+}
 
 type Diff = { staged: boolean; text: string; at: number; error?: string; scope?: 'session'; files?: { path: string; untracked: boolean }[]; worktree?: string; branch?: string; worktrees?: GitWorktree[]; warnings?: string[]; loading?: boolean };
 type UploadPolicy = { maxUploadMb: number; allowedUploadTypes: string[] };
@@ -49,6 +51,7 @@ class Companion {
   private live = new LiveConnection({
     enabled: () => this.booted && this.paired && navigator.onLine !== false,
     create: (): LiveSocket => {
+      const tunnel = tunnelConfig();
       if (tunnel) return createTunnelSocket(tunnel, { token: this.token ?? '' });
       const url = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws/browser';
       return this.remote ? new WebSocket(url, ['pi-companion', 'token.' + this.token]) : new WebSocket(url);
@@ -89,7 +92,19 @@ class Companion {
   private devicesTimer: ReturnType<typeof setTimeout> | undefined;
   private booting = false;
   /** Tunnel-mode HTTP transport; undefined keeps the plain-fetch path for local/remote. */
-  private tunnelTransport: RequestTransport | undefined = tunnel ? createTunnelTransport(tunnel) : undefined;
+  private tunnelTransport: RequestTransport | undefined;
+  private tunnelFor: TunnelConfig | null = null;
+
+  /** Current tunnel transport, rebuilt when the stored config appears or changes. */
+  private currentTunnelTransport(): RequestTransport | undefined {
+    const current = tunnelConfig();
+    if (!current) return undefined;
+    if (!this.tunnelTransport || this.tunnelFor?.addr !== current.addr || this.tunnelFor?.port !== current.port) {
+      this.tunnelTransport = createTunnelTransport(current);
+      this.tunnelFor = current;
+    }
+    return this.tunnelTransport;
+  }
 
   get isAdmin() {
     return !this.remote;
@@ -122,7 +137,7 @@ class Companion {
     this.connection = 'connecting';
     clearTimeout(this.retryTimer);
     try {
-      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy }>('/api/context', {}, 10_000, 'json', this.tunnelTransport);
+      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy }>('/api/context', {}, 10_000, 'json', this.currentTunnelTransport());
       if (!context || typeof context.remote !== 'boolean' || typeof context.version !== 'string') {
         throw new WorkspaceConnectionError('This address is not responding as a Gentle Companion workspace. Check the current tunnel URL.');
       }
@@ -177,7 +192,7 @@ class Companion {
     const token = this.token;
     if (this.remote && token) headers.set('authorization', 'Bearer ' + token);
     try {
-      return await workspaceRequest<T>(path, { ...init, headers }, timeoutMs, responseType, this.tunnelTransport);
+      return await workspaceRequest<T>(path, { ...init, headers }, timeoutMs, responseType, this.currentTunnelTransport());
     } catch (error) {
       if (error instanceof ApiError && error.status === 401 && this.remote && this.token === token && path !== '/api/pairing/claim') this.forget();
       else if (error instanceof WorkspaceConnectionError) this.unavailable(error.message);
