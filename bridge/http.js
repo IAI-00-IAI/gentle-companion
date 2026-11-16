@@ -122,6 +122,12 @@ export function createResponseParser() {
 
   function parseBody() {
     if (contentLength >= 0) {
+      // Accumulate the pending buffer into the body BEFORE the length check:
+      // subsequent chunks arrive in buf, and without this the body stays frozen
+      // at whatever the head chunk carried past the header end (a multi-chunk
+      // response then reports 'connection closed after N of M body bytes').
+      body = concatBytes(body, buf);
+      buf = new Uint8Array(0);
       if (body.length < contentLength) {
         return false; // need more bytes
       }
@@ -186,25 +192,32 @@ function currentDialer() {
   return null;
 }
 
-// bridgeFetch(addr, port, method, path, body, headers) dials a stream through the
-// tailcat tunnel (via the injected dialer, see setBridgeDialer / window.bridge.dial), sends one HTTP/1.1 request, and
-// resolves to { status, statusText, headers, bodyText, bodyJson() }.
+// bridgeFetch(addr, port, method, path, body, headers, dial) dials a stream through
+// the tailcat tunnel — via the optional explicit dial argument, the injected dialer
+// (setBridgeDialer), or window.bridge.dial — sends one HTTP/1.1 request, and resolves
+// to { status, statusText, headers, bodyText, bodyJson() }. An explicit dial argument
+// is preferred: the module-level dialer is a single global, and concurrent callers
+// (a UI issuing parallel requests) would otherwise clear each other's dialer.
 // A plain string body is sent as-is; any other non-null body is JSON-encoded.
 // headers (optional) adds extra request headers, e.g. the device token's
 // Authorization line. The stream is always closed before returning.
-export async function bridgeFetch(addr, port, method, path, body, headers) {
-  const dial = currentDialer();
-  if (!dial) {
+export async function bridgeFetch(addr, port, method, path, body, headers, dial) {
+  const usedDial = dial ?? currentDialer();
+  if (!usedDial) {
     throw new Error("no bridge dialer available");
   }
-  const conn = await dial(addr, port);
+  const conn = await usedDial(addr, port);
   try {
     const parser = createResponseParser();
-    // Await the write before half-closing: tailcat's WASM conn runs write and
+    // Await the write before anything else: tailcat's WASM conn runs write and
     // closeWrite on independent goroutines, so an un-awaited write lets the FIN
     // overtake the request bytes and the daemon sees an empty stream.
+    // No half-close at all: relaying the FIN through the DERP relay right after
+    // the write drops in-flight request bytes (measured: 2/10 GETs and 3/3 POSTs
+    // read back as 0-byte EOF with closeWrite; 10/10 OK without it). The daemon
+    // answers with "connection: close" and ends the stream itself, so read()
+    // hits EOF either way; the shim's finish() handles both delimiters.
     await conn.write(encodeRequest(method, path, body, headers));
-    await conn.closeWrite(); // half-close: the request is complete
     for (;;) {
       const chunk = await conn.read();
       if (chunk === null) {

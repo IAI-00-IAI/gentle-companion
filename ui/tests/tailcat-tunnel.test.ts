@@ -62,16 +62,34 @@ function fakeConn() {
     } };
 }
 
-// httpResponseConn adapts fakeConn into a one-shot HTTP server: when the client
-// half-closes (request complete), it answers with the given response and EOF.
+// httpResponseConn adapts fakeConn into a one-shot HTTP server: it answers with the
+// given response once the request is complete. Like the real daemon, "complete" means
+// either the client's half-close (bodyless requests) or the full Content-Length body
+// received (POST bodies, which no longer half-close: relaying the FIN right after the
+// write dropped in-flight request bytes through the DERP relay).
 function httpResponseConn(status: number, headers: Record<string, string>, body: string) {
   const fake = fakeConn();
+  const plainWrite = fake.conn.write;
   const plainCloseWrite = fake.conn.closeWrite;
-  fake.conn.closeWrite = async () => {
-    await plainCloseWrite();
+  let responded = false;
+  const respond = () => {
+    if (responded) return;
+    responded = true;
     const head = Object.entries(headers).map(([key, value]) => `${key}: ${value}`).join('\r\n');
     fake.push(new TextEncoder().encode(`HTTP/1.1 ${status} Test\r\n${head}\r\n\r\n${body}`));
     fake.push(null);
+  };
+  fake.conn.write = async (bytes: Uint8Array) => {
+    await plainWrite(bytes);
+    const request = new TextDecoder().decode(fake.state.written[0]);
+    const headEnd = request.indexOf('\r\n\r\n');
+    const contentLength = Number(/Content-Length: (\d+)/.exec(request)?.[1] ?? 0);
+    const total = fake.state.written.reduce((n, chunk) => n + chunk.length, 0);
+    if (headEnd !== -1 && total >= headEnd + 4 + contentLength) respond();
+  };
+  fake.conn.closeWrite = async () => {
+    await plainCloseWrite();
+    respond();
   };
   return fake;
 }
@@ -151,7 +169,9 @@ test('the bridge wrapper re-exports the real shims (T1, no copies)', async () =>
     const response = await bridgeFetch('tc:x', 1, 'GET', '/api/probe', undefined);
     assert.equal(response.status, 200);
     assert.deepEqual(response.bodyJson(), { ok: true });
-    assert.equal(fake.state.closeWriteCalled, true);
+    // The shim no longer half-closes (DERP FIN race): the response is delimited by
+    // the daemon's "connection: close" EOF, not by closeWrite.
+    assert.equal(fake.state.closeWriteCalled, false);
   } finally {
     setBridgeDialer(null);
   }
@@ -165,7 +185,8 @@ test('tunnel transport carries the request through bridgeFetch and parses JSON',
   const request = new TextDecoder().decode(fake.state.written[0]);
   assert.match(request, /^GET \/api\/context HTTP\/1\.1/);
   assert.match(request, /Connection: close/);
-  assert.equal(fake.state.closeWriteCalled, true);
+  // No half-close: the daemon's connection: close delimits the response.
+  assert.equal(fake.state.closeWriteCalled, false);
 });
 
 test('tunnel transport sends POST bodies as JSON strings', async () => {
@@ -411,6 +432,36 @@ test('deferred tunnel socket closed while dialing cancels the conn and fires clo
   releaseDial!(fake.conn);
   await waitFor(() => fake.state.closed);
   assert.equal(events.open, 0); // a retired socket must not look open to LiveConnection
+});
+
+test('tunnel transport survives concurrent requests with a per-request dialer', async () => {
+  // Regression pin: the old global-dialer path (setBridgeDialer) is a single module
+  // global, and concurrent requests (refresh() runs sessions+devices in parallel)
+  // cleared each other's dialer mid-flight, surfacing "no bridge dialer available".
+  // The transport now passes its dialer explicitly per request, so every concurrent
+  // request must get its own dialed conn and a full Response.
+  let dials = 0;
+  const dial = async () => {
+    dials++;
+    await new Promise((resolve) => setTimeout(resolve, Math.random() * 50));
+    return httpResponseConn(200, { 'content-type': 'application/json' }, '{"ok":true}').conn;
+  };
+  const transport = createTunnelTransport({ addr: 'tc:x', port: 5 }, { dial });
+  const requests = Array.from({ length: 8 }, (_, i) =>
+    transport(`/api/sessions/${i}`, { headers: { authorization: 'Bearer dev-token' } }, 'json'));
+  const settled = await Promise.allSettled(requests);
+  const failures = settled.filter((s): s is PromiseRejectedResult => s.status === 'rejected');
+  assert.deepEqual(
+    failures.map((f) => String(f.reason)),
+    [],
+    'no concurrent request may fail (especially not with "no bridge dialer available")'
+  );
+  const responses = settled.map((s) => (s as PromiseFulfilledResult<Response>).value);
+  for (const response of responses) {
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true });
+  }
+  assert.equal(dials, 8); // exactly one dial per request: none dropped, none shared
 });
 
 test('deferred tunnel socket rejects sends before the tunnel is open', async () => {

@@ -14,10 +14,11 @@
  * so ui/tests/tailcat-tunnel.test.ts runs everything under plain Node.
  */
 
-import { bridgeFetch, setBridgeDialer, TunnelWebSocket, type BridgeConn } from './bridge.ts';
+import { bridgeFetch, TunnelWebSocket, type BridgeConn } from './bridge.ts';
 import { WorkspaceConnectionError, type RequestTransport } from './workspace-connection.ts';
 import type { TunnelConfig } from './tailcat-tunnel.ts';
 import { loadTailcatRuntime, pickDerpMapURL, type TailcatRuntimeHooks } from './tailcat-runtime.ts';
+import { diag } from './diagnostics.ts';
 
 export type TunnelDial = () => Promise<BridgeConn>;
 
@@ -30,15 +31,25 @@ export function createTunnelDialer(config: TunnelConfig, hooks: TailcatRuntimeHo
   return async () => {
     const load = hooks.load ?? loadTailcatRuntime;
     const pickDerpMap = hooks.pickDerpMap ?? (() => pickDerpMapURL());
-    await load();
-    const dial = hooks.tailcatDial ?? (globalThis as { tailcatDial?: TailcatRuntimeHooks['tailcatDial'] }).tailcatDial;
-    if (typeof dial !== 'function') {
-      throw new Error('The tailcat client runtime is not available. Reload the page and retry.');
+    diag('dial', `start ${config.addr.slice(0, 10)}…:${config.port}`);
+    try {
+      await load();
+      const dial = hooks.tailcatDial ?? (globalThis as { tailcatDial?: TailcatRuntimeHooks['tailcatDial'] }).tailcatDial;
+      if (typeof dial !== 'function') {
+        throw new Error('The tailcat client runtime is not available. Reload the page and retry.');
+      }
+      // Same capability as window.bridge.dial (bridge/app.js), called directly: the
+      // bridge page's wrapper is not importable, and tailcatDial takes one options
+      // object carrying the tunnel address, DERP map and device port.
+      const derpMapURL = await pickDerpMap();
+      diag('dial', `runtime ready, derpmap=${derpMapURL.slice(0, 40)}`);
+      const conn = (await dial({ addr: config.addr, derpMapURL, port: config.port, verbose: pageParams().has('verbose') })) as BridgeConn;
+      diag('dial', 'conn established');
+      return conn;
+    } catch (error) {
+      diag('dial', `FAILED: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
     }
-    // Same capability as window.bridge.dial (bridge/app.js), called directly: the
-    // bridge page's wrapper is not importable, and tailcatDial takes one options
-    // object carrying the tunnel address, DERP map and device port.
-    return (await dial({ addr: config.addr, derpMapURL: await pickDerpMap(), port: config.port, verbose: pageParams().has('verbose') })) as BridgeConn;
   };
 }
 
@@ -66,16 +77,44 @@ export function createTunnelTransport(config: TunnelConfig, hooks: TailcatRuntim
     const body = typeof init.body === 'string' ? init.body : init.body ? JSON.parse(String(init.body)) : undefined;
     const headers: Record<string, string> = {};
     for (const [name, value] of new Headers(init.headers).entries()) headers[name] = value;
-    // bridgeFetch dials by itself through the injected dialer; scope it to this
-    // request so concurrent transports (tests, multiple configs) cannot cross wires.
-    setBridgeDialer(dial);
+    // The daemon's device surface validates the Origin header on every request
+    // (require_device_origin: a POST without Origin is rejected). A browser fetch
+    // adds Origin itself, but bridgeFetch hand-writes the request, so the page's
+    // origin must ride explicitly — the same value TunnelWebSocket sends.
+    if (typeof location !== 'undefined' && location.origin && headers['origin'] === undefined) {
+      headers['origin'] = location.origin;
+    }
+    // Pass the dialer explicitly per request: the module-level setBridgeDialer is a
+    // single global, and concurrent requests (refresh() runs sessions+devices in
+    // parallel) would clear each other's dialer mid-flight ("no bridge dialer
+    // available" races).
     try {
-      const result = await raceDeadline(bridgeFetch(config.addr, config.port, method, path, body, headers), init.signal ?? undefined);
+      // One retry for truncated/aborted streams: the DERP relay occasionally cuts a
+      // freshly dialed stream mid-response (observed: 'connection closed after N of M
+      // body bytes', ~1/3 of requests under the UI's dial cadence; raw probes pass).
+      // GETs are idempotent and the request was never fully delivered, so a single
+      // immediate retry is safe. Non-retryable errors (HTTP error statuses, aborts)
+      // propagate on the first attempt.
+      let result: Awaited<ReturnType<typeof bridgeFetch>>;
+      try {
+        result = await raceDeadline(bridgeFetch(config.addr, config.port, method, path, body, headers, dial), init.signal ?? undefined);
+      } catch (error) {
+        if (init.signal?.aborted) throw error;
+        const message = error instanceof Error ? error.message : String(error);
+        const truncated = message.includes('connection closed before response headers') || message.includes('connection closed after ');
+        if (!truncated) throw error;
+        diag('transport', `${method} ${path} truncated, retrying once`);
+        result = await raceDeadline(bridgeFetch(config.addr, config.port, method, path, body, headers, dial), init.signal ?? undefined);
+      }
       // Null-body statuses (204, 304) reject a non-null body in the Response constructor.
       const nullBody = result.status === 204 || result.status === 205 || result.status === 304;
+      diag('transport', `${method} ${path} -> ${result.status} (${result.bodyText.length}B)`);
       return new Response(nullBody ? null : result.bodyText, { status: result.status, statusText: result.statusText, headers: result.headers });
+    } catch (error) {
+      diag('transport', `${method} ${path} THREW: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
     } finally {
-      setBridgeDialer(null);
+      // No dialer cleanup needed: the dial rides the request explicitly.
     }
   };
 }

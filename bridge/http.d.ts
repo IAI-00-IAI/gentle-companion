@@ -40,7 +40,7 @@ export interface BridgeFetchResponse {
  * non-null body is JSON-encoded. headers adds extra request headers (e.g. the
  * device token's Authorization line). The stream is always closed before returning.
  */
-export declare function bridgeFetch(addr: string, port: number, method: string, path: string, body?: string | object | null, headers?: Record<string, string>): Promise<BridgeFetchResponse>;
+export declare function bridgeFetch(addr: string, port: number, method: string, path: string, body?: string | object | null, headers?: Record<string, string>, dial?: BridgeDial): Promise<BridgeFetchResponse>;
 
 /** Injects the dialer used by bridgeFetch; pass null to restore the default lookup. */
 export declare function setBridgeDialer(fn: BridgeDialer | null): void;

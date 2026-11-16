@@ -7,7 +7,7 @@
 
 import http from "node:http";
 import net from "node:net";
-import { bridgeFetch, createResponseParser, encodeRequest } from "./http.js";
+import { bridgeFetch, createResponseParser, encodeRequest, setBridgeDialer } from "./http.js";
 
 let failures = 0;
 function check(name, cond, detail) {
@@ -228,8 +228,52 @@ async function main() {
     check("fetch headers: status", authed.status === 200, `got ${authed.status}`);
     check("fetch headers: authorization reached the server", authed.bodyJson().authorization === "Bearer dev-token", authed.bodyText);
     check("fetch headers: omitted param unchanged", (await bridgeFetch(addr, port, "GET", "/api/settings")).bodyJson().authorization === null);
+
+    // Explicit 7th dial argument wins even while the injected module dialer is unset
+    // or different: the transport passes the dialer per request because the module
+    // level dialer is a single global that concurrent callers would clear mid-flight.
+    setBridgeDialer(null);
+    let explicitDials = 0;
+    const explicitDial = async () => {
+      explicitDials++;
+      return makeConn(addr, port);
+    };
+    const viaExplicit = await bridgeFetch(addr, port, "GET", "/api/settings", undefined, undefined, explicitDial);
+    check("fetch explicit dial: works with no injected dialer", viaExplicit.status === 200, `got ${viaExplicit.status}`);
+    check("fetch explicit dial: used the given dial, not the global", explicitDials === 1);
+
+    // Even with a *different* dialer installed globally, the explicit one must win.
+    setBridgeDialer(async () => {
+      throw new Error("the global dialer must not be used when an explicit dial is given");
+    });
+    explicitDials = 0;
+    const viaExplicit2 = await bridgeFetch(addr, port, "GET", "/api/settings", undefined, undefined, explicitDial);
+    check("fetch explicit dial: wins over a different global dialer", viaExplicit2.status === 200, `got ${viaExplicit2.status}`);
+    check("fetch explicit dial: global dialer never invoked", explicitDials === 1);
+
+    // And with no explicit dial and no dialer at all (no injected dialer, no
+    // window.bridge.dial fallback), the documented error surfaces.
+    setBridgeDialer(null);
+    const savedBridge = globalThis.window.bridge;
+    delete globalThis.window.bridge;
+    let noDialerError = null;
+    try {
+      await bridgeFetch(addr, port, "GET", "/api/settings");
+    } catch (e) {
+      noDialerError = e;
+    } finally {
+      globalThis.window.bridge = savedBridge;
+    }
+    check(
+      "fetch without any dialer: clear error",
+      noDialerError instanceof Error &&
+        noDialerError.message === "no bridge dialer available",
+      noDialerError && noDialerError.message,
+    );
   } finally {
     await new Promise((resolve) => server.close(resolve));
+    // Leave the injected dialer unset for anything that runs after the tests.
+    setBridgeDialer(null);
   }
 
   console.log(failures === 0 ? "\nall tests passed" : `\n${failures} test(s) failed`);
