@@ -157,3 +157,12 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   limpiados; el QR actual tiene la dirección nueva. (b) el interpolador
   solo reemplazaba {{var}} pero 30 entradas usan {var} → acepta ambos
   (9beff96). Deuda anotada: matar hijos tailcat al morir el daemon.
+- L12 (user report, parent): el teléfono en la LAN del daemon no conectaba:
+  el modo túnel era camino EXCLUSIVO — todo iba por DERP aunque el daemon
+  estuviera a un salto, y con la WAN del teléfono caída (tether USB) el
+  relay era inalcanzable. Fix (6326bd3): boot() sondea el camino directo
+  (fetch a /api/context del propio origen); si responde como el daemon →
+  LAN directa (sin túnel); si no → túnel. La sonda se cachea hasta un
+  fallo; unavailable() la olvida para re-evaluar al moverse entre redes.
+  E2E: direct probe -> true, context ok, notice null. Suites: 402/402,
+  ui:check limpio.
