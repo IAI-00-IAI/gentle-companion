@@ -136,14 +136,50 @@ class Companion {
     return this.asks[id]?.length ?? 0;
   }
 
+  /**
+   * Resolves the transport for one request: direct LAN when the page origin itself
+   * serves the daemon (the QR's URL IS the daemon), the tunnel otherwise. Probing
+   * per boot: a phone in the daemon's LAN must not detour through the DERP relay
+   * (slow, and unreachable when the phone's WAN is down — e.g. USB tethering),
+   * while the same phone off-LAN has only the tunnel. The probe result is cached
+   * until a boot failure, so steady-state adds no latency.
+   */
+  private directUsable: boolean | null = null;
+
+  private effectiveTransport(): RequestTransport | undefined {
+    if (!tunnelConfig()) return undefined;
+    if (this.directUsable === null) return this.currentTunnelTransport(); // first boot: tunnel is the only known-good path
+    return this.directUsable ? undefined : this.currentTunnelTransport();
+  }
+
+  /** Probes the direct path once per boot: does a plain fetch to our own origin answer as the daemon? */
+  private async probeDirect(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/context', { signal: AbortSignal.timeout(3000), cache: 'no-store' });
+      if (!response.ok) return false;
+      const body = await response.json() as { remote?: boolean; version?: string };
+      return typeof body.remote === 'boolean' && typeof body.version === 'string';
+    } catch { return false; }
+  }
+
   async boot() {
     if (this.booting || (this.booted && !this.bootError)) return;
     this.booting = true;
     this.connection = 'connecting';
     clearTimeout(this.retryTimer);
     try {
-      diag('boot', `start #${diagSeq()} tunnel=${JSON.stringify(tunnelConfig())}`);
-      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus }>('/api/context', {}, 10_000, 'json', this.currentTunnelTransport());
+      diag('boot', `start #${diagSeq()} tunnel=${JSON.stringify(tunnelConfig())} direct=${this.directUsable}`);
+      // On the first boot (or after a failure), probe the direct path: when the
+      // page's own origin answers as the daemon, prefer LAN over the tunnel.
+      if (tunnelConfig() && this.directUsable === null) {
+        this.directUsable = await this.probeDirect();
+        diag('boot', `direct probe -> ${this.directUsable}`);
+      }
+      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus }>('/api/context', {}, 10_000, 'json', this.effectiveTransport());
+      if (this.directUsable === false && tunnelConfig()) {
+        // Tunnel worked: re-probe direct on the next boot (the phone may have moved).
+        this.directUsable = null;
+      }
       diag('boot', `context ok remote=${context.remote} version=${context.version}`);
       if (!context || typeof context.remote !== 'boolean' || typeof context.version !== 'string') {
         throw new WorkspaceConnectionError('This address is not responding as a Gentle Companion workspace. Check the current tunnel URL.');
@@ -184,6 +220,9 @@ class Companion {
 
   private unavailable(message: string) {
     if (this.connection === 'disconnected' || this.connection === 'revoked') return;
+    // The phone may have moved between LAN and mobile: forget the direct-path probe
+    // so the next boot re-evaluates instead of retrying a dead path forever.
+    this.directUsable = null;
     this.connectionError = message;
     this.connection = 'offline';
     this.connectionEpoch++;
@@ -201,7 +240,7 @@ class Companion {
     const token = this.token;
     if (this.remote && token) headers.set('authorization', 'Bearer ' + token);
     try {
-      return await workspaceRequest<T>(path, { ...init, headers }, timeoutMs, responseType, this.currentTunnelTransport());
+      return await workspaceRequest<T>(path, { ...init, headers }, timeoutMs, responseType, this.effectiveTransport());
     } catch (error) {
       diag('req', `${path} FAILED: ${error instanceof Error ? error.message : String(error)}`);
       if (error instanceof ApiError && error.status === 401 && this.remote && this.token === token && path !== '/api/pairing/claim') this.forget();
