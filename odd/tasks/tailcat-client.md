@@ -171,3 +171,9 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   detrás funcionaba). Fix: notice colapsable por defecto (franja fina
   con chevron, tap para expandir), auto-colapsa al recuperar conexión,
   role=alert conservado. Suites: 402/402, ui:check limpio.
+- L14 (user report, parent): el teléfono en LAN ciclaba 'conectando' y
+  caía a sin conexión — el WS ignoraba directUsable y salía siempre por
+  el túnel (11.5s por conexión; muerto con la WAN del teléfono caída).
+  Fix: el create hook del WS aplica la misma política direct-first que
+  el transporte HTTP (direct probe true → WebSocket plano). Repro:
+  tunnel=off direct=true → online en 33ms. Commit 32dde80+.
