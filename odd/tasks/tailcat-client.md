@@ -96,6 +96,15 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   revocados (4x 204). Gotcha: el daemon autoiniciado por la sesión Pi
   corre el binario viejo (deleted); hay que matarlo y relanzar el build
   nuevo para probar. Commit 2516d90.
+- L7 (user report, parent): defecto UX real — el QR de Settings → Tunnel
+  codificaba la dirección tc… cruda; el navegador del teléfono la mostraba
+  como token opaco sin nada que abrir. Fix (3977d37): ese QR ahora codifica
+  una URL de emparejamiento fresca (invite en query, túnel+puerto en
+  fragmento si corre) — mismo flujo que el QR de Dispositivos. Verificado
+  decodificando el SVG servido con OpenCV: URL correcta, invite presente,
+  fragmento con tunnel= y port=. Hint nuevo settings.tailcat.qr.hint
+  (EN+es-ES); el campo de dirección conserva su botón copiar para clientes
+  externos. Suites: cargo 145, test:extension 401, ui:check limpio.
 - L3 (user): «Ok, adelante, y lanza en paralelo la mayor cantidad de
   subagentes que puedas» — T1+T2 van a un writer (superficie ui/), T4 a otro
   (server/), en paralelo; T3 espera a ambos (depende del cliente túnel y del
