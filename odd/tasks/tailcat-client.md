@@ -119,3 +119,14 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   botón Cerrar (shell.banner.dismiss EN+es-ES). Verificado: ui:check limpio,
   test:extension 401/401, E2E túnel real verde. Nota: falta smoke test en
   teléfono real para confirmar el (1) fuera de la LAN.
+- L9 (user report, parent): el indicador tailcat quedaba "inactivo" en
+  teléfono y desktop. Dos causas: (1) visible_to_device filtraba
+  tailcat.update por falta de sessionId → los dispositivos nunca lo
+  recibían (ahora explícitamente visible: es estado de conexión, sin
+  datos de sesión); (2) un cliente que abre la UI después de que el
+  túnel arrancó nunca ve un tailcat.update (solo se emite en
+  start/stop) → /api/context del device surface ahora trae
+  tailcatStatus (sin la dirección, que queda en settings/admin) y el
+  boot de la UI lo alimenta al indicador. Verificado: remote context
+  devuelve running:true; cargo 145, test:extension 401, ui:check
+  limpio; web-dist reconstruido. Commit 324a397.
