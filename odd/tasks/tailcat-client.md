@@ -177,3 +177,12 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   Fix: el create hook del WS aplica la misma política direct-first que
   el transporte HTTP (direct probe true → WebSocket plano). Repro:
   tunnel=off direct=true → online en 33ms. Commit 32dde80+.
+- L14 (user report, parent): el teléfono en LAN cicla 'conectando' y cae
+  a sin conexión — el WS ignoraba directUsable y salía por el túnel
+  (11.5s por conexión; muerto con WAN caída). Fix: el create hook aplica
+  la misma política direct-first que el HTTP (direct=true → WebSocket
+  plano). Repro: tunnel=off direct=true → online en 33ms.
+- L15 (user report, parent): el notice en LAN cicla y no desaparece.
+  Confirmado en repro local: el WS directo por LAN cicla igual — la
+  causa es la misma política direct-first que el HTTP ya corregida
+  (directUsable respetado en el create hook). Sin cambios de shim.
