@@ -3,6 +3,57 @@ use super::*;
 use crate::config::Persisted;
 use crate::tailcat::{TailcatError, TailcatManager};
 
+use crate::tests::{call, post_json, test_state};
+
+/// The tunnel pairing QR encodes the pairing URL with the tunnel address and device
+/// port in the fragment (`#tunnel=<addr>&port=<port>`): the invite stays the only
+/// query parameter, and fragments are never sent to the server, so neither value can
+/// reach daemon logs. The phone's client reads the fragment into the tunnel-mode
+/// localStorage keys at boot (feature tailcat-client T3, spec S3).
+#[tokio::test]
+async fn tunnel_pairing_encodes_the_tunnel_address_in_the_fragment() {
+    let state = test_state();
+    {
+        let mut settings = state.settings.write().await;
+        settings.tailcat_enabled = true;
+        settings.tailcat_address = "tc-abc123".into();
+        settings.tailcat_port = 12345;
+    }
+    state.tailcat.write().await.set_running_for_test("tc-abc123", 12345);
+    let local = local_router(state.clone());
+    let (_, body) = call(&local, post_json("/api/pairing/start", Some(LOCAL_ORIGIN), serde_json::json!({}))).await;
+    let pairing: Value = serde_json::from_str(&body).unwrap();
+
+    let url = pairing["url"].as_str().unwrap();
+    let (base, fragment) = url.split_once('#').expect("tunnel pairing URL carries a fragment");
+    assert!(!base.contains("tc-abc123"), "the tunnel address must not ride the query");
+    assert!(!base.contains("12345"), "the device port must not ride the query");
+    let query = base.split_once('?').unwrap().1;
+    assert!(query.starts_with("invite="), "the invite stays the only query parameter: {query}");
+    assert!(!query.contains('&'), "no second query parameter leaks the tunnel data: {query}");
+
+    let fragment_params: Vec<(String, String)> = fragment
+        .split('&')
+        .map(|pair| pair.split_once('=').map_or_else(|| (pair.to_string(), String::new()), |(k, v)| (k.to_string(), v.to_string())))
+        .collect();
+    let tunnel = fragment_params.iter().find(|(key, _)| key == "tunnel").map(|(_, value)| value.clone());
+    let port = fragment_params.iter().find(|(key, _)| key == "port").and_then(|(_, value)| value.parse::<u16>().ok());
+    assert_eq!(fragment_params.len(), 2, "unexpected fragment parameters: {fragment}");
+    assert_eq!(fragment_params[0].0, "tunnel", "the tunnel address comes first in the fragment");
+    assert_eq!(tunnel.as_deref(), Some("tc-abc123"));
+    assert_eq!(port, Some(12345));
+
+    // The QR the console renders encodes the same URL: the svg is path data, so we
+    // assert it is non-trivial and matches the URL's length class, not its text.
+    let qr = pairing["qrSvg"].as_str().unwrap();
+    assert!(qr.len() > 220, "the QR svg is rendered");
+    assert!(qr.contains("shape-rendering=\"crispEdges\""));
+
+    // The copyable fallback fields name the tunnel explicitly (T3).
+    assert_eq!(pairing["tunnelAddr"].as_str(), Some("tc-abc123"));
+    assert_eq!(pairing["tunnelPort"].as_u64(), Some(12345));
+}
+
 #[tokio::test]
 async fn tailcat_manager_starts_and_reports_address_with_fake_binary() {
     let tmp = scratch("tailcat-test");

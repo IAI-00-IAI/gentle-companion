@@ -309,6 +309,14 @@ struct PairingResponse {
     qr_svg: String,
     #[serde(rename = "expiresAt")]
     expires_at: u64,
+    /// Tailcat address encoded in the URL fragment when the tunnel is running
+    /// (feature tailcat-client T3); the console uses it to show the copyable
+    /// tunnel-URL fallback. Empty when the tunnel is off.
+    #[serde(rename = "tunnelAddr")]
+    tunnel_addr: String,
+    /// Device port encoded next to the tunnel address; 0 means the default port.
+    #[serde(rename = "tunnelPort")]
+    tunnel_port: u16,
 }
 
 #[derive(Serialize)]
@@ -983,7 +991,23 @@ async fn start_pairing(State(state): State<AppState>) -> ApiResult<Json<PairingR
     let code = format!("{}-{}", &compact[0..4], &compact[4..8]);
     let ttl = state.settings.read().await.pairing_ttl_minutes * 60;
     let expires_at = now_secs() + ttl;
-    let url = format!("{}/pair?invite={}", public_url(&state).await, token);
+    // When the tailcat tunnel is running, the QR also carries the tunnel address and
+    // device port in the URL fragment (feature tailcat-client T3, spec S3): a phone
+    // scanning it lands on the daemon-served client already configured for tunnel
+    // mode. The fragment is never sent to the server, so neither value can reach
+    // daemon logs; the invite stays the only query parameter. The invite token itself
+    // remains the sole credential in the URL, exactly as without the tunnel.
+    let tunnel = {
+        let settings = state.settings.read().await;
+        let status = state.tailcat.read().await.status(settings.tailcat_enabled);
+        let running = status.running && !settings.tailcat_address.is_empty();
+        let port = tailcat_port(&state).await;
+        running.then(|| (settings.tailcat_address.clone(), port))
+    };
+    let mut url = format!("{}/pair?invite={}", public_url(&state).await, token);
+    if let Some((addr, port)) = &tunnel {
+        url.push_str(&format!("#tunnel={addr}&port={port}"));
+    }
 
     {
         let mut pairings = state.pairings.write().await;
@@ -998,7 +1022,14 @@ async fn start_pairing(State(state): State<AppState>) -> ApiResult<Json<PairingR
         .min_dimensions(220, 220)
         .build();
 
-    Ok(Json(PairingResponse { code, url, qr_svg, expires_at }))
+    Ok(Json(PairingResponse {
+        code,
+        url,
+        qr_svg,
+        expires_at,
+        tunnel_addr: tunnel.as_ref().map(|(addr, _)| addr.clone()).unwrap_or_default(),
+        tunnel_port: tunnel.as_ref().map(|(_, port)| *port).unwrap_or(0),
+    }))
 }
 
 /// Uppercase alphanumerics of a typed code (`ab12-cd34`, `AB12 CD34` → `AB12CD34`).

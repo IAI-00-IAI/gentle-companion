@@ -30,9 +30,11 @@ mod tailcat_tests;
 #[path = "usage_tests.rs"]
 mod usage_tests;
 
-const CONSOLE_ORIGIN: &str = "http://127.0.0.1:43721";
+pub(crate) const CONSOLE_ORIGIN: &str = "http://127.0.0.1:43721";
 const DEVICE_ORIGIN: &str = "http://127.0.0.1:43722";
 const EVIL_ORIGIN: &str = "https://evil.example";
+/// Same as CONSOLE_ORIGIN under the name the pairing QR tests use.
+pub(crate) use CONSOLE_ORIGIN as LOCAL_ORIGIN;
 
 type Ws = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -40,11 +42,11 @@ fn scratch(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!("pi-companion-test-{label}-{}", Uuid::new_v4().simple()))
 }
 
-fn test_state() -> AppState {
+pub(crate) fn test_state() -> AppState {
     AppState::new(config::Persisted::default(), scratch("tmp"), scratch("data"), None, Vec::new())
 }
 
-async fn call(router: &Router, request: HttpRequest<Body>) -> (StatusCode, String) {
+pub(crate) async fn call(router: &Router, request: HttpRequest<Body>) -> (StatusCode, String) {
     let response = router.clone().oneshot(request).await.expect("router call");
     let status = response.status();
     let bytes = response.into_body().collect().await.expect("body").to_bytes();
@@ -66,7 +68,7 @@ fn get(path: &str, origin: Option<&str>, token: Option<&str>) -> HttpRequest<Bod
     request("GET", path, origin, token).body(Body::empty()).unwrap()
 }
 
-fn post_json(path: &str, origin: Option<&str>, body: Value) -> HttpRequest<Body> {
+pub(crate) fn post_json(path: &str, origin: Option<&str>, body: Value) -> HttpRequest<Body> {
     request("POST", path, origin, None)
         .header("content-type", "application/json")
         .header("user-agent", "TestPhone/1.0")
@@ -441,6 +443,21 @@ fn origins_are_normalized() {
 }
 
 // ---------------------------------------------------------------- pairing
+
+/// Without a running tunnel, the pairing URL carries no fragment and no tunnel data
+/// (the existing desktop pairing behavior is preserved; feature tailcat-client T3).
+#[tokio::test]
+async fn pairing_url_without_a_tunnel_has_no_fragment() {
+    let state = test_state();
+    let local = local_router(state.clone());
+    let pairing = start_pairing_via(&local).await;
+    let url = pairing["url"].as_str().unwrap();
+    assert!(!url.contains('#'), "no tunnel fragment without a running tunnel: {url}");
+    assert!(url.contains("?invite="), "{url}");
+    assert!(pairing["qrSvg"].as_str().unwrap().len() > 220);
+    assert_eq!(pairing["tunnelAddr"].as_str(), Some(""));
+    assert_eq!(pairing["tunnelPort"].as_u64(), Some(0));
+}
 
 #[tokio::test]
 async fn pairing_invites_expire_and_work_once() {

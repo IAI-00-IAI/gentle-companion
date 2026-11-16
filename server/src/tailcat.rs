@@ -194,6 +194,15 @@ impl TailcatManager {
         self.running
     }
 
+    /// Test-only: marks the manager as running with the given address, so router
+    /// tests can exercise tunnel-dependent behavior without spawning a process.
+    #[cfg(test)]
+    pub fn set_running_for_test(&mut self, address: &str, port: u16) {
+        self.address = address.to_string();
+        self.port = port;
+        self.running = true;
+    }
+
 
 }
 
