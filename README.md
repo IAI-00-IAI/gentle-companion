@@ -118,6 +118,11 @@ The daemon refuses to start twice (it exits when the admin port is taken), so a 
 
 The local administration surface and paired-device surface are separate listeners. If you expose Gentle Companion through a tunnel, target only port 43722. Never expose port 43721.
 
+For a full architecture reference — process model, HTTP surfaces, auth, every subsystem,
+the main flows and the operational guides, with diagrams and source anchors — see the
+[knowledge bundle](knowledge/index.md). It is also available in Spanish
+([es](knowledge/index_es-ES.md)).
+
 ## Install the web app on your phone
 
 Open the daemon’s **HTTPS device URL** and pair the phone first. On Android/Chromium, choose **Install app** (or **Add to Home screen**) in the browser menu. On iPhone/iPad, open Safari and choose **Share → Add to Home Screen**; enable **Open as Web App** if offered. Installation does not grant additional session permissions.
