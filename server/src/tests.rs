@@ -76,6 +76,14 @@ pub(crate) fn post_json(path: &str, origin: Option<&str>, body: Value) -> HttpRe
         .unwrap()
 }
 
+pub(crate) fn put_json(path: &str, origin: Option<&str>, body: Value) -> HttpRequest<Body> {
+    request("PUT", path, origin, None)
+        .header("content-type", "application/json")
+        .header("user-agent", "TestPhone/1.0")
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
 fn upload(path: &str, origin: Option<&str>, token: Option<&str>, file_name: &str, content_type: &str, data: &[u8]) -> HttpRequest<Body> {
     let boundary = "pi-companion-test-boundary";
     let mut body = format!(
@@ -245,6 +253,37 @@ async fn the_https_surface_serves_its_own_certificate() {
     *state.tls_cert.write().unwrap() = None;
     let (status, _) = call(&local_router(state.clone()), get("/cert.pem", Some(CONSOLE_ORIGIN), None)).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// `tailcat_address` is discovered by the daemon when the tunnel starts, not chosen by the
+/// user. Saving settings must not overwrite it with whatever the client sent: the settings
+/// page round-trips the whole struct, so a stale or empty value would erase the address and
+/// silently disable the tunnel fallback — the phone then goes offline the moment it leaves
+/// the LAN, because it was never told where the tunnel is.
+#[tokio::test]
+async fn saving_settings_does_not_erase_the_discovered_tunnel_address() {
+    let state = test_state();
+    let discovered = "tcpGFwWCCexampleTunnelAddress".to_string();
+    {
+        let mut settings = state.settings.write().await;
+        settings.tailcat_enabled = true;
+        settings.tailcat_address = discovered.clone();
+    }
+
+    // The client round-trips the struct with an empty address, as a stale page would.
+    let mut incoming = state.settings.read().await.clone();
+    incoming.tailcat_address = String::new();
+    incoming.max_upload_mb = 30;
+    let body = serde_json::to_value(&incoming).unwrap();
+    let (status, _) = call(&local_router(state.clone()), put_json("/api/settings", Some(CONSOLE_ORIGIN), body)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let settings = state.settings.read().await.clone();
+    assert_eq!(
+        settings.tailcat_address, discovered,
+        "the daemon-discovered tunnel address must survive a settings save"
+    );
+    assert_eq!(settings.max_upload_mb, 30, "the user's real change must still apply");
 }
 
 #[tokio::test]
