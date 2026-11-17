@@ -196,3 +196,20 @@ tunnel, served by the daemon, with QR pairing from the phone itself.
   desde el teléfono si http://192.168.2.20:43722 carga; si no, el daemon
   debe escuchar también en la interfaz WiFi o el QR debe usar una IP
   alcanzable.
+
+## Cierre de la iteración (2026-11-17)
+
+Estado: implementación completa y verificada; pendiente la prueba en teléfono
+real con la red del usuario estabilizada.
+
+Verificación final: cargo 145/145, test:extension 402/402, ui:check limpio,
+bridge/http_test 42 checks, bridge/ws_test OK.
+
+Decisiones tomadas por el usuario en esta iteración:
+- Transporte: modo túnel adicional junto a local/remote (no refactor único).
+- Serving: el daemon sirve el cliente desde su origen.
+- Emparejamiento: QR + copia de token como alternativa.
+- El claim entrega la dirección del túnel (no depender solo del QR).
+- Siguiente iteración: HTTPS en el daemon (A) con Service Worker + PWA, para
+  que recargar sin LAN funcione; host estático público (B) queda como
+  alternativa configurable, no excluyente.
