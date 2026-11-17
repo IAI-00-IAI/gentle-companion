@@ -65,6 +65,26 @@ Use `/remote-control` in any session to toggle sharing; `/remote-control on` and
 
 You do **not** need to run `gentle-companion-server` manually for a normal npm install. Manual daemon startup is mainly for local development, debugging, or when `PI_COMPANION_AUTOSTART=0` is set.
 
+### Running the daemon yourself
+
+The extension starts the daemon on load: it probes the admin port and launches a daemon only when nothing answers, registering a per-user background service when the platform allows it. Three scripts cover the cases where you want to drive that yourself — they work on Linux, macOS and Windows, need no dependencies, and live in `tools/` (they are not shipped in the npm package):
+
+| Script | What it does |
+| --- | --- |
+| `node tools/daemon.mjs start\|stop\|status\|restart` | Manual lifecycle. `status` probes the admin port and reports running/version/pid; `start` resolves the binary, launches it detached and waits until it answers; `stop` sends SIGTERM and waits for the port to close. Add `--json` for machine-readable output. |
+| `node tools/daemon-service.mjs install\|uninstall\|status` | Registers, removes or reports the per-user service: `systemd --user` on Linux, `launchd` on macOS, Task Scheduler on Windows. Mirrors what the extension registers, so both paths stay consistent. `--binary <path>` overrides the binary. |
+| `node tools/daemon-logs.mjs [--lines N] [--follow]` | Shows the daemon's log: `journalctl --user -u pi-companion.service` on Linux, `log show`/`log stream` on macOS, and the log file when one exists. Explains what to do when the platform keeps no log. |
+
+The same actions are available through `npm run`:
+
+    npm run daemon:start      npm run daemon:status     npm run daemon:logs
+    npm run daemon:stop       npm run daemon:restart
+    npm run daemon:service:install    npm run daemon:service:uninstall    npm run daemon:service:status
+
+Binary resolution order (all three scripts): `PI_COMPANION_SERVER` → `server/target/release/` → `server/target/debug/` → the cached download under the companion home → `PATH`. A normal npm install has no `server/target/`, so use the cached binary or set `PI_COMPANION_SERVER`.
+
+The daemon refuses to start twice (it exits when the admin port is taken), so a manual start while the service is running is harmless: it reports that another daemon owns the port.
+
 ## Architecture
 
     local browser :43721
