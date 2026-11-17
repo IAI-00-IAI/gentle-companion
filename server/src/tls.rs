@@ -187,6 +187,19 @@ pub fn ensure_self_signed(
     // A year is plenty for a LAN-only certificate the user re-issues on demand.
     params.not_before = rcgen::date_time_ymd(2024, 1, 1);
     params.not_after = rcgen::date_time_ymd(2036, 1, 1);
+    // The certificate is installed on a phone as a CA, so it has to be one.
+    //
+    // `CertificateParams::new` produces a leaf: no basicConstraints, no keyUsage. Chrome
+    // tolerates that once the user accepts the warning, but Firefox validates every
+    // same-origin fetch against it and rejects the lot — the client cannot even download
+    // its own runtime, which reads as "the daemon may be unreachable". Marking it as a CA
+    // with the key-cert-sign usage is what makes the same file work in both browsers.
+    params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+    params.key_usages = vec![
+        rcgen::KeyUsagePurpose::KeyCertSign,
+        rcgen::KeyUsagePurpose::CrlSign,
+        rcgen::KeyUsagePurpose::DigitalSignature,
+    ];
 
     let key_pair = rcgen::KeyPair::generate()
         .map_err(|error| format!("cannot generate the private key: {error}"))?;
@@ -401,6 +414,41 @@ mod tests {
         sorted.sort();
         sorted.dedup();
         assert_eq!(sorted.len(), names.len(), "duplicate names: {names:?}");
+    }
+
+    /// The certificate is installed on a phone as a CA, so it has to say it is one.
+    ///
+    /// `CertificateParams::new` produces a leaf certificate: no basicConstraints, no
+    /// keyUsage. Chrome tolerates that when the user accepts the warning, but Firefox
+    /// validates every same-origin fetch against it and rejects the lot, so the client
+    /// cannot even download its own runtime. A self-signed certificate meant to be trusted
+    /// as a CA must carry `CA:TRUE` and the key-cert-sign usage.
+    #[test]
+    fn the_self_signed_certificate_is_usable_as_a_ca() {
+        let dir = temp_dir("ca-constraints");
+        let (cert, _, _) = ensure_self_signed(&dir, &["companion.test".to_string()]).unwrap();
+        let bytes = std::fs::read(&cert).unwrap();
+        let text = String::from_utf8_lossy(&bytes).into_owned();
+        let der = base64_decode(
+            text.split("-----BEGIN CERTIFICATE-----")
+                .nth(1)
+                .and_then(|rest| rest.split("-----END CERTIFICATE-----").next())
+                .map(|body| body.split_whitespace().collect::<String>())
+                .unwrap_or_default()
+                .as_str(),
+        )
+        .expect("the PEM body must be valid base64");
+
+        // BasicConstraints ::= SEQUENCE { cA BOOLEAN DEFAULT FALSE, ... }
+        // DER: 30 03 01 01 FF  (SEQUENCE len 3, BOOLEAN len 1, TRUE)
+        let ca_marker: [u8; 5] = [0x30, 0x03, 0x01, 0x01, 0xFF];
+        let has_ca = der.windows(5).any(|window| window == ca_marker);
+        assert!(has_ca, "the certificate must carry basicConstraints CA:TRUE so it can be trusted as a CA");
+
+        // KeyUsage with keyCertSign (bit 5) must be present too.
+        let key_usage_marker: [u8; 5] = [0x06, 0x03, 0x55, 0x1D, 0x0F];
+        let has_key_usage = der.windows(5).any(|window| window == key_usage_marker);
+        assert!(has_key_usage, "the certificate must carry a keyUsage extension with keyCertSign");
     }
 
     #[test]

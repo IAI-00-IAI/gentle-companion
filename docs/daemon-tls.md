@@ -87,6 +87,20 @@ worker registration** until it is trusted. Install it as a CA:
 Compare the fingerprint the daemon printed with the one the phone shows before
 trusting it.
 
+## Firefox needs the certificate to be a real CA
+
+The generated certificate carries `basicConstraints: CA:TRUE` and a `keyUsage` with
+`Certificate Sign`. That is not decoration: the file is installed on the phone **as a CA**,
+and Firefox validates every same-origin request against it.
+
+A leaf certificate (no `basicConstraints`, no `keyUsage`) works in Chrome once the warning is
+accepted, but Firefox rejects every fetch on that origin — the client cannot even download its
+own runtime, and the failure reads as "the daemon may be unreachable" rather than a certificate
+problem. If you point Firefox at an older daemon, that is what you will see.
+
+Certificates generated before this was fixed are reused, so delete `<data dir>/tls/` and
+restart the daemon to get one that both browsers accept.
+
 ## What this fixes, and what it does not
 
 **Fixes**

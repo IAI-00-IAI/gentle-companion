@@ -90,6 +90,20 @@ registro del service worker** hasta que se confía. Instalalo como CA:
 
 Compará la huella que imprimió el daemon con la que muestra el teléfono antes de confiar.
 
+## Firefox necesita que el certificado sea una CA de verdad
+
+El certificado generado lleva `basicConstraints: CA:TRUE` y un `keyUsage` con
+`Certificate Sign`. No es decoración: el archivo se instala en el teléfono **como CA**, y
+Firefox valida contra él cada pedido del mismo origen.
+
+Un certificado hoja (sin `basicConstraints` ni `keyUsage`) funciona en Chrome una vez aceptada
+la advertencia, pero Firefox rechaza todos los fetch de ese origen — el cliente no puede ni
+descargar su propio runtime, y el fallo se lee como "el daemon puede estar inalcanzable" en vez
+de un problema de certificado. Si apuntás Firefox a un daemon viejo, eso es lo que vas a ver.
+
+Los certificados generados antes de este arreglo se reutilizan, así que borrá `<data dir>/tls/`
+y reiniciá el daemon para obtener uno que acepten los dos navegadores.
+
 ## Qué resuelve y qué no
 
 **Resuelve**
