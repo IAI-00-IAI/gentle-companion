@@ -470,7 +470,10 @@ async fn main() {
     let tunnel_state = state.clone();
     tokio::spawn(async move { start_tunnel_listener(&tunnel_state).await; });
     // Opt-in HTTPS on its own port (see `tls` and `start_tls_listener`).
-    if let Ok(mode) = tls::mode_from_env() {
+    // The persisted switch opts in; the environment keeps working for one-off runs, and an
+    // explicit certificate pair still wins over both.
+    let tls_opt_in = state.settings.read().await.tls_self_signed;
+    if let Ok(mode) = tls::resolve_mode(tls_opt_in) {
         if mode != tls::TlsMode::Off {
             let tls_state = state.clone();
             let port = tls_port(&state).await;
@@ -1063,6 +1066,7 @@ fn merge_settings(mut current: Settings, patch: &Value) -> Result<Settings, Stri
             }
             "deviceBind" => current.device_bind = string_field(key, value)?,
             "pairingHttps" => current.pairing_https = bool_field(key, value)?,
+            "tlsSelfSigned" => current.tls_self_signed = bool_field(key, value)?,
             other => return Err(format!("Unknown setting: {other}")),
         }
     }

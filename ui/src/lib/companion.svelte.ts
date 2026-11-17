@@ -11,6 +11,7 @@ import { createTunnelSocket, createTunnelTransport } from './tailcat-transport.t
 import { warmRuntimeCache } from './tailcat-runtime.ts';
 import { diag, diagSeq } from './diagnostics.ts';
 import { httpsLinkFor } from './https-link.ts';
+import { looksLikeUntrustedCertificate, certificateUrlFor } from './tls-diagnosis.ts';
 import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TailcatStatus, TempFile } from './types.ts';
 
 /**
@@ -41,6 +42,12 @@ class Companion {
   version = $state('');
   /** Port of the daemon's HTTPS surface, or 0 when it has none. */
   httpsPort = $state(0);
+  /**
+   * True when the last failure most likely means the browser does not trust this origin's
+   * certificate. Set only when the evidence points that way; a dropped network must not
+   * send the user to install a CA that changes nothing.
+   */
+  certificateUntrusted = $state(false);
   token = $state<string | null>(null);
   connection = $state<Connection>('connecting');
 
@@ -180,6 +187,13 @@ class Companion {
     return httpsLinkFor(location.href, this.httpsPort);
   }
 
+  /** Where to download the certificate that would fix an untrusted one, if that applies. */
+  get certificateUrl(): string | null {
+    if (!this.certificateUntrusted) return null;
+    if (typeof location === 'undefined') return null;
+    return certificateUrlFor(location.href);
+  }
+
   async boot() {
     if (this.booting || (this.booted && !this.bootError)) return;
     this.booting = true;
@@ -213,9 +227,17 @@ class Companion {
       this.httpsPort = typeof context.httpsPort === 'number' && context.httpsPort > 0 ? context.httpsPort : 0;
       this.bootError = '';
       this.connectionError = '';
+      this.certificateUntrusted = false;
       this.booted = true;
     } catch (error) {
       diag('boot', `context FAILED: ${error instanceof Error ? error.message : String(error)}`);
+      this.certificateUntrusted = looksLikeUntrustedCertificate({
+        protocol: typeof location === 'undefined' ? '' : location.protocol,
+        transportFailure: error instanceof WorkspaceConnectionError && error.transportFailure,
+        online: navigator.onLine !== false,
+        httpsPort: this.httpsPort || (typeof location !== 'undefined' && location.protocol === 'https:' ? Number(location.port) : 0)
+      });
+      if (this.certificateUntrusted) diag('boot', 'failure looks like an untrusted certificate');
       this.bootError = error instanceof Error ? error.message : unreachableMessage();
       this.unavailable(this.bootError);
       this.booted = true;

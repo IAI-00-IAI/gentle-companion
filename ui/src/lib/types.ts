@@ -154,6 +154,11 @@ export type Settings = {
   deviceBind: string;
   /** Point the pairing QR at the HTTPS surface instead of the plain-HTTP address. */
   pairingHttps: boolean;
+  /**
+   * Generate and serve a self-signed certificate for the HTTPS surface. Persisted, unlike
+   * the environment variable, which the supervisor rewrites on every upgrade.
+   */
+  tlsSelfSigned: boolean;
 };
 
 export type TailcatStatus = {

@@ -57,11 +57,19 @@ pub struct Settings {
     /// link to a closed port.
     #[serde(default)]
     pub pairing_https: bool,
+    /// Generate and serve a self-signed certificate for the HTTPS surface.
+    ///
+    /// This lives in settings rather than only in `PI_COMPANION_TLS_SELF_SIGNED` because
+    /// `daemon.json` is rewritten from Pi's own environment whenever the supervisor is
+    /// reinstalled, so an environment-only switch disappears silently and takes the HTTPS
+    /// port with it. Same reasoning as `device_bind`.
+    #[serde(default)]
+    pub tls_self_signed: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true, tailcat_enabled: false, tailcat_address: String::new(), tailcat_port: 0, device_bind: String::new(), pairing_https: false }
+        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true, tailcat_enabled: false, tailcat_address: String::new(), tailcat_port: 0, device_bind: String::new(), pairing_https: false, tls_self_signed: false }
     }
 }
 

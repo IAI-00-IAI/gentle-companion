@@ -311,6 +311,32 @@ async fn a_partial_settings_body_does_not_reset_unrelated_fields() {
     assert_eq!(settings.pairing_ttl_minutes, 30, "an omitted field must keep its value");
 }
 
+/// The TLS surface must not depend on the service environment alone.
+///
+/// `daemon.json` is rewritten from Pi's own environment every time the supervisor is
+/// reinstalled, so a TLS setting that lives only in the environment disappears silently —
+/// which is exactly what happened: the HTTPS port vanished and the phone could not connect.
+/// The switch therefore belongs in settings, next to `deviceBind`, which is persisted for
+/// the same reason.
+#[tokio::test]
+async fn the_https_switch_lives_in_settings_not_only_in_the_environment() {
+    let state = test_state();
+    {
+        let mut settings = state.settings.write().await;
+        settings.tls_self_signed = true;
+    }
+    // Persisted, so a supervisor rewrite cannot drop it.
+    let persisted = config::Persisted { settings: state.settings.read().await.clone(), devices: Vec::new() };
+    let json = serde_json::to_value(&persisted).unwrap();
+    assert_eq!(json["settings"]["tlsSelfSigned"], json!(true));
+
+    // And a settings save keeps it (it round-trips like every other user-chosen field).
+    let body = json!({ "tlsSelfSigned": false });
+    let (status, _) = call(&local_router(state.clone()), put_json("/api/settings", Some(CONSOLE_ORIGIN), body)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!state.settings.read().await.tls_self_signed, "the user's choice must apply");
+}
+
 #[tokio::test]
 async fn context_reports_the_https_port_only_when_tls_is_enabled() {
     let state = test_state();

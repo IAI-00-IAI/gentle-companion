@@ -41,6 +41,23 @@ $effect(() => { $langStore; });
     </button>
     {#if !collapsed}
       <div class="copy">
+        {#if companion.certificateUntrusted}
+          <!-- A rejected certificate and an unreachable host look identical to fetch, so
+               this states the likelihood and offers the fix, instead of claiming certainty. -->
+          <p class="certificate-hint">{t('shell.connection.certificate.hint')}</p>
+          {#if companion.certificateUrl}
+            <a class="btn btn-sm btn-primary" href={companion.certificateUrl}>{t('shell.connection.certificate.download')}</a>
+          {/if}
+          <details>
+            <summary>{t('shell.connection.certificate.how')}</summary>
+            <ol>
+              <li>{t('shell.connection.certificate.step.download')}</li>
+              <li>{t('shell.connection.certificate.step.install')}</li>
+              <li>{t('shell.connection.certificate.step.reload')}</li>
+            </ol>
+            <p class="muted">{t('shell.connection.certificate.firefox')}</p>
+          </details>
+        {/if}
         <p>{companion.connectionError}</p>
         {#if !companion.bootError}<p class="muted">{t('shell.connection.error.note')}</p>{/if}
         <details>

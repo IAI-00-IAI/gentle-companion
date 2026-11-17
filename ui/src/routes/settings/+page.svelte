@@ -32,7 +32,7 @@
   }
 
   let data = $state<SettingsResponse | null>(null);
-  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [], bridgeEnabled: true, tailcatEnabled: false, tailcatAddress: '', tailcatPort: 0, deviceBind: '', pairingHttps: false });
+  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [], bridgeEnabled: true, tailcatEnabled: false, tailcatAddress: '', tailcatPort: 0, deviceBind: '', pairingHttps: false, tlsSelfSigned: false });
   /** Comma or newline separated MIME patterns, edited as text. */
   let typesText = $state('');
   let saving = $state(false);
@@ -91,7 +91,8 @@
       tailcatAddress: response.settings?.tailcatAddress ?? '',
       tailcatPort: Number(response.settings?.tailcatPort ?? 0),
       deviceBind: response.settings?.deviceBind ?? '',
-      pairingHttps: response.settings?.pairingHttps ?? false
+      pairingHttps: response.settings?.pairingHttps ?? false,
+      tlsSelfSigned: response.settings?.tlsSelfSigned ?? false
     };
     tailcatStatus = response.tailcatStatus ?? null;
     data = { ...response, settings };
@@ -129,7 +130,8 @@
           tailcatAddress: draft.tailcatAddress,
           tailcatPort: Number(draft.tailcatPort),
           deviceBind: draft.deviceBind.trim(),
-          pairingHttps: draft.pairingHttps
+          pairingHttps: draft.pairingHttps,
+          tlsSelfSigned: draft.tlsSelfSigned
         })
       );
       toasts.show(t('settings.toast.saved'), 'success');
@@ -278,6 +280,13 @@
               <input id="device-bind" class="input" type="text" placeholder="0.0.0.0:43722" bind:value={draft.deviceBind} />
             </div>
             <span class="hint">{t('settings.device.bind.hint')}</span>
+          </div>
+          <div class="field">
+            <label class="check" for="tls-self-signed">
+              <input id="tls-self-signed" type="checkbox" bind:checked={draft.tlsSelfSigned} aria-describedby="tls-hint" />
+              <span>{t('settings.tls.label')}</span>
+            </label>
+            <span class="hint" id="tls-hint">{t('settings.tls.hint')}</span>
           </div>
           <div class="field">
             <label class="check" for="pairing-https">

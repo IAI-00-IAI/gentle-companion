@@ -7,7 +7,20 @@ export class ApiError extends Error {
   }
 }
 
-export class WorkspaceConnectionError extends Error {}
+export class WorkspaceConnectionError extends Error {
+  /**
+   * True when the failure was a transport error (fetch threw) rather than an HTTP status
+   * the server answered with. TLS rejection and an unreachable host are indistinguishable
+   * here — both are `TypeError: Failed to fetch` — which is why the caller has to combine
+   * this with other evidence before blaming a certificate.
+   */
+  transportFailure: boolean;
+
+  constructor(message: string, transportFailure = false) {
+    super(message);
+    this.transportFailure = transportFailure;
+  }
+}
 
 export function unreachableMessage(online = typeof navigator === 'undefined' || navigator.onLine !== false) {
   return online
@@ -70,6 +83,8 @@ export async function workspaceRequest<T>(path: string, init: RequestInit = {}, 
     if (deadline.aborted) {
       throw new WorkspaceConnectionError('The workspace did not respond in time. Check your network and that the tunnel and Gentle Companion daemon are running.');
     }
-    throw new WorkspaceConnectionError(unreachableMessage());
+    // fetch threw: no HTTP status ever arrived. Mark it so the caller can weigh whether a
+    // rejected certificate is the likely cause.
+    throw new WorkspaceConnectionError(unreachableMessage(), true);
   }
 }

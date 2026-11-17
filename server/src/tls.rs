@@ -33,6 +33,20 @@ pub enum TlsMode {
 ///
 /// Returns an error naming the missing variable when only one of the cert/key pair is
 /// set: silently falling back to HTTP would leave the user believing TLS is on.
+/// Resolve the mode, honouring the persisted switch as well as the environment.
+///
+/// Precedence: an explicit certificate pair, then the persisted setting, then the
+/// environment variable. The setting comes before the env var because the supervisor
+/// rewrites the service environment on every upgrade.
+pub fn resolve_mode(settings_self_signed: bool) -> Result<TlsMode, String> {
+    mode_from(
+        std::env::var("PI_COMPANION_TLS_CERT").ok(),
+        std::env::var("PI_COMPANION_TLS_KEY").ok(),
+        if settings_self_signed { Some("1".to_string()) } else { std::env::var("PI_COMPANION_TLS_SELF_SIGNED").ok() },
+        default_tls_dir(),
+    )
+}
+
 pub fn mode_from_env() -> Result<TlsMode, String> {
     mode_from(
         std::env::var("PI_COMPANION_TLS_CERT").ok(),
