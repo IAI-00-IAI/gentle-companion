@@ -5,6 +5,7 @@ mod assets;
 mod bridge;
 mod config;
 mod tailcat;
+mod tls;
 #[cfg(test)]
 mod tests;
 
@@ -453,6 +454,14 @@ async fn main() {
     // device surface must also be reachable on loopback at the same port.
     let tunnel_state = state.clone();
     tokio::spawn(async move { start_tunnel_listener(&tunnel_state).await; });
+    // Opt-in HTTPS on its own port (see `tls` and `start_tls_listener`).
+    if let Ok(mode) = tls::mode_from_env() {
+        if mode != tls::TlsMode::Off {
+            let tls_state = state.clone();
+            let port = tls_port(&state).await;
+            tokio::spawn(async move { start_tls_listener(tls_state, mode, port).await; });
+        }
+    }
 
     // Small, latency-sensitive frames (questions, answers, deltas): disable Nagle.
     let (local_result, remote_result) = tokio::join!(
@@ -465,6 +474,75 @@ async fn main() {
     stop_tailcat(&state).await;
     local_result.expect("local server failed");
     remote_result.expect("remote server failed");
+}
+
+/// Serves the device surface over HTTPS on a dedicated port.
+///
+/// TLS lives on its own port on purpose: the tailcat tunnel forwards plain HTTP to
+/// `127.0.0.1:<device port>`, so that port must stay plain. A separate HTTPS listener
+/// gives the phone a secure context (installable app, service worker) without touching
+/// the tunnel path at all.
+async fn start_tls_listener(state: AppState, mode: tls::TlsMode, port: u16) {
+    if mode == tls::TlsMode::Off {
+        return;
+    }
+    let host = remote_bind_addr(&state).await;
+    let host = host.rsplit_once(':').map(|(host, _)| host).unwrap_or("0.0.0.0").to_string();
+    let bind = format!("{host}:{port}");
+    let addr: std::net::SocketAddr = match bind.parse() {
+        Ok(addr) => addr,
+        Err(error) => {
+            tracing::warn!(%bind, %error, "TLS listener: cannot parse the bind address");
+            return;
+        }
+    };
+    let (cert, key) = match mode {
+        tls::TlsMode::Files { cert, key } => (cert, key),
+        tls::TlsMode::SelfSigned { dir } => {
+            let hosts = tls_host_names(&bind);
+            match tls::ensure_self_signed(&dir, &hosts) {
+                Ok((cert, key, created)) => {
+                    if let Ok(value) = tls::fingerprint(&cert) {
+                        let verb = if created { "generated" } else { "reusing" };
+                        println!("  HTTPS            {verb} self-signed certificate");
+                        println!("  Certificate      {}", cert.display());
+                        println!("  SHA-256          {value}");
+                        println!("  Trust it on the phone (install as a CA) to install the app.");
+                    }
+                    (cert, key)
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "TLS listener: cannot prepare the self-signed certificate");
+                    return;
+                }
+            }
+        }
+        tls::TlsMode::Off => return,
+    };
+    use axum_server::tls_rustls::RustlsConfig;
+    let config = match RustlsConfig::from_pem_file(&cert, &key).await {
+        Ok(config) => config,
+        Err(error) => {
+            tracing::warn!(%error, "TLS listener: cannot load the certificate");
+            return;
+        }
+    };
+    let router = remote_router(state.clone());
+    println!("  HTTPS surface    https://{bind}");
+    if let Err(error) = axum_server::bind_rustls(addr, config)
+        .serve(router.into_make_service())
+        .await
+    {
+        tracing::warn!(%error, "TLS listener failed");
+    }
+}
+
+/// Host names a self-signed certificate should cover: the bind host plus loopback.
+fn tls_host_names(bind: &str) -> Vec<String> {
+    let host = bind.rsplit_once(':').map(|(host, _)| host).unwrap_or(bind);
+    let mut names = vec![host.to_string(), "localhost".to_string(), "127.0.0.1".to_string()];
+    names.dedup();
+    names
 }
 
 fn local_router(state: AppState) -> Router {
@@ -561,6 +639,18 @@ async fn device_origins(state: &AppState) -> Vec<String> {
     origins.extend(origin_of(&public_url(state).await));
     origins.extend(state.extra_origins.iter().cloned());
     origins
+}
+
+/// Port of the opt-in HTTPS surface: `PI_COMPANION_TLS_PORT`, else device port + 1.
+///
+/// A dedicated port keeps the tunnel's plain-HTTP loopback mirror working.
+async fn tls_port(state: &AppState) -> u16 {
+    if let Ok(value) = std::env::var("PI_COMPANION_TLS_PORT") {
+        if let Ok(port) = value.trim().parse::<u16>() {
+            return port;
+        }
+    }
+    device_port().saturating_add(1)
 }
 
 /// Port of the device surface, used by the tailcat tunnel.
