@@ -57,3 +57,14 @@ files), workflow YAML parses, `ui:check` clean, `test:extension` 402.
 DERP map policy, uploads and blob downloads unsupported over the tunnel, reload off-LAN
 impossible without HTTPS + a service worker, and the destructive daemon script paths
 unexercised.
+
+**L6** — Bundle delivered: 44 files (20 concepts × 2 languages + index + log), commit
+`4999945`. `npm run knowledge:check` reports 0 errors, 0 warnings. Verification found and
+fixed three defects the workers' own reports had missed: a translated literal
+(`[::1]:puerto`), a missing `:637` anchor, and `tailcat_es-ES.md` stale against the English
+page after the mirror correction. All 20 EN/ES pairs now carry byte-identical code anchors.
+
+**L7** — Slice boundary: this round is 4 commits and ~5944 authored lines on
+`feat/daemon-tls` since `origin/main` — well past a single reviewable slice. Delivery shape
+must be decided at publish time: either chained PRs (TLS surface, static host, knowledge
+bundle) or one PR with the knowledge bundle called out as documentation-only.
