@@ -9,6 +9,7 @@
   import Icon, { type IconName } from '#lib/Icon.svelte';
   import { companion } from '#lib/companion.svelte.ts';
   import { devicePermissions } from '#lib/device-permissions.svelte.ts';
+  import { consumeTunnelPairingFragment } from '#lib/tailcat-boot.ts';
   import { theme, type ThemePreference } from '#lib/theme.svelte.ts';
   import { langStore, setLang, LOCALES, localeName, t } from '#lib/i18n.svelte.ts';
   import { toasts } from '#lib/toast.svelte.ts';
@@ -36,6 +37,9 @@
     : '');
   let aboutOpen = $state(false);
   let insecureContext = $state(false);
+  let httpsBannerDismissed = $state(false);
+
+  function dismissHttpsBanner() { httpsBannerDismissed = true; }
 
   const connectionLabel = $derived({
     connecting: t('shell.connection.connecting'),
@@ -53,6 +57,11 @@
 
   function active(href: string) {
     return href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
+  }
+
+  /** The browser Location plus history.replaceState, which SvelteKit's location omits. */
+  function locationWithHistory(): { href: string; hash: string; replaceState(url: string): void } {
+    return { href: location.href, hash: location.hash, replaceState: (url) => history.replaceState(history.state, '', url) };
   }
 
   // Cache busting: when a new UI build is deployed, finish the next navigation with a
@@ -91,6 +100,10 @@
     companion.onSessionChange = (previous, next) => devicePermissions.sessionChanged(previous, next);
     try { notificationPromptDismissed = localStorage.getItem('pi-companion-notification-prompt') === 'dismissed'; } catch { /* storage blocked */ }
     const stopConnectivity = companion.watchConnectivity();
+    // The tunnel pairing QR's fragment (#tunnel=…&port=…) configures tunnel mode
+    // before boot reads it (feature tailcat-client T3); then it is stripped from the
+    // address bar so a reload or a shared URL never re-carries the tunnel address.
+    try { consumeTunnelPairingFragment(locationWithHistory(), localStorage); } catch { /* storage blocked: tunnel mode stays off */ }
     void companion.boot();
 
     // The PWA worker only caches the shell and immutable static assets. API/session data
@@ -201,10 +214,11 @@
         </div>
       </header>
 
-      {#if insecureContext}
+      {#if insecureContext && !httpsBannerDismissed}
         <div class="banner danger" role="alert">
           <Icon name="alert" />
           <span>{t('shell.banner.https')}</span>
+          <button class="btn btn-sm btn-ghost" onclick={dismissHttpsBanner} aria-label={t('shell.banner.dismiss')}>{t('shell.banner.dismiss')}</button>
         </div>
       {/if}
       {#if companion.connection === 'disconnected'}

@@ -1,6 +1,6 @@
 {
   "name": "@rgaricano/gentle-companion",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Local-first remote control for Gentle Shell sessions: live activity feed, steering, git diff, file drop and phone pairing from a single Rust daemon.",
   "keywords": [
     "pi-package",
@@ -44,6 +44,14 @@
   },
   "scripts": {
     "serve": "npm run --silent ui:build -- --logLevel warn && cargo run -q --manifest-path server/Cargo.toml",
+    "daemon:start": "node tools/daemon.mjs start",
+    "daemon:stop": "node tools/daemon.mjs stop",
+    "daemon:status": "node tools/daemon.mjs status",
+    "daemon:restart": "node tools/daemon.mjs restart",
+    "daemon:logs": "node tools/daemon-logs.mjs",
+    "daemon:service:install": "node tools/daemon-service.mjs install",
+    "daemon:service:uninstall": "node tools/daemon-service.mjs uninstall",
+    "daemon:service:status": "node tools/daemon-service.mjs status",
     "automation:mcp": "node --experimental-strip-types --no-warnings src/automation-mcp.ts",
     "pair": "node --experimental-strip-types --no-warnings src/pair-cli.ts",
     "server:dev": "npm run serve",
@@ -53,7 +61,7 @@
     "check": "tsc --noEmit && npm run ui:check",
     "ui:check": "cd ui && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "test": "npm run test:extension && npm run test:server",
-    "test:extension": "node --test --experimental-strip-types --no-warnings test/*.test.ts ui/automation.test.ts",
+    "test:extension": "node --test --experimental-strip-types --no-warnings test/*.test.ts ui/automation.test.ts ui/tests/*.test.ts",
     "test:server": "cargo test --manifest-path server/Cargo.toml",
     "test:smoke": "npm run ui:build && cargo build --manifest-path server/Cargo.toml --locked && node tools/smoke-automations.mjs",
     "test:previews": "npm run ui:build && cargo build --manifest-path server/Cargo.toml --locked && node tools/smoke-previews.mjs"

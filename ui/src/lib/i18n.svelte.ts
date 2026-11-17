@@ -208,6 +208,7 @@ const messages: Record<Locale, MessageSet> = {
     'devices.code.label': 'Or enter this code',
     'devices.copy.code': 'Copy code',
     'devices.copy.link': 'Copy link',
+    'devices.token.hint': 'No camera? Copy this link (it includes the tunnel address) and paste it into the phone\'s browser — it lands on the pairing page with the tunnel pre-configured.',
     'devices.expired.title': 'This code expired. Create a new one.',
     'devices.expired.note': 'One-time code · expires in {time}',
     'devices.newcode': 'New code',
@@ -739,7 +740,8 @@ const messages: Record<Locale, MessageSet> = {
     'settings.tailcat.hint': 'Run a Tailcat tunnel so devices can connect without a public IP or inbound ports. The daemon manages the tunnel process.',
     'settings.tailcat.title': 'Tunnel',
     'settings.tailcat.address.label': 'Tailcat address',
-    'settings.tailcat.address.hint': 'Paste this address into the phone client (OpenTailcat / pi-remote) to connect through the tunnel. The address is sensitive; do not share it publicly.',
+    'settings.tailcat.address.hint': 'The pairing QR below encodes a pairing URL with this address in its URL fragment, so a phone scanning it lands on the client already configured for tunnel mode. You can also paste this address into external tailcat clients (OpenTailcat / pi-remote). The address is sensitive; do not share it publicly.',
+    'settings.tailcat.qr.hint': 'Scan with the phone to pair and open the client with the tunnel pre-configured.',
     'settings.tailcat.port.label': 'Tunnel port',
     'settings.tailcat.port.hint': 'Port exposed by the Tailcat tunnel. Leave 0 to use the daemon device port (PI_COMPANION_DEVICE_ADDR).',
     'settings.tailcat.running': 'Tunnel active',
@@ -794,6 +796,7 @@ const messages: Record<Locale, MessageSet> = {
     'settings.usage.title': 'Usage',
     'shell.banner.disconnected': 'Your computer ended this connection. You are still paired.',
     'shell.banner.https': 'Install and offline features require HTTPS. Open Gentle Companion through its secure remote URL instead of a LAN HTTP address.',
+    'shell.banner.dismiss': 'Dismiss',
     'shell.banner.notifications': 'Turn on notifications to hear when Gentle Shell asks a question or finishes a task.',
     'shell.banner.notifications.later': 'Not now',
     'shell.banner.notifications.on': 'Turn on',
@@ -815,6 +818,8 @@ const messages: Record<Locale, MessageSet> = {
     'shell.connection.error.paired': 'Connection failures keep your pairing. A new device URL on a different hostname may require pairing again. Retrying never resends a message or upload.',
     'shell.connection.error.retry': 'Retry now',
     'shell.connection.error.retrying': 'Retrying…',
+    'shell.connection.error.diag': 'Copy diagnostics',
+    'shell.connection.error.diag.copied': 'Copied',
     'shell.connection.error.steps.check': 'Check your internet connection.',
     'shell.connection.error.steps.companion': 'Run /companion in Gentle Shell if the daemon is not running.',
     'shell.connection.error.steps.tunnel': 'On your computer, restart the tunnel and keep the workspace running.',
@@ -1087,6 +1092,7 @@ const messages: Record<Locale, MessageSet> = {
     'devices.code.label': 'O introduce este código',
     'devices.copy.code': 'Copiar código',
     'devices.copy.link': 'Copiar enlace',
+    'devices.token.hint': '¿Sin cámara? Copia este enlace (incluye la dirección del túnel) y pégalo en el navegador del teléfono: llega a la página de emparejamiento con el túnel ya configurado.',
     'devices.expired.title': 'Este código expiró. Crea uno nuevo.',
     'devices.expired.note': 'Código de un solo uso · expira en {time}',
     'devices.newcode': 'Nuevo código',
@@ -1618,7 +1624,8 @@ const messages: Record<Locale, MessageSet> = {
     'settings.tailcat.hint': 'Ejecuta un túnel Tailcat para que los dispositivos se conecten sin IP pública ni puertos entrantes. El demonio gestiona el proceso del túnel.',
     'settings.tailcat.title': 'Túnel',
     'settings.tailcat.address.label': 'Dirección Tailcat',
-    'settings.tailcat.address.hint': 'Pega esta dirección en el cliente del teléfono (OpenTailcat / pi-remote) para conectarse a través del túnel. La dirección es sensible; no la compartas públicamente.',
+    'settings.tailcat.address.hint': 'El QR de emparejamiento de abajo codifica una URL de emparejamiento con esta dirección en el fragmento, así que un teléfono que lo escanea llega al cliente ya configurado para el modo túnel. También podés pegar esta dirección en clientes tailcat externos (OpenTailcat / pi-remote). La dirección es sensible; no la compartas públicamente.',
+    'settings.tailcat.qr.hint': 'Escaneá con el teléfono para emparejar y abrir el cliente con el túnel preconfigurado.',
     'settings.tailcat.port.label': 'Puerto del túnel',
     'settings.tailcat.port.hint': 'Puerto expuesto por el túnel Tailcat. Deja 0 para usar el puerto del dispositivo del demonio (PI_COMPANION_DEVICE_ADDR).',
     'settings.tailcat.running': 'Túnel activo',
@@ -1673,6 +1680,7 @@ const messages: Record<Locale, MessageSet> = {
     'settings.usage.title': 'Uso',
     'shell.banner.disconnected': 'Tu ordenador terminó esta conexión. Sigues emparejado.',
     'shell.banner.https': 'La instalación y las funciones offline requieren HTTPS. Abre Gentle Companion desde su URL remota segura en lugar de una dirección HTTP local.',
+    'shell.banner.dismiss': 'Cerrar',
     'shell.banner.notifications': 'Activa las notificaciones para saber cuando Gentle Shell hace una pregunta o termina una tarea.',
     'shell.banner.notifications.later': 'Ahora no',
     'shell.banner.notifications.on': 'Activar',
@@ -1694,6 +1702,8 @@ const messages: Record<Locale, MessageSet> = {
     'shell.connection.error.paired': 'Los fallos de conexión conservan tu emparejamiento. Una nueva URL de dispositivo con otro nombre de anfitrión puede requerir el emparejamiento de nuevo. Reintentar nunca reenvía un mensaje o carga.',
     'shell.connection.error.retry': 'Reintentar ahora',
     'shell.connection.error.retrying': 'Reintentando…',
+    'shell.connection.error.diag': 'Copiar diagnóstico',
+    'shell.connection.error.diag.copied': 'Copiado',
     'shell.connection.error.steps.check': 'Comprueba tu conexión a internet.',
     'shell.connection.error.steps.companion': 'Ejecuta /companion en Gentle Shell si el daemon no está en ejecución.',
     'shell.connection.error.steps.tunnel': 'En tu ordenador, reinicia el túnel y mantén el espacio de trabajo en ejecución.',
@@ -1811,9 +1821,11 @@ export function t(
   if (message === undefined) message = messages.en[key];
   if (message === undefined) return key;
   if (!params) return message;
-  return message.replace(/\{\{(\w+)\}\}/g, (_m, group) => {
-    const raw = params[group];
-    return raw === undefined || raw === null ? '' : String(raw);
+  // Both brace styles exist in the catalog ({{n}} and {n}); accept both so a
+  // single-brace entry still interpolates instead of leaking '{count}' verbatim.
+  return message.replace(/\{\{(\w+)\}\}|\{(\w+)\}/g, (_m, double, single) => {
+    const raw = params[double ?? single];
+    return raw === undefined || raw === null ? _m : String(raw);
   });
 }
 

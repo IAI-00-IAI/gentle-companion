@@ -1,13 +1,15 @@
-# bridge — experimental web client for the tailcat tunnel
+# bridge — manual test harness for the tailcat tunnel transport
 
-This directory holds an experimental browser client for Companion's
-[Tailcat tunnel](../README.md#tailcat-tunnel). It is a static page
-(`index.html` plus plain JavaScript, no build step) that loads the
-tailcat WASM build and reaches the Companion daemon through the tunnel:
-it dials the daemon's `tc…` tunnel address and then serves HTTP
-(`/api/context`) and WebSocket (`/ws/browser`, using the `token.<t>`
-subprotocol) over the tunneled stream, the same routes the paired-device
-surface uses.
+This directory holds the tailcat tunnel transport shims shared with the
+real Companion UI, plus a static test page for exercising them. The
+HTTP-over-stream shim (`http.js`) and the WebSocket-over-stream shim
+(`ws.js`) are the single source consumed by both this page and the
+Companion UI (which imports them directly — there are no copies); this
+page (`index.html` plus plain JavaScript, no build step) remains as a
+manual harness: it loads the tailcat WASM build, dials the daemon's
+`tc…` tunnel address, and then serves HTTP (`/api/context`) and
+WebSocket (`/ws/browser`, using the `token.<t>` subprotocol) over the
+tunneled stream, the same routes the paired-device surface uses.
 
 > **Experimental.** This is a development tool for exercising the
 > tunnel, not a finished product. Expect rough edges and changes.

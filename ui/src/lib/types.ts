@@ -130,6 +130,10 @@ export type Pairing = {
   url: string;
   qrSvg: string;
   expiresAt: number;
+  /** Tailcat address encoded in the URL fragment when the tunnel is running (T3). */
+  tunnelAddr?: string;
+  /** Device port encoded next to the tunnel address (T3); undefined means the default. */
+  tunnelPort?: number;
 };
 
 export type Settings = {

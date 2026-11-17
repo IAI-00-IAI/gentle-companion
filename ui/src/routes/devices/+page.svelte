@@ -138,6 +138,9 @@ $effect(() => { $langStore; });
           <code title={pairing.url}>{pairing.url}</code>
           <button class="btn btn-sm" onclick={copyLink}><Icon name="copy" size={14} />{t('devices.copy.link')}</button>
         </div>
+        {#if pairing.tunnelAddr}
+          <p class="subtle small">{t('devices.token.hint')}</p>
+        {/if}
         <p class="subtle expiry" role="timer" aria-live="off">
           {#if expired}{t('devices.expired.title')}{:else}{t('devices.expired.note', { time: countdown(remaining) })}{/if}
         </p>

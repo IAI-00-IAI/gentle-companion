@@ -10,7 +10,7 @@ Control remoto ligero, centrado en lo local, para sesiones de Gentle Shell.
 
 **[Mira el recorrido narrado de 2 minutos](docs/pi-companion-promo.mp4)**: una sesión real de Gentle Shell compartida con `/remote-control`, un teléfono asociado desde el panel, las preguntas de Gentle Shell respondidas desde el teléfono, y una automatización creada, disparada y revisada. Está grabada desde el terminal y la interfaz reales y compuesta mediante código en [`tools/promo-video`](tools/promo-video).
 
-**Nuevo en 0.5.0:** un **puente web tailcat** experimental (`bridge/`) permite que un navegador de teléfono alcance el daemon a través de un túnel tailcat usando el cliente WASM de tailcat, así un dispositivo se conecta sin compartir una LAN. El daemon ahora también sirve su superficie de dispositivo en un espejo loopback mientras el túnel está activo, porque `tailcat serve` siempre reenvía a loopback. Ver [bridge/README_es-ES.md](bridge/README_es-ES.md).
+**Nuevo en 0.6.0:** el **cliente tailcat** es ahora de primera clase — el propio daemon sirve la UI completa de Companion, un teléfono se empareja por QR (o un enlace copiable) y el cliente prefiere el camino directo por LAN, recurriendo al túnel tailcat (el cliente WASM de tailcat) cuando el daemon no es alcanzable así. El daemon también sirve su superficie de dispositivo en un espejo loopback mientras el túnel está activo, porque `tailcat serve` siempre reenvía a loopback. La página estática de [`bridge/`](bridge/README_es-ES.md) queda como arnés de pruebas manual. Ver [bridge/README_es-ES.md](bridge/README_es-ES.md).
 
 **En 0.4.3:** Companion pasó a ser un puente hacia el ordenador que ejecuta Gentle Shell. Los enlaces y el `code` en línea que escribe el agente pueden abrir **servidores localhost** (`http://localhost:3000`) en un marco aislado (sandbox) retransmitido por el daemon, y los **archivos** que menciona el agente (rutas, enlaces `file://`) pueden recuperarse, verse en vista previa o descargarse en el dispositivo. Cada apertura o recuperación pide antes; los archivos se limitan al directorio de trabajo de la sesión y a las carpetas temporales de Companion de esa sesión; los archivos que se parecen a credenciales se omiten (best-effort). Puedes desactivar todo el puente en **Configuración → Puente**. Ver [Puente de Companion](#puente-de-companion).
 
@@ -64,6 +64,26 @@ Gentle Shell usa el comando de paquete nativo, por lo que se aplica la misma car
 Usa `/remote-control` en cualquier sesión para alternar el compartir; `/remote-control on` y `/remote-control off` son alternativas explícitas. No se requiere `/companion` como prerequisito. `/companion` y `/companion off` permanecen como alias de compatibilidad.
 
 No es necesario ejecutar `gentle-companion-server` manualmente para una instalación normal de npm. El inicio manual del daemon es principalmente para desarrollo local, depuración o cuando se establece `PI_COMPANION_AUTOSTART=0`.
+
+### Ejecutar el daemon por tu cuenta
+
+La extensión arranca el daemon al cargarse: sondea el puerto de administración y solo lanza un daemon cuando nada responde, registrando un servicio de usuario cuando la plataforma lo permite. Tres scripts cubren los casos en que querés manejarlo vos — funcionan en Linux, macOS y Windows, no tienen dependencias y viven en `tools/` (no se publican en el paquete npm):
+
+| Script | Qué hace |
+| --- | --- |
+| `node tools/daemon.mjs start\|stop\|status\|restart` | Ciclo de vida manual. `status` sondea el puerto de administración e informa estado/versión/pid; `start` resuelve el binario, lo lanza en segundo plano y espera a que responda; `stop` envía SIGTERM y espera a que el puerto se cierre. Agregá `--json` para salida legible por máquina. |
+| `node tools/daemon-service.mjs install\|uninstall\|status` | Registra, quita o informa el servicio de usuario: `systemd --user` en Linux, `launchd` en macOS, Task Scheduler en Windows. Refleja lo que registra la extensión, así ambos caminos se mantienen coherentes. `--binary <ruta>` permite indicar el binario. |
+| `node tools/daemon-logs.mjs [--lines N] [--follow]` | Muestra el log del daemon: `journalctl --user -u pi-companion.service` en Linux, `log show`/`log stream` en macOS, y el archivo de log cuando existe. Explica qué hacer cuando la plataforma no guarda log. |
+
+Las mismas acciones están disponibles vía `npm run`:
+
+    npm run daemon:start      npm run daemon:status     npm run daemon:logs
+    npm run daemon:stop       npm run daemon:restart
+    npm run daemon:service:install    npm run daemon:service:uninstall    npm run daemon:service:status
+
+Orden de resolución del binario (en los tres scripts): `PI_COMPANION_SERVER` → `server/target/release/` → `server/target/debug/` → la descarga cacheada en el home de Companion → `PATH`. Una instalación npm normal no tiene `server/target/`, así que usá el binario cacheado o definí `PI_COMPANION_SERVER`.
+
+El daemon se niega a arrancar dos veces (sale cuando el puerto de administración está tomado), así que un arranque manual con el servicio ya corriendo es inofensivo: informa que otro daemon tiene el puerto.
 
 ## Arquitectura
 
@@ -258,7 +278,33 @@ El puerto expuesto es la configuración **Puerto del túnel**. Déjalo en 0 para
 
 La dirección Tailcat es sensible. Trátala como un código de asociación: otorga acceso a través del túnel, por lo que no la compartas públicamente ni la guardes en un repositorio.
 
-Todavía no se ha enviado un cliente de teléfono o navegador que hable tailcat. Existe un puente web experimental en [`bridge/`](bridge/README_es-ES.md): una página estática que carga la compilación WASM de tailcat, marca la dirección del túnel `tc…` del daemon y retransmite tráfico HTTP y WebSocket a través de él. Hasta que llegue un cliente de primera clase, la dirección también puede usarse desde clientes tailcat como OpenTailcat o pi-remote.
+El propio daemon sirve un cliente de navegador de primera clase: abrir la URL del daemon en el navegador de un teléfono carga la UI completa de Companion. El cliente prefiere la conexión directa por LAN y solo recurre al túnel cuando el daemon no es alcanzable así, de modo que un teléfono en la misma red va rápido y uno fuera de ella sigue funcionando. El emparejamiento entrega la dirección del túnel y el puerto del dispositivo: la respuesta del claim los incluye, y el QR de asociación también los codifica en el fragmento de la URL (nunca se envía al servidor), así que un teléfono que lo escanea llega ya configurado; para clientes sin cámara, la página de dispositivos muestra un enlace de asociación copiable que transporta la misma configuración. La página estática de [`bridge/`](bridge/README_es-ES.md) queda como arnés de pruebas manual del transporte WASM de tailcat, y la dirección también puede usarse desde clientes tailcat como OpenTailcat o pi-remote.
+
+Cómo elige el camino el cliente:
+
+- **En la red del daemon:** conexión directa. Rápida, sin relay de por medio.
+- **Fuera de ella:** el túnel tailcat, marcado a través del relay DERP público. El cambio es automático — el cliente reevalúa el camino tras un fallo de conexión, así que un teléfono que sale de la red sigue funcionando y uno que vuelve regresa al camino directo.
+
+Limitaciones conocidas de esta versión:
+
+- **No recargues la página estando fuera de la red.** El cliente se sirve por HTTP simple desde la dirección LAN del daemon, así que la página misma no se puede obtener sin esa red. La sesión viva sobrevive a la pérdida de red (el túnel toma el control), pero una recarga no. Servir el cliente por HTTPS —lo que habilita un service worker y una app instalable— es el paso siguiente.
+- **Las transferencias binarias por el túnel todavía no están soportadas.** Las subidas y descargas de archivos muestran un error claro en modo túnel; funcionan normalmente por el camino directo.
+- **La dirección del túnel es una credencial.** Quien la tenga puede alcanzar la superficie de dispositivo a través del relay, sujeto al token de emparejamiento. Trátala como un código de asociación.
+
+### Servir el cliente por HTTPS
+
+Hoy el cliente se sirve por HTTP simple, y por eso una recarga fuera de la red falla. Dos maneras de resolverlo, cualquiera de las dos alcanza:
+
+**Opción A — TLS en el daemon.** Poner el daemon detrás de HTTPS (un proxy inverso con certificado, o terminación TLS delante de la superficie de dispositivo). El cliente pasa a correr en un contexto seguro, así que un service worker puede cachear el shell de la app y el runtime de tailcat, y el cliente se vuelve instalable como app. Todo queda en el daemon. El certificado tiene que ser válido para el host que abre el teléfono — un certificado autofirmado sobre una IP pelada será rechazado por los navegadores y bloquea el registro del service worker, así que conviene un nombre de host real y un certificado de confianza.
+
+**Opción B — alojar el cliente en un sitio estático público.** Publicar la UI compilada (`server/web-dist/`) junto con `bridge/vendor/` en cualquier host estático HTTPS (GitHub Pages, Netlify, Cloudflare Pages, un object store con CDN). El teléfono abre entonces esa URL pública con la configuración del túnel en el fragmento, por ejemplo `https://ejemplo.com/companion/#tunnel=tc…&port=43722`, y nunca necesita la red del daemon para cargar la app. Requisitos:
+
+- El daemon debe aceptar ese origen. Agregalo a `PI_COMPANION_ALLOWED_ORIGINS` (separados por coma), o el WebSocket y la API responderán `403 Origin not allowed`.
+- El túnel debe estar corriendo y su dirección debe ser alcanzable desde el teléfono, porque todas las peticiones viajan por él.
+- La compilación publicada hay que refrescarla cuando cambie la UI del daemon; ambas se versionan por separado.
+- Los archivos de la página son públicos — nunca pongas tokens ni direcciones en los archivos publicados, solo en el fragmento de la URL, que los navegadores no envían a los servidores.
+
+La opción B no requiere cambios en el servidor ni gestión de certificados, a cambio de alojar el cliente separado del daemon.
 
 El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego el binario incluido para la plataforma actual. Se envían binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); en macOS el daemon usa el `tailcat` del sistema desde el PATH. Si no se encuentra ningún binario, el daemon muestra un aviso de instalación por plataforma y no se detiene:
 

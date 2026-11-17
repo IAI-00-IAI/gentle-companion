@@ -1,10 +1,13 @@
-# bridge — cliente web experimental para el túnel tailcat
+# bridge — arnés de pruebas manual para el transporte del túnel tailcat
 
-Este directorio contiene un cliente de navegador experimental para el
-[túnel Tailcat](../README.md#tailcat-tunnel) de Companion. Es una página
-estática (`index.html` más JavaScript plano, sin paso de build) que carga
-la compilación WASM de tailcat y alcanza el daemon de Companion a través
-del túnel: marca (`dial`) la dirección `tc…` del daemon y luego sirve HTTP
+Este directorio contiene los shims de transporte del túnel tailcat
+compartidos con la UI real de Companion, más una página de pruebas
+estática para ejercitarlos. El shim HTTP-over-stream (`http.js`) y el
+shim WebSocket-over-stream (`ws.js`) son la fuente única que consumen
+esta página y la UI de Companion (que los importa directamente — no hay
+copias); esta página (`index.html` más JavaScript plano, sin paso de
+build) queda como arnés manual: carga la compilación WASM de tailcat,
+marca (`dial`) la dirección `tc…` del daemon y luego sirve HTTP
 (`/api/context`) y WebSocket (`/ws/browser`, usando el subprotocolo
 `token.<t>`) sobre el stream tunelizado, las mismas rutas que usa la
 superficie de dispositivos emparejados.

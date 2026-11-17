@@ -309,6 +309,14 @@ struct PairingResponse {
     qr_svg: String,
     #[serde(rename = "expiresAt")]
     expires_at: u64,
+    /// Tailcat address encoded in the URL fragment when the tunnel is running
+    /// (feature tailcat-client T3); the console uses it to show the copyable
+    /// tunnel-URL fallback. Empty when the tunnel is off.
+    #[serde(rename = "tunnelAddr")]
+    tunnel_addr: String,
+    /// Device port encoded next to the tunnel address; 0 means the default port.
+    #[serde(rename = "tunnelPort")]
+    tunnel_port: u16,
 }
 
 #[derive(Serialize)]
@@ -316,6 +324,15 @@ struct PairClaimResponse {
     #[serde(rename = "deviceId")]
     device_id: String,
     token: String,
+    /// Tailcat tunnel address, when the tunnel is running. The claiming client stores
+    /// it so it can fall back to the tunnel after leaving the LAN — without this the
+    /// client only learns the address from the QR fragment, and a phone that paired
+    /// by typing the URL directly has no tunnel at all.
+    #[serde(rename = "tunnelAddr", skip_serializing_if = "Option::is_none")]
+    tunnel_addr: Option<String>,
+    /// Device port to dial through the tunnel; 0/absent means the daemon default.
+    #[serde(rename = "tunnelPort", skip_serializing_if = "Option::is_none")]
+    tunnel_port: Option<u16>,
 }
 
 #[derive(Serialize)]
@@ -452,6 +469,10 @@ async fn main() {
 
 fn local_router(state: AppState) -> Router {
     let guarded = Router::new()
+        // Vendored tailcat client runtime, served from the daemon's origin (feature
+        // tailcat-client S4); exact paths, so they win over the bridge proxy catch-all.
+        .route("/bridge/vendor/main.wasm", get(assets::serve_bridge_vendor))
+        .route("/bridge/vendor/wasm_exec.js", get(assets::serve_bridge_vendor))
         .merge(automation::router(false))
         .route("/api/context", get(local_context))
         .route("/api/sessions", get(list_sessions))
@@ -485,6 +506,10 @@ fn local_router(state: AppState) -> Router {
 
 fn remote_router(state: AppState) -> Router {
     let guarded = Router::new()
+        // Same vendored client runtime on the device surface, which the tailcat
+        // tunnel loopback mirror also serves.
+        .route("/bridge/vendor/main.wasm", get(assets::serve_bridge_vendor))
+        .route("/bridge/vendor/wasm_exec.js", get(assets::serve_bridge_vendor))
         .merge(automation::router(true).layer(middleware::from_fn_with_state(state.clone(), automation::authenticate)))
         .route("/api/context", get(remote_context))
         .route("/api/pairing/claim", post(claim_pairing))
@@ -744,7 +769,11 @@ async fn local_context(State(state): State<AppState>) -> Json<Value> {
 }
 
 async fn remote_context(State(state): State<AppState>) -> Json<Value> {
-    Json(serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await }))
+    // Tunnel status rides the boot context so a phone opening the client sees the
+    // live indicator immediately, not only after the next tunnel state change.
+    let enabled = state.settings.read().await.tailcat_enabled;
+    let status = state.tailcat.read().await.status(enabled);
+    Json(serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await, "tailcatStatus": { "enabled": status.enabled, "running": status.running, "address": "", "port": status.port, "error": status.error } }))
 }
 
 /// Local-admin only. Used by the extension to replace an older daemon after a package upgrade.
@@ -775,11 +804,26 @@ async fn persist(state: &AppState) {
 async fn get_settings(State(state): State<AppState>) -> Json<Value> {
     let settings = state.settings.read().await.clone();
     let tailcat_status = state.tailcat.read().await.status(settings.tailcat_enabled);
+    // The tunnel QR must be openable by a phone camera: it encodes the pairing URL
+    // (with the tunnel fragment when the tunnel runs), not the raw tc… address. A QR
+    // holding the bare address shows up in a browser as an opaque token string.
     let tailcat_qr_svg = if !tailcat_status.address.is_empty() {
-        match QrCode::new(settings.tailcat_address.as_bytes()).ok() {
-            Some(code) => Some(code.render::<svg::Color>().min_dimensions(220, 220).build()),
-            None => None,
+        let token = Uuid::new_v4().simple().to_string() + &Uuid::new_v4().simple().to_string();
+        let compact = Uuid::new_v4().simple().to_string().to_uppercase();
+        let code = format!("{}-{}", &compact[0..4], &compact[4..8]);
+        let ttl = settings.pairing_ttl_minutes * 60;
+        let expires_at = now_secs() + ttl;
+        {
+            let mut pairings = state.pairings.write().await;
+            let now = now_secs();
+            pairings.retain(|_, invite| invite.expires_at >= now);
+            pairings.insert(token.clone(), PairingInvite { expires_at, code: compact[0..8].to_string() });
         }
+        let mut url = format!("{}/pair?invite={}", public_url(&state).await, token);
+        if tailcat_status.running {
+            url.push_str(&format!("#tunnel={}&port={}", tailcat_status.address, tailcat_status.port));
+        }
+        QrCode::new(url.as_bytes()).ok().map(|code| code.render::<svg::Color>().min_dimensions(220, 220).build())
     } else {
         None
     };
@@ -975,7 +1019,23 @@ async fn start_pairing(State(state): State<AppState>) -> ApiResult<Json<PairingR
     let code = format!("{}-{}", &compact[0..4], &compact[4..8]);
     let ttl = state.settings.read().await.pairing_ttl_minutes * 60;
     let expires_at = now_secs() + ttl;
-    let url = format!("{}/pair?invite={}", public_url(&state).await, token);
+    // When the tailcat tunnel is running, the QR also carries the tunnel address and
+    // device port in the URL fragment (feature tailcat-client T3, spec S3): a phone
+    // scanning it lands on the daemon-served client already configured for tunnel
+    // mode. The fragment is never sent to the server, so neither value can reach
+    // daemon logs; the invite stays the only query parameter. The invite token itself
+    // remains the sole credential in the URL, exactly as without the tunnel.
+    let tunnel = {
+        let settings = state.settings.read().await;
+        let status = state.tailcat.read().await.status(settings.tailcat_enabled);
+        let running = status.running && !settings.tailcat_address.is_empty();
+        let port = tailcat_port(&state).await;
+        running.then(|| (settings.tailcat_address.clone(), port))
+    };
+    let mut url = format!("{}/pair?invite={}", public_url(&state).await, token);
+    if let Some((addr, port)) = &tunnel {
+        url.push_str(&format!("#tunnel={addr}&port={port}"));
+    }
 
     {
         let mut pairings = state.pairings.write().await;
@@ -990,7 +1050,14 @@ async fn start_pairing(State(state): State<AppState>) -> ApiResult<Json<PairingR
         .min_dimensions(220, 220)
         .build();
 
-    Ok(Json(PairingResponse { code, url, qr_svg, expires_at }))
+    Ok(Json(PairingResponse {
+        code,
+        url,
+        qr_svg,
+        expires_at,
+        tunnel_addr: tunnel.as_ref().map(|(addr, _)| addr.clone()).unwrap_or_default(),
+        tunnel_port: tunnel.as_ref().map(|(_, port)| *port).unwrap_or(0),
+    }))
 }
 
 /// Uppercase alphanumerics of a typed code (`ab12-cd34`, `AB12 CD34` → `AB12CD34`).
@@ -1071,7 +1138,16 @@ async fn claim_pairing(
     );
     persist(&state).await;
     broadcast(&state, serde_json::json!({ "type": "devices.update" }));
-    Ok(Json(PairClaimResponse { device_id, token }))
+    // Hand the tunnel coordinates to the newly paired device: the pairing exchange is
+    // the one moment the client is guaranteed to be talking to the daemon, so it is
+    // where the fallback path must be delivered (the QR fragment is not always used).
+    let settings = state.settings.read().await;
+    let status = state.tailcat.read().await.status(settings.tailcat_enabled);
+    let tunnel_addr = (status.running && !settings.tailcat_address.is_empty())
+        .then(|| settings.tailcat_address.clone());
+    let tunnel_port = if tunnel_addr.is_some() { Some(tailcat_port(&state).await) } else { None };
+    drop(settings);
+    Ok(Json(PairClaimResponse { device_id, token, tunnel_addr, tunnel_port }))
 }
 
 async fn revoke_device(
@@ -1389,6 +1465,11 @@ async fn browser_ws_remote(
 
 /// Whether a broadcast event may be shown to a paired device.
 async fn visible_to_device(state: &AppState, value: &Value) -> bool {
+    // Tunnel status is connection state, not session content: a paired phone needs
+    // it for its live indicator, and it carries no session data.
+    if value.get("type").and_then(Value::as_str) == Some("tailcat.update") {
+        return true;
+    }
     let session_id = value
         .get("sessionId")
         .and_then(Value::as_str)

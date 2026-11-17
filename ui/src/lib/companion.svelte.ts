@@ -2,10 +2,14 @@ import { reduceBridgeMessage, replayActivity, type ActivityEntry } from './activ
 import { sortSessions } from './format.ts';
 import { retainUsageSnapshots, type UsageSnapshot } from './usage.ts';
 import { toasts } from './toast.svelte.ts';
-import { LiveConnection, type Connection } from './connection.ts';
+import { LiveConnection, type Connection, type LiveSocket } from './connection.ts';
 export type { Connection } from './connection.ts';
-import { ApiError, WorkspaceConnectionError, unreachableMessage, workspaceRequest } from './workspace-connection.ts';
+import { ApiError, WorkspaceConnectionError, unreachableMessage, workspaceRequest, type RequestTransport } from './workspace-connection.ts';
 export { ApiError } from './workspace-connection.ts';
+import { readTunnelConfig, DEFAULT_TUNNEL_PORT, TUNNEL_ADDR_KEY, TUNNEL_PORT_KEY, type TunnelConfig } from './tailcat-tunnel.ts';
+import { createTunnelSocket, createTunnelTransport } from './tailcat-transport.ts';
+import { warmRuntimeCache } from './tailcat-runtime.ts';
+import { diag, diagSeq } from './diagnostics.ts';
 import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TailcatStatus, TempFile } from './types.ts';
 
 /**
@@ -18,6 +22,11 @@ import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Sessio
  *   credential is deleted and the device must pair again.
  */
 const TOKEN_KEY = 'piCompanionDeviceToken';
+
+/** Tunnel mode: re-read on each use so the QR pairing fragment (consumed at boot) activates it. */
+function tunnelConfig(): TunnelConfig | null {
+  return readTunnelConfig(typeof localStorage === 'undefined' ? null : localStorage);
+}
 
 type Diff = { staged: boolean; text: string; at: number; error?: string; scope?: 'session'; files?: { path: string; untracked: boolean }[]; worktree?: string; branch?: string; worktrees?: GitWorktree[]; warnings?: string[]; loading?: boolean };
 type UploadPolicy = { maxUploadMb: number; allowedUploadTypes: string[] };
@@ -43,11 +52,19 @@ class Companion {
 
   private live = new LiveConnection({
     enabled: () => this.booted && this.paired && navigator.onLine !== false,
-    create: () => {
+    create: (): LiveSocket => {
+      // Same direct-first policy as effectiveTransport(): LAN when the probe said
+      // the page origin serves the daemon, tunnel only otherwise. Emitting a tunnel
+      // socket while LAN works detours through the DERP relay (slow) and dies when
+      // the phone's WAN is down even though the daemon is one hop away.
+      const tunnel = this.directUsable === true ? null : tunnelConfig();
+      diag('ws', `create tunnel=${tunnel ? tunnel.addr.slice(0, 10) + '…:' + tunnel.port : 'off'} direct=${this.directUsable} remote=${this.remote} token=${this.token ? 'yes' : 'no'}`);
+      if (tunnel) return createTunnelSocket(tunnel, { token: this.token ?? '' });
       const url = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws/browser';
       return this.remote ? new WebSocket(url, ['pi-companion', 'token.' + this.token]) : new WebSocket(url);
     },
     state: (state) => {
+      diag('ws', `state -> ${state}`);
       if (state === 'online') return; // Confirm the workspace snapshot before enabling commands.
       this.connectionEpoch++;
       this.connection = state;
@@ -57,6 +74,7 @@ class Companion {
       }
     },
     online: () => {
+      diag('ws', 'socket open, confirming snapshot');
       const epoch = this.connectionEpoch;
       void this.refresh().then(() => {
         if (epoch !== this.connectionEpoch) return;
@@ -68,6 +86,7 @@ class Companion {
     },
     message: (data) => { try { this.handle(JSON.parse(data)); } catch { /* ignore malformed frames */ } },
     lost: () => {
+      diag('ws', `lost: navigator.onLine=${navigator.onLine} connection=${this.connection}`);
       this.connectionError ||= navigator.onLine ? 'Live updates disconnected. Retrying automatically.' : unreachableMessage(false);
       if (this.remote) void this.request('/api/sessions').catch(() => {});
     },
@@ -82,6 +101,20 @@ class Companion {
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private devicesTimer: ReturnType<typeof setTimeout> | undefined;
   private booting = false;
+  /** Tunnel-mode HTTP transport; undefined keeps the plain-fetch path for local/remote. */
+  private tunnelTransport: RequestTransport | undefined;
+  private tunnelFor: TunnelConfig | null = null;
+
+  /** Current tunnel transport, rebuilt when the stored config appears or changes. */
+  private currentTunnelTransport(): RequestTransport | undefined {
+    const current = tunnelConfig();
+    if (!current) return undefined;
+    if (!this.tunnelTransport || this.tunnelFor?.addr !== current.addr || this.tunnelFor?.port !== current.port) {
+      this.tunnelTransport = createTunnelTransport(current);
+      this.tunnelFor = current;
+    }
+    return this.tunnelTransport;
+  }
 
   get isAdmin() {
     return !this.remote;
@@ -108,13 +141,54 @@ class Companion {
     return this.asks[id]?.length ?? 0;
   }
 
+  /**
+   * Resolves the transport for one request: direct LAN when the page origin itself
+   * serves the daemon (the QR's URL IS the daemon), the tunnel otherwise. Probing
+   * per boot: a phone in the daemon's LAN must not detour through the DERP relay
+   * (slow, and unreachable when the phone's WAN is down — e.g. USB tethering),
+   * while the same phone off-LAN has only the tunnel. The probe result is cached
+   * until a boot failure, so steady-state adds no latency.
+   */
+  private directUsable: boolean | null = null;
+
+  private effectiveTransport(): RequestTransport | undefined {
+    if (!tunnelConfig()) return undefined;
+    if (this.directUsable === null) return this.currentTunnelTransport(); // first boot: tunnel is the only known-good path
+    return this.directUsable ? undefined : this.currentTunnelTransport();
+  }
+
+  /** Probes the direct path once per boot: does a plain fetch to our own origin answer as the daemon? */
+  private async probeDirect(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/context', { signal: AbortSignal.timeout(3000), cache: 'no-store' });
+      if (!response.ok) return false;
+      const body = await response.json() as { remote?: boolean; version?: string };
+      return typeof body.remote === 'boolean' && typeof body.version === 'string';
+    } catch { return false; }
+  }
+
   async boot() {
     if (this.booting || (this.booted && !this.bootError)) return;
     this.booting = true;
     this.connection = 'connecting';
     clearTimeout(this.retryTimer);
     try {
-      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy }>('/api/context');
+      diag('boot', `start #${diagSeq()} tunnel=${JSON.stringify(tunnelConfig())} direct=${this.directUsable}`);
+      // On the first boot (or after a failure), probe the direct path: when the
+      // page's own origin answers as the daemon, prefer LAN over the tunnel.
+      if (tunnelConfig() && this.directUsable === null) {
+        this.directUsable = await this.probeDirect();
+        diag('boot', `direct probe -> ${this.directUsable}`);
+        // On the LAN the daemon is reachable: warm the persistent runtime cache now,
+        // so leaving the LAN (or reloading off-LAN) still has the tunnel runtime.
+        if (this.directUsable) void warmRuntimeCache();
+      }
+      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus }>('/api/context', {}, 10_000, 'json', this.effectiveTransport());
+      if (this.directUsable === false && tunnelConfig()) {
+        // Tunnel worked: re-probe direct on the next boot (the phone may have moved).
+        this.directUsable = null;
+      }
+      diag('boot', `context ok remote=${context.remote} version=${context.version}`);
       if (!context || typeof context.remote !== 'boolean' || typeof context.version !== 'string') {
         throw new WorkspaceConnectionError('This address is not responding as a Gentle Companion workspace. Check the current tunnel URL.');
       }
@@ -122,10 +196,12 @@ class Companion {
       this.remote = context.remote;
       this.version = context.version;
       this.token = this.remote ? localStorage.getItem(TOKEN_KEY) : null;
+      if (context.tailcatStatus && typeof context.tailcatStatus.running === 'boolean') this.onTailcatUpdate?.(context.tailcatStatus);
       this.bootError = '';
       this.connectionError = '';
       this.booted = true;
     } catch (error) {
+      diag('boot', `context FAILED: ${error instanceof Error ? error.message : String(error)}`);
       this.bootError = error instanceof Error ? error.message : unreachableMessage();
       this.unavailable(this.bootError);
       this.booted = true;
@@ -152,6 +228,9 @@ class Companion {
 
   private unavailable(message: string) {
     if (this.connection === 'disconnected' || this.connection === 'revoked') return;
+    // The phone may have moved between LAN and mobile: forget the direct-path probe
+    // so the next boot re-evaluates instead of retrying a dead path forever.
+    this.directUsable = null;
     this.connectionError = message;
     this.connection = 'offline';
     this.connectionEpoch++;
@@ -169,8 +248,9 @@ class Companion {
     const token = this.token;
     if (this.remote && token) headers.set('authorization', 'Bearer ' + token);
     try {
-      return await workspaceRequest<T>(path, { ...init, headers }, timeoutMs, responseType);
+      return await workspaceRequest<T>(path, { ...init, headers }, timeoutMs, responseType, this.effectiveTransport());
     } catch (error) {
+      diag('req', `${path} FAILED: ${error instanceof Error ? error.message : String(error)}`);
       if (error instanceof ApiError && error.status === 401 && this.remote && this.token === token && path !== '/api/pairing/claim') this.forget();
       else if (error instanceof WorkspaceConnectionError) this.unavailable(error.message);
       else if (error instanceof ApiError && error.status === 403 && path === '/api/sessions') {
@@ -551,7 +631,7 @@ class Companion {
   }
 
   async claim(source: { invite: string } | { code: string }, deviceName: string) {
-    const result = await this.request<{ token: string }>('/api/pairing/claim', {
+    const result = await this.request<{ token: string; tunnelAddr?: string; tunnelPort?: number }>('/api/pairing/claim', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ...source, deviceName })
@@ -559,6 +639,18 @@ class Companion {
 
     localStorage.setItem(TOKEN_KEY, result.token);
     this.token = result.token;
+    // The claim response carries the tunnel coordinates (feature tailcat-client S3):
+    // store them so this device can fall back to the tunnel after leaving the LAN,
+    // whether it paired via the QR fragment or by typing the URL directly.
+    if (result.tunnelAddr) {
+      try {
+        localStorage.setItem(TUNNEL_ADDR_KEY, result.tunnelAddr);
+        localStorage.setItem(TUNNEL_PORT_KEY, String(result.tunnelPort ?? DEFAULT_TUNNEL_PORT));
+        diag('pair', `tunnel stored ${result.tunnelAddr.slice(0, 10)}…:${result.tunnelPort ?? DEFAULT_TUNNEL_PORT}`);
+      } catch { /* storage blocked: LAN-only */ }
+    }
+    // Re-evaluate the transport now that the tunnel may exist.
+    this.directUsable = null;
     await this.refresh().catch(() => {});
     this.reconnect();
   }

@@ -10,7 +10,7 @@ Lightweight, local-first remote control for Gentle Shell sessions.
 
 **[Watch the 2-minute narrated walkthrough](docs/pi-companion-promo.mp4)**: a real Gentle Shell session shared with `/remote-control`, a phone paired from the dashboard, Gentle Shell's questions answered from the phone, and an automation created, triggered and reviewed. It is recorded from the actual terminal and UI and composed in code in [`tools/promo-video`](tools/promo-video).
 
-**New in 0.5.0:** an experimental **tailcat web bridge** (`bridge/`) lets a phone browser reach the daemon through a tailcat tunnel using tailcat's WASM client, so a device can connect without sharing a LAN. The daemon now also serves its device surface on a loopback mirror while the tunnel is enabled, because `tailcat serve` always forwards to loopback. See [bridge/README.md](bridge/README.md).
+**New in 0.6.0:** the **tailcat client** is now first-class — the daemon serves the full Companion UI itself, a phone pairs by QR (or a copyable link) and the client prefers the direct LAN path, falling back to the tailcat tunnel (tailcat's WASM client) when the daemon is not reachable that way. The daemon also serves its device surface on a loopback mirror while the tunnel is enabled, because `tailcat serve` always forwards to loopback. The static page in [`bridge/`](bridge/README.md) remains as a manual test harness. See [bridge/README.md](bridge/README.md).
 
 **In 0.4.3:** the companion became a bridge to the computer running Gentle Shell. Links and inline `code` the agent writes can open **localhost servers** (`http://localhost:3000`) in a sandboxed frame relayed by the daemon, and **files** the agent mentions (paths, `file://` links) can be fetched, previewed or downloaded on the device. Every open or fetch asks first; files are limited to the session's working directory and its Companion temp folders; files that look like credentials are skipped (best effort). Turn the whole bridge off in **Settings → Bridge**. See [Companion bridge](#companion-bridge).
 
@@ -64,6 +64,26 @@ Gentle Shell uses the native package command, so the same `pi` manifest, extensi
 Use `/remote-control` in any session to toggle sharing; `/remote-control on` and `/remote-control off` are explicit alternatives. No `/companion` prerequisite. `/companion` and `/companion off` remain compatibility aliases.
 
 You do **not** need to run `gentle-companion-server` manually for a normal npm install. Manual daemon startup is mainly for local development, debugging, or when `PI_COMPANION_AUTOSTART=0` is set.
+
+### Running the daemon yourself
+
+The extension starts the daemon on load: it probes the admin port and launches a daemon only when nothing answers, registering a per-user background service when the platform allows it. Three scripts cover the cases where you want to drive that yourself — they work on Linux, macOS and Windows, need no dependencies, and live in `tools/` (they are not shipped in the npm package):
+
+| Script | What it does |
+| --- | --- |
+| `node tools/daemon.mjs start\|stop\|status\|restart` | Manual lifecycle. `status` probes the admin port and reports running/version/pid; `start` resolves the binary, launches it detached and waits until it answers; `stop` sends SIGTERM and waits for the port to close. Add `--json` for machine-readable output. |
+| `node tools/daemon-service.mjs install\|uninstall\|status` | Registers, removes or reports the per-user service: `systemd --user` on Linux, `launchd` on macOS, Task Scheduler on Windows. Mirrors what the extension registers, so both paths stay consistent. `--binary <path>` overrides the binary. |
+| `node tools/daemon-logs.mjs [--lines N] [--follow]` | Shows the daemon's log: `journalctl --user -u pi-companion.service` on Linux, `log show`/`log stream` on macOS, and the log file when one exists. Explains what to do when the platform keeps no log. |
+
+The same actions are available through `npm run`:
+
+    npm run daemon:start      npm run daemon:status     npm run daemon:logs
+    npm run daemon:stop       npm run daemon:restart
+    npm run daemon:service:install    npm run daemon:service:uninstall    npm run daemon:service:status
+
+Binary resolution order (all three scripts): `PI_COMPANION_SERVER` → `server/target/release/` → `server/target/debug/` → the cached download under the companion home → `PATH`. A normal npm install has no `server/target/`, so use the cached binary or set `PI_COMPANION_SERVER`.
+
+The daemon refuses to start twice (it exits when the admin port is taken), so a manual start while the service is running is harmless: it reports that another daemon owns the port.
 
 ## Architecture
 
@@ -258,7 +278,33 @@ The exposed port is the **Tunnel port** setting. Leave it at 0 to use the daemon
 
 The tailcat address is sensitive. Treat it like a pairing code: it grants access through the tunnel, so do not share it publicly or commit it to a repository.
 
-A phone or browser client that speaks tailcat is not shipped yet. An experimental web bridge exists in [`bridge/`](bridge/README.md): a static page that loads the tailcat WASM build, dials the daemon's `tc…` tunnel address, and relays HTTP and WebSocket traffic over it. Until a first-class client ships, the address can also be used from tailcat clients such as OpenTailcat or pi-remote.
+The daemon itself serves a first-class browser client: opening the daemon's URL in a phone browser loads the full Companion UI. The client prefers a direct LAN connection and falls back to the tunnel only when the daemon is not reachable that way, so a phone on the same network stays fast and a phone away from it keeps working. Pairing delivers the tunnel address and device port: the claim response carries them, and the pairing QR also encodes them in the URL fragment (never sent to the server), so a phone scanning it lands already configured; for clients without a camera, the devices page shows a copyable pairing link that carries the same configuration. The static page in [`bridge/`](bridge/README.md) remains as a manual test harness for the tailcat WASM transport, and the address can also be used from tailcat clients such as OpenTailcat or pi-remote.
+
+How the client chooses its path:
+
+- **On the daemon's network:** a direct connection. Fast, no relay involved.
+- **Away from it:** the tailcat tunnel, dialed through the public DERP relay. The switch is automatic — the client re-evaluates the path after a connection failure, so a phone that leaves the network keeps working and one that returns goes back to the direct path.
+
+Known limitations of this release:
+
+- **Do not reload the page while off the network.** The client is served over plain HTTP from the daemon's LAN address, so the page itself cannot be fetched without that network. The live session survives losing the network (the tunnel takes over), but a reload does not. Serving the client over HTTPS — which enables a service worker and an installable app — is the next step.
+- **Binary transfers over the tunnel are not supported yet.** File uploads and downloads report a clear error in tunnel mode; they work normally on the direct path.
+- **The tunnel address is a credential.** Anyone holding it can reach the device surface through the relay, subject to the pairing token. Treat it like a pairing code.
+
+### Serving the client over HTTPS
+
+The client is served over plain HTTP today, which is why a reload off the network fails. Two ways to fix that, either one sufficient:
+
+**Option A — TLS on the daemon.** Put the daemon behind HTTPS (a reverse proxy with a certificate, or TLS termination in front of the device surface). The client then runs in a secure context, so a service worker can cache the app shell and the tailcat runtime, and the client becomes installable as an app. This keeps everything on the daemon. The certificate must be valid for the host the phone opens — a self-signed certificate on a bare IP address will be rejected by browsers and blocks service-worker registration, so use a real hostname and a trusted certificate.
+
+**Option B — host the client on a public static site.** Publish the built UI (`server/web-dist/`) together with `bridge/vendor/` to any HTTPS static host (GitHub Pages, Netlify, Cloudflare Pages, an object store with a CDN). The phone then opens that public URL with the tunnel configuration in the fragment, e.g. `https://example.com/companion/#tunnel=tc…&port=43722`, and never needs the daemon's network to load the app. Requirements:
+
+- The daemon must accept that origin. Add it to `PI_COMPANION_ALLOWED_ORIGINS` (comma-separated), or the WebSocket and the API will answer `403 Origin not allowed`.
+- The tunnel must be running and its address reachable from the phone, since every request travels through it.
+- The published build must be refreshed when the daemon's UI changes; the two are versioned separately.
+- The page's own assets are public — never place tokens or addresses in the published files, only in the URL fragment, which browsers do not send to servers.
+
+Option B needs no server-side change and no certificate management, at the cost of hosting the client separately from the daemon.
 
 The daemon looks for `tailcat` in this order: the system PATH, a local binary named `tailcat` in the current directory or `bin/`, and then the bundled binary for the current platform. Bundled Tailcat binaries ship for **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) and **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); on macOS the daemon uses the system `tailcat` from PATH. If no binary is found, the daemon shows a per-platform install hint and does not crash:
 
