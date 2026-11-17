@@ -505,7 +505,7 @@ async fn start_tls_listener(state: AppState, mode: tls::TlsMode, port: u16) {
     let (cert, key) = match mode {
         tls::TlsMode::Files { cert, key } => (cert, key),
         tls::TlsMode::SelfSigned { dir } => {
-            let hosts = tls_host_names(&bind);
+            let hosts = tls::host_names_for(&bind);
             match tls::ensure_self_signed(&dir, &hosts) {
                 Ok((cert, key, created)) => {
                     if let Ok(value) = tls::fingerprint(&cert) {
@@ -541,14 +541,6 @@ async fn start_tls_listener(state: AppState, mode: tls::TlsMode, port: u16) {
     {
         tracing::warn!(%error, "TLS listener failed");
     }
-}
-
-/// Host names a self-signed certificate should cover: the bind host plus loopback.
-fn tls_host_names(bind: &str) -> Vec<String> {
-    let host = bind.rsplit_once(':').map(|(host, _)| host).unwrap_or(bind);
-    let mut names = vec![host.to_string(), "localhost".to_string(), "127.0.0.1".to_string()];
-    names.dedup();
-    names
 }
 
 fn local_router(state: AppState) -> Router {

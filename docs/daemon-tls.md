@@ -48,6 +48,23 @@ TLS is on.
 `PI_COMPANION_TLS_PORT` overrides the HTTPS port. It defaults to the device port plus
 one, so it never collides with the tunnel.
 
+## What the certificate covers
+
+The generated certificate lists the addresses a client actually dials:
+
+- the bind host, when it is a specific address;
+- **this machine's LAN IPv4 addresses**, when the bind is a wildcard (`0.0.0.0`);
+- `localhost` and `127.0.0.1`, always.
+
+A wildcard bind never becomes a certificate name. `0.0.0.0` is an instruction to the
+kernel, not a host a phone can type, so a certificate carrying it is rejected for the wrong
+host even after the CA is trusted. The wildcard is replaced by the machine's own addresses
+instead. If the machine has no non-loopback address, the certificate covers loopback only.
+
+The certificate is **reused** across restarts, so the fingerprint stays stable. Delete
+`<data dir>/tls/` to force a new one — necessary after the machine's LAN address changes,
+because the old certificate will not name the new address.
+
 ## Trusting the certificate on the phone
 
 A self-signed certificate shows a warning and, more importantly, **blocks service

@@ -105,6 +105,68 @@ pub fn self_signed_paths(dir: &Path) -> (PathBuf, PathBuf) {
 /// Generates a self-signed certificate for the given host names when the pair is absent,
 /// and returns the paths either way. Reuses an existing pair so the fingerprint stays
 /// stable across restarts (the phone trusts it once).
+/// Certificate names for a bind address: the host itself plus loopback.
+///
+/// A wildcard bind is special. `0.0.0.0` is an instruction to the kernel, not a name a
+/// client can dial, so putting it in the certificate produces one that every client
+/// rejects for the wrong host — even after the CA is trusted. The wildcard is therefore
+/// replaced by this machine's own addresses, which are what a phone actually types.
+pub fn host_names_for(bind: &str) -> Vec<String> {
+    let host = bind.rsplit_once(':').map(|(host, _)| host).unwrap_or(bind);
+    let mut names: Vec<String> = Vec::new();
+    let wildcard = matches!(host, "0.0.0.0" | "::" | "[::]" | "");
+    if wildcard {
+        names.extend(local_ipv4_addresses());
+    } else {
+        names.push(host.to_string());
+    }
+    for loopback in ["localhost", "127.0.0.1"] {
+        if !names.iter().any(|name| name == loopback) {
+            names.push(loopback.to_string());
+        }
+    }
+    names.dedup();
+    names
+}
+
+/// This machine's non-loopback IPv4 addresses, best effort.
+///
+/// Uses `getifaddrs` through libc so no new dependency is needed. A failure yields an
+/// empty list: the certificate then covers only loopback, which is correct for a daemon
+/// bound to loopback and merely degraded for a wildcard bind.
+pub fn local_ipv4_addresses() -> Vec<String> {
+    let mut addresses = Vec::new();
+    // SAFETY: getifaddrs fills a linked list we own and free in the same call; every
+    // pointer is checked for null before it is dereferenced.
+    unsafe {
+        let mut head: *mut libc::ifaddrs = std::ptr::null_mut();
+        if libc::getifaddrs(&mut head) != 0 {
+            return addresses;
+        }
+        let mut cursor = head;
+        while !cursor.is_null() {
+            let entry = &*cursor;
+            let addr = entry.ifa_addr;
+            if !addr.is_null() && (*addr).sa_family as i32 == libc::AF_INET {
+                let sockaddr = addr as *const libc::sockaddr_in;
+                let raw = u32::from_be((*sockaddr).sin_addr.s_addr);
+                let octets = raw.to_be_bytes();
+                let loopback = octets[0] == 127;
+                let unspecified = octets == [0, 0, 0, 0];
+                if !loopback && !unspecified {
+                    let text = format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3]);
+                    if !addresses.contains(&text) {
+                        addresses.push(text);
+                    }
+                }
+            }
+            cursor = entry.ifa_next;
+        }
+        libc::freeifaddrs(head);
+    }
+    addresses
+}
+
 pub fn ensure_self_signed(
     dir: &Path,
     host_names: &[String],
@@ -300,6 +362,45 @@ mod tests {
         assert_eq!(parts.len(), 32, "SHA-256 renders as 32 octets");
         assert!(parts.iter().all(|part| part.len() == 2
             && part.chars().all(|c| c.is_ascii_hexdigit() && !c.is_lowercase())));
+    }
+
+    /// A wildcard bind must not become a certificate name: `0.0.0.0` is not a name any
+    /// client can match, so a phone would reject the certificate for the wrong host even
+    /// after trusting the CA. The wildcard has to be replaced by the addresses a client
+    /// actually dials.
+    #[test]
+    fn a_wildcard_bind_never_becomes_a_certificate_name() {
+        let names = host_names_for("0.0.0.0:43723");
+        assert!(
+            !names.iter().any(|name| name == "0.0.0.0"),
+            "0.0.0.0 is a bind address, not a name: {names:?}"
+        );
+        assert!(names.iter().any(|name| name == "localhost"));
+        assert!(names.iter().any(|name| name == "127.0.0.1"));
+        // Whatever this machine's LAN addresses are, they must be covered.
+        for address in local_ipv4_addresses() {
+            assert!(
+                names.iter().any(|name| name == &address),
+                "the LAN address {address} must be in the certificate: {names:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_specific_bind_host_is_kept_and_loopback_is_added() {
+        let names = host_names_for("192.168.2.20:43723");
+        assert_eq!(names.first().map(String::as_str), Some("192.168.2.20"));
+        assert!(names.iter().any(|name| name == "localhost"));
+        assert!(names.iter().any(|name| name == "127.0.0.1"));
+    }
+
+    #[test]
+    fn host_names_are_unique() {
+        let names = host_names_for("127.0.0.1:43723");
+        let mut sorted = names.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), names.len(), "duplicate names: {names:?}");
     }
 
     #[test]

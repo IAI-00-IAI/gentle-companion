@@ -36,8 +36,14 @@ than refusing to start it.
 
 ## Self-signed generation
 
-`ensure_self_signed` (`:120`) uses rcgen and **reuses an existing pair**, so the fingerprint
-is stable across restarts. Validity runs 2024 → 2036; the key is written mode 0600.
+`ensure_self_signed` uses rcgen and **reuses an existing pair**, so the fingerprint is
+stable across restarts. Validity runs 2024 → 2036; the key is written mode 0600.
+
+The names it covers come from `host_names_for` (`server/src/tls.rs:114`): the bind host when
+it is specific, otherwise **this machine's LAN IPv4 addresses** (`local_ipv4_addresses`,
+`:137`, via `getifaddrs`), plus `localhost` and `127.0.0.1`. A wildcard bind never becomes a
+certificate name — `0.0.0.0` is a kernel instruction, not a host a phone can dial, and a
+certificate carrying it is rejected for the wrong host even after the CA is trusted.
 
 Stability matters more than it looks. A regenerated certificate on every start would mean
 re-accepting the warning on the phone every time, and any pinned fingerprint would break.

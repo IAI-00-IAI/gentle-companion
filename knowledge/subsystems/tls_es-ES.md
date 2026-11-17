@@ -37,9 +37,15 @@ plano sería peor que negarse a arrancar.
 
 ## Generación self-signed
 
-`ensure_self_signed` (`:120`) usa rcgen y **reutiliza un par existente**, así que el
-fingerprint es estable entre reinicios. La validez va de 2024 a 2036; la key se escribe con
-modo 0600.
+`ensure_self_signed` usa rcgen y **reutiliza un par existente**, así que el fingerprint es
+estable entre reinicios. La validez va de 2024 a 2036; la key se escribe con modo 0600.
+
+Los nombres que cubre salen de `host_names_for` (`server/src/tls.rs:114`): el host del bind
+cuando es concreto, o si no **las direcciones IPv4 de LAN de esta máquina**
+(`local_ipv4_addresses`, `:137`, vía `getifaddrs`), más `localhost` y `127.0.0.1`. Un bind
+comodín nunca se convierte en nombre del certificado — `0.0.0.0` es una instrucción al
+kernel, no un host que un teléfono pueda marcar, y un certificado que lo lleve se rechaza
+por host incorrecto incluso después de confiar en la CA.
 
 La estabilidad importa más de lo que parece. Un certificado regenerado en cada arranque
 significaría re-aceptar la advertencia en el teléfono cada vez, y cualquier fingerprint

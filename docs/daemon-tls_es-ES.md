@@ -50,6 +50,24 @@ usuario cree que TLS está activo.
 `PI_COMPANION_TLS_PORT` permite cambiar el puerto HTTPS. Por defecto es el puerto de
 dispositivo más uno, así nunca choca con el túnel.
 
+## Qué cubre el certificado
+
+El certificado generado lista las direcciones que un cliente realmente marca:
+
+- el host del bind, cuando es una dirección concreta;
+- **las direcciones IPv4 de LAN de esta máquina**, cuando el bind es comodín (`0.0.0.0`);
+- `localhost` y `127.0.0.1`, siempre.
+
+Un bind comodín nunca se convierte en nombre del certificado. `0.0.0.0` es una instrucción
+al kernel, no un host que un teléfono pueda escribir, así que un certificado que lo lleve
+se rechaza por host incorrecto incluso después de confiar en la CA. El comodín se reemplaza
+por las direcciones propias de la máquina. Si la máquina no tiene dirección no-loopback, el
+certificado cubre solo loopback.
+
+El certificado **se reutiliza** entre reinicios, así que el fingerprint queda estable. Borrá
+`<data dir>/tls/` para forzar uno nuevo — necesario cuando cambia la dirección de LAN de la
+máquina, porque el certificado viejo no nombrará la nueva.
+
 ## Confiar el certificado en el teléfono
 
 Un certificado autofirmado muestra una advertencia y, más importante, **bloquea el
