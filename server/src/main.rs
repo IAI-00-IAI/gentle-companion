@@ -1047,6 +1047,14 @@ async fn put_settings(
     let tailcat_changed = tailcat_stays_on && (old_settings.tailcat_port != valid.tailcat_port || !old_tailcat_on);
     let mut settings = state.settings.write().await;
     *settings = valid.clone();
+    // `tailcat_address` is discovered by the daemon when the tunnel starts, not chosen by
+    // the user. The settings page round-trips the whole struct, so a stale page would send
+    // an empty address back and erase it — which silently disables the tunnel fallback and
+    // leaves a phone offline the moment it leaves the LAN. Keep the daemon's value unless
+    // the user actually turned the tunnel off.
+    if tailcat_stays_on && old_settings.tailcat_address != valid.tailcat_address {
+        settings.tailcat_address = old_settings.tailcat_address.clone();
+    }
     drop(settings);
     let new_bind = remote_bind_addr(&state).await;
     if old_bind != new_bind {
