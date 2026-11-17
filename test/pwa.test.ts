@@ -89,6 +89,48 @@ test('worker never intercepts authenticated API, websocket, external or mutation
   }
 });
 
+// A hashed asset name is unique per build, so a cached copy can only be the current build's
+// or a stale one whose hash the daemon no longer serves. Serving it cache-first pins the app
+// to an old build forever: a browser that keeps the worker gets a shell whose assets 404, and
+// the only escape is unregistering the worker — which is exactly what incognito does, so the
+// bug looks like "works in incognito only".
+test('hashed immutable assets are revalidated instead of served from a stale cache forever', async () => {
+  // The cache holds a stale build's asset; the worker must still ask the network.
+  let fetched = 0;
+  const stale = new Response('stale build', { status: 200 });
+  const handlers: Record<string, (event: any) => void> = {};
+  runInNewContext(worker, {
+    self: {
+      location: { origin: 'https://companion.example' },
+      addEventListener: (name: string, handler: (event: any) => void) => { handlers[name] = handler; },
+      skipWaiting: async () => {},
+      clients: { claim: async () => {} }
+    },
+    caches: {
+      open: async () => ({ addAll: async () => {}, put: async () => {} }),
+      keys: async () => [],
+      delete: async () => {},
+      match: async () => stale.clone()
+    },
+    fetch: async () => { fetched += 1; return new Response('network', { status: 200 }); },
+    URL, Response
+  });
+  let responded: Promise<Response> | undefined;
+  handlers.fetch({
+    request: {
+      method: 'GET',
+      mode: 'cors',
+      url: 'https://companion.example/_app/immutable/entry/start.OLDHASH.js',
+      headers: new Headers()
+    },
+    respondWith: (value: Promise<Response>) => { responded = value; }
+  });
+  await responded!;
+  // The response object crosses a vm boundary, so its body is not readable here; what
+  // matters is that the worker went to the network instead of trusting the stale copy.
+  assert.equal(fetched, 1, 'a hashed asset must be requested from the network, not served from a stale cache');
+});
+
 test('gateway navigation falls back to the public shell instead of replacing the app with proxy HTML', async () => {
   const { handlers } = harness(true, 530);
   let response: Promise<Response>;

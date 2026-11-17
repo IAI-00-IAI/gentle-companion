@@ -132,7 +132,11 @@ test('closing the scanner releases a camera granted after dismissal', async () =
 test('camera upgrade changes the service-worker cache and HTML security validators', () => {
   const worker = readFileSync(new URL('../ui/static/service-worker.js', import.meta.url), 'utf8');
   const assets = readFileSync(new URL('../server/src/assets.rs', import.meta.url), 'utf8');
-  assert.match(worker, /pi-companion-shell-v6/);
+  // The version must be at least v6: v6 carried the camera Permissions-Policy fix, v7 made
+  // hashed assets network-first. Asserting a floor rather than an exact number keeps this
+  // test about the policy, not about which build bumped the cache last.
+  const version = Number(worker.match(/pi-companion-shell-v(\d+)/)?.[1] ?? 0);
+  assert.ok(version >= 6, `the service-worker cache must be v6 or newer, got v${version}`);
   assert.match(assets, /-camera-v2/);
   assert.ok(assets.indexOf('headers.insert(header::CONTENT_SECURITY_POLICY') < assets.indexOf('let not_modified'));
 });

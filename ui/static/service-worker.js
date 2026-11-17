@@ -1,7 +1,7 @@
 // Cache only the public application shell. Tokens, API data and uploads stay online-only.
 // Refresh the cached HTML response as well as its bytes: older shells carried a
 // camera=() Permissions-Policy header that still blocks getUserMedia offline.
-const CACHE = 'pi-companion-shell-v6';
+const CACHE = 'pi-companion-shell-v7';
 const SHELL = ['/', '/manifest.webmanifest', '/favicon.png', '/apple-touch-icon.png', '/pwa-icon.svg', '/pwa-maskable.svg', '/pwa-192.png', '/pwa-512.png', '/pwa-maskable-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -34,7 +34,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (SHELL.includes(url.pathname) || url.pathname.startsWith('/_app/immutable/')) {
+  // Hashed assets are network-first. A cached copy is only ever the current build's or a
+  // stale one whose hash the daemon no longer serves, so preferring the cache pins the app
+  // to an old build: the shell loads and every asset 404s, and the only escape is
+  // unregistering the worker. The cache is kept for the offline case, not as the source.
+  if (url.pathname.startsWith('/_app/immutable/')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok && response.type !== 'opaque') {
+            const copy = response.clone();
+            event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy)));
+          }
+          return response;
+        })
+        .catch(async () => (await caches.match(request)) || Response.error())
+    );
+    return;
+  }
+
+  if (SHELL.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
