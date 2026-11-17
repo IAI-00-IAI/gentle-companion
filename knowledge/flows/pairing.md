@@ -81,14 +81,14 @@ after it leaves the network: it already knows how to dial the tunnel.
 | 401 "invalid or already used" | Invite consumed or expired | Start a new pairing |
 | 429 | Ten wrong codes | Start a new pairing |
 | Claim works, socket 4003 | Device revoked between claim and connect | Pair again |
-| Claim works, socket never opens | Origin not in the device allow-list | Add the origin — see [Deployment](/operations/deployment.md) |
+| Claim works, socket never opens | Origin not in the device allow-list | Add the origin — see [Deployment](../operations/deployment.md) |
 
 The last one is the most common in practice, and it is not a pairing failure at all: the
 credential is valid, the origin is not allowed. See
-[HTTP surfaces](/architecture/http-surfaces.md).
+[HTTP surfaces](../architecture/http-surfaces.md).
 
 ## Related
 
-- [Auth](/architecture/auth.md) — the credential model behind this
-- [Tunnel fallback](/flows/tunnel-fallback.md) — what the stored address is for
-- [Deployment](/operations/deployment.md) — allowed origins
+- [Auth](../architecture/auth.md) — the credential model behind this
+- [Tunnel fallback](../flows/tunnel-fallback.md) — what the stored address is for
+- [Deployment](../operations/deployment.md) — allowed origins

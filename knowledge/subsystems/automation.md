@@ -127,6 +127,6 @@ arbitrary command execution on a schedule — on the trusted surface.
 
 ## Related
 
-- [Extension](/subsystems/extension.md) — the tool and the RPC relay mode
-- [Protocol](/subsystems/protocol.md) — how an ask reaches a device
-- [State](/architecture/state.md) — the file this subsystem owns
+- [Extension](../subsystems/extension.md) — the tool and the RPC relay mode
+- [Protocol](../subsystems/protocol.md) — how an ask reaches a device
+- [State](../architecture/state.md) — the file this subsystem owns

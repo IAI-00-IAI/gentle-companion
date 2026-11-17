@@ -88,7 +88,7 @@ Dos detalles que es fácil hacer mal:
 
 Desactivar revierte el proceso: `setRemoteEnabled(false)`, diálogos y popups desmontados,
 socket cerrado. El daemon pasa a tratar la sesión como no compartida y deja de emitirla.
-Ver [Protocolo](/subsystems/protocol_es-ES.md).
+Ver [Protocolo](../subsystems/protocol_es-ES.md).
 
 ## El relay de diálogos
 
@@ -108,6 +108,6 @@ restantes desde el companion.
 
 ## Relacionados
 
-- [Ciclo de vida del daemon](/subsystems/daemon-lifecycle_es-ES.md) — qué hace `ensureDaemon`
-- [Protocolo](/subsystems/protocol_es-ES.md) — los mensajes que estos hooks producen
-- [Automatización](/subsystems/automation_es-ES.md) — el modo relay RPC
+- [Ciclo de vida del daemon](../subsystems/daemon-lifecycle_es-ES.md) — qué hace `ensureDaemon`
+- [Protocolo](../subsystems/protocol_es-ES.md) — los mensajes que estos hooks producen
+- [Automatización](../subsystems/automation_es-ES.md) — el modo relay RPC

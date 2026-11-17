@@ -128,6 +128,6 @@ grande de archivo estaba en vuelo dejaría que la copia terminara.
 
 ## Relacionados
 
-- [Auth](/architecture/auth_es-ES.md) — la credencial que controla la superficie
-- [Superficies HTTP](/architecture/http-surfaces_es-ES.md) — por qué estas rutas se saltan el guardia de origen
-- [Consecuencias para el operador](/operations/deployment_es-ES.md) — qué implica esto en producción
+- [Auth](../architecture/auth_es-ES.md) — la credencial que controla la superficie
+- [Superficies HTTP](../architecture/http-surfaces_es-ES.md) — por qué estas rutas se saltan el guardia de origen
+- [Consecuencias para el operador](../operations/deployment_es-ES.md) — qué implica esto en producción

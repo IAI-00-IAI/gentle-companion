@@ -57,12 +57,12 @@ código, que no es su trabajo.
 tipado. La extensión *registra* un snapshot de sesión y luego transmite eventos de ciclo de
 vida; el daemon responde con comandos originados en el navegador. Este canal es la única
 forma en que una sesión se vuelve visible para los dispositivos. Detalles en
-[Protocolo](/subsystems/protocol_es-ES.md).
+[Protocolo](../subsystems/protocol_es-ES.md).
 
 **Navegador ↔ daemon** — HTTP para lecturas y mutaciones, más `/ws/browser` como stream de
 broadcast. El primer frame en ese socket es siempre `{"type":"resync"}`, después de lo cual
 el daemon empuja registros de sesión, patches, eventos de actividad y actualizaciones de
-dispositivos. Detalles en [Superficies HTTP](/architecture/http-surfaces_es-ES.md).
+dispositivos. Detalles en [Superficies HTTP](../architecture/http-surfaces_es-ES.md).
 
 ## Por qué dos superficies HTTP
 
@@ -76,8 +76,8 @@ El daemon escucha dos veces, y esta es la decisión estructural más consecuente
 La consola no tiene credencial — todo lo que puede alcanzar loopback es confiable, por eso
 su chequeo de origen es estricto y su bind es loopback. La superficie de dispositivos lleva
 un bearer token, está expuesta en una interfaz real y por eso valida tanto `Origin` como el
-token. Mirá [Superficies HTTP](/architecture/http-surfaces_es-ES.md) para las reglas exactas
-y [Autenticación](/architecture/auth_es-ES.md) para el modelo de credenciales.
+token. Mirá [Superficies HTTP](../architecture/http-surfaces_es-ES.md) para las reglas exactas
+y [Autenticación](../architecture/auth_es-ES.md) para el modelo de credenciales.
 
 ## La escalera de alcanzabilidad
 
@@ -98,7 +98,7 @@ graph TD
 
 El resultado del probe queda cacheado hasta que un request falla de verdad, así que el caso
 común cuesta un request al arrancar y nada después. Detalles en
-[Fallback de túnel](/flows/tunnel-fallback_es-ES.md) y [UI](/subsystems/ui_es-ES.md).
+[Fallback de túnel](../flows/tunnel-fallback_es-ES.md) y [UI](../subsystems/ui_es-ES.md).
 
 ## Qué es durable y qué no
 
@@ -110,10 +110,10 @@ común cuesta un request al arrancar y nada después. Detalles en
 | Sesiones, log de actividad, archivos temporales | Memoria y el directorio temporal | Nada — reconstruidos por el WS de Pi |
 
 Esa asimetría es intencional: una sesión solo existe mientras Pi la ejecuta, así que
-persistirla sería persistir una mentira. Mirá [Estado](/architecture/state_es-ES.md).
+persistirla sería persistir una mentira. Mirá [Estado](../architecture/state_es-ES.md).
 
 ## Relacionados
 
-- [Modelo de procesos](/architecture/process-model_es-ES.md) — el orden de arranque que hace posible todo esto
-- [Subsistemas](/subsystems/extension_es-ES.md) — cada parte en profundidad
-- [Flujos](/flows/pairing_es-ES.md) — la misma arquitectura vista como secuencias
+- [Modelo de procesos](../architecture/process-model_es-ES.md) — el orden de arranque que hace posible todo esto
+- [Subsistemas](../subsystems/extension_es-ES.md) — cada parte en profundidad
+- [Flujos](../flows/pairing_es-ES.md) — la misma arquitectura vista como secuencias

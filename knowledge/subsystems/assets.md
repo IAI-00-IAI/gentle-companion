@@ -87,6 +87,6 @@ Three tests in `server/src/assets.rs` cover serving, the fallback, and the CSP h
 
 ## Related
 
-- [UI](/subsystems/ui.md) — what the shell does once loaded
-- [Tunnel shims](/subsystems/tunnel-shims.md) — the WASM the CSP must allow
-- [Deployment](/operations/deployment.md) — hosting the same build elsewhere
+- [UI](../subsystems/ui.md) — what the shell does once loaded
+- [Tunnel shims](../subsystems/tunnel-shims.md) — the WASM the CSP must allow
+- [Deployment](../operations/deployment.md) — hosting the same build elsewhere

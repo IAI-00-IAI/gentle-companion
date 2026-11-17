@@ -100,11 +100,11 @@ Son operaciones distintas y el cliente debe tratarlas distinto:
 | Apagado del daemon (`:1495`) | Parada con gracia | **1012** | Sí, cuando el daemon vuelva |
 
 Los códigos están definidos en `server/src/main.rs:167–168`. La máquina de estados del
-cliente ramifica sobre ellos; mirá [Protocolo](/subsystems/protocol_es-ES.md) y
-[UI](/subsystems/ui_es-ES.md).
+cliente ramifica sobre ellos; mirá [Protocolo](../subsystems/protocol_es-ES.md) y
+[UI](../subsystems/ui_es-ES.md).
 
 ## Relacionados
 
-- [Flujo de emparejamiento](/flows/pairing_es-ES.md) — el mismo ciclo de vida como secuencia
-- [Superficies HTTP](/architecture/http-surfaces_es-ES.md) — el chequeo de origen que corre en paralelo
-- [Estado](/architecture/state_es-ES.md) — dónde viven los hashes
+- [Flujo de emparejamiento](../flows/pairing_es-ES.md) — el mismo ciclo de vida como secuencia
+- [Superficies HTTP](../architecture/http-surfaces_es-ES.md) — el chequeo de origen que corre en paralelo
+- [Estado](../architecture/state_es-ES.md) — dónde viven los hashes

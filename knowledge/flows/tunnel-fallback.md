@@ -71,9 +71,9 @@ boot re-probes. That prevents a permanent tunnel lock-in after one bad network m
 query parameter, a probe of `bridge/derpmap.json`, `derpmap.json`, and finally the canonical
 `https://tailcat.dev/derpmap.json`.
 
-The CSP must allow that last one in `connect-src` — see [Assets](/subsystems/assets.md).
+The CSP must allow that last one in `connect-src` — see [Assets](../subsystems/assets.md).
 The same policy is expressed in `bridge/app.js:22–38`, which is duplicated policy and
-documented debt in [Tailcat](/subsystems/tailcat.md).
+documented debt in [Tailcat](../subsystems/tailcat.md).
 
 ## The retry ladder
 
@@ -101,13 +101,13 @@ dials.
 | Download a blob | **No** | Same |
 | Reload the page | **No** | Served over plain HTTP; needs HTTPS + a service worker |
 
-The last row is why the [TLS surface](/subsystems/tls.md) and
-[static hosting](/operations/deployment.md) exist: publishing the client to an HTTPS origin
+The last row is why the [TLS surface](../subsystems/tls.md) and
+[static hosting](../operations/deployment.md) exist: publishing the client to an HTTPS origin
 is the only way to get a service worker, and a service worker is the only way to reload the
 app when the daemon is unreachable.
 
 ## Related
 
-- [UI](/subsystems/ui.md) — the policy in context
-- [Tunnel shims](/subsystems/tunnel-shims.md) — the clients doing the work
-- [Deployment](/operations/deployment.md) — the HTTPS routes that fix the last row
+- [UI](../subsystems/ui.md) — the policy in context
+- [Tunnel shims](../subsystems/tunnel-shims.md) — the clients doing the work
+- [Deployment](../operations/deployment.md) — the HTTPS routes that fix the last row

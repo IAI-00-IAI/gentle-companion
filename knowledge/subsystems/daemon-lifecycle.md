@@ -109,7 +109,7 @@ limit.
 
 **The environment is rewritten on every upgrade.** That is the reason `deviceBind` lives in
 `state.json` rather than only in the environment — see
-[State](/architecture/state.md).
+[State](../architecture/state.md).
 
 ## Environment variables that change behaviour
 
@@ -126,6 +126,6 @@ limit.
 
 ## Related
 
-- [Process model](/architecture/process-model.md) — what the daemon does once spawned
-- [Daemon scripts](/operations/daemon-scripts.md) — the manual path
-- [Deployment](/operations/deployment.md) — service environment and origins
+- [Process model](../architecture/process-model.md) — what the daemon does once spawned
+- [Daemon scripts](../operations/daemon-scripts.md) — the manual path
+- [Deployment](../operations/deployment.md) — service environment and origins

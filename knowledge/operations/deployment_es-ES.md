@@ -36,7 +36,7 @@ Agrega alcance desde cualquier lugar. Habilitar el túnel en settings; el daemon
 `tailcat serve` y el cliente lo marca cuando la LAN falla.
 
 Sigue siendo HTTP plano, así que aplican los mismos límites del navegador. Ver
-[Fallback de túnel](/flows/tunnel-fallback_es-ES.md).
+[Fallback de túnel](../flows/tunnel-fallback_es-ES.md).
 
 ## Forma 3 — un origen seguro
 
@@ -102,6 +102,6 @@ overrides por máquina que estés dispuesto a reaplicar.
 
 ## Relacionados
 
-- [TLS](/subsystems/tls_es-ES.md) — la restricción del puerto dedicado
-- [Superficies HTTP](/architecture/http-surfaces_es-ES.md) — la lógica de orígenes en código
-- [Scripts del daemon](/operations/daemon-scripts_es-ES.md) — cómo correrlo
+- [TLS](../subsystems/tls_es-ES.md) — la restricción del puerto dedicado
+- [Superficies HTTP](../architecture/http-surfaces_es-ES.md) — la lógica de orígenes en código
+- [Scripts del daemon](../operations/daemon-scripts_es-ES.md) — cómo correrlo

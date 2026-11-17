@@ -45,7 +45,7 @@ A session exists only while Pi runs it. Persisting one would mean serving a sess
 cannot accept a prompt, and the daemon would have to invent an expiry policy for it. So
 `register` on the bridge socket is the sole source of session truth; when the socket
 closes, the session goes away and devices see it disappear. See
-[Protocol](/subsystems/protocol.md).
+[Protocol](../subsystems/protocol.md).
 
 Activity is memory-only for the same reason, with one nuance: it is a bounded replay log
 that lets a phone that reconnects rebuild the transcript without asking Pi. Losing it costs
@@ -104,10 +104,10 @@ where the binary cache and `state.json` live.
 supervisor rewrites the service environment on every upgrade. A bind configured only
 through `PI_COMPANION_DEVICE_ADDR` would silently vanish at the next version. The env var
 still wins at runtime (an operator override for one run), but the durable answer is in
-`state.json`. See [Process model](/architecture/process-model.md).
+`state.json`. See [Process model](../architecture/process-model.md).
 
 ## Related
 
-- [Process model](/architecture/process-model.md) — where these fields are created
-- [Auth](/architecture/auth.md) — the hashes stored here
-- [Automation](/subsystems/automation.md) — the one subsystem with its own file
+- [Process model](../architecture/process-model.md) — where these fields are created
+- [Auth](../architecture/auth.md) — the hashes stored here
+- [Automation](../subsystems/automation.md) — the one subsystem with its own file

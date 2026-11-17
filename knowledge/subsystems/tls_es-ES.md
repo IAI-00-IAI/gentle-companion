@@ -92,6 +92,6 @@ propiedad para la que existe el puerto dedicado.
 
 ## Relacionados
 
-- [Tailcat](/subsystems/tailcat_es-ES.md) — la restricción que fuerza el puerto extra
-- [Despliegue](/operations/deployment_es-ES.md) — cómo configurarlo
-- [UI](/subsystems/ui_es-ES.md) — qué desbloquea el contexto seguro
+- [Tailcat](../subsystems/tailcat_es-ES.md) — la restricción que fuerza el puerto extra
+- [Despliegue](../operations/deployment_es-ES.md) — cómo configurarlo
+- [UI](../subsystems/ui_es-ES.md) — qué desbloquea el contexto seguro

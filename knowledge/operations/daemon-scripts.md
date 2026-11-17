@@ -45,7 +45,7 @@ Every script accepts `--json` for machine-readable output.
 `tools/daemon.mjs start` spawns the resolved binary detached, writes a pid file, and waits
 for `/api/context` to answer. It fails loudly if the port is already taken — which is also
 how it detects an already-running daemon, since a second instance exits cleanly by design
-(see [Process model](/architecture/process-model.md)).
+(see [Process model](../architecture/process-model.md)).
 
 ## Stop
 
@@ -81,6 +81,6 @@ end-to-end. Treat them as reviewed-but-unproven until they are.
 
 ## Related
 
-- [Daemon lifecycle](/subsystems/daemon-lifecycle.md) — the automatic path
-- [Deployment](/operations/deployment.md) — environment and origins
-- [Process model](/architecture/process-model.md) — the single-instance guard these rely on
+- [Daemon lifecycle](../subsystems/daemon-lifecycle.md) — the automatic path
+- [Deployment](../operations/deployment.md) — environment and origins
+- [Process model](../architecture/process-model.md) — the single-instance guard these rely on

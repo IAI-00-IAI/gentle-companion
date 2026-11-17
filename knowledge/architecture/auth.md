@@ -98,10 +98,10 @@ These are different operations and the client must treat them differently:
 | Daemon shutdown (`:1495`) | Graceful stop | **1012** | Yes, after the daemon returns |
 
 Codes are defined at `server/src/main.rs:167–168`. The client's state machine branches on
-them; see [Protocol](/subsystems/protocol.md) and [UI](/subsystems/ui.md).
+them; see [Protocol](../subsystems/protocol.md) and [UI](../subsystems/ui.md).
 
 ## Related
 
-- [Pairing flow](/flows/pairing.md) — the same lifecycle as a sequence
-- [HTTP surfaces](/architecture/http-surfaces.md) — the origin check that runs alongside
-- [State](/architecture/state.md) — where the hashes live
+- [Pairing flow](../flows/pairing.md) — the same lifecycle as a sequence
+- [HTTP surfaces](../architecture/http-surfaces.md) — the origin check that runs alongside
+- [State](../architecture/state.md) — where the hashes live

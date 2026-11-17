@@ -133,6 +133,6 @@ regresión del dialer concurrente. `bridge/http_test.mjs` tiene 42 checks;
 
 ## Relacionados
 
-- [UI](/subsystems/ui_es-ES.md) — la política de transporte que elige este camino
-- [Tailcat](/subsystems/tailcat_es-ES.md) — el túnel sobre el que corren estos shims
-- [Fallback de túnel](/flows/tunnel-fallback_es-ES.md) — cuándo se usa
+- [UI](../subsystems/ui_es-ES.md) — la política de transporte que elige este camino
+- [Tailcat](../subsystems/tailcat_es-ES.md) — el túnel sobre el que corren estos shims
+- [Fallback de túnel](../flows/tunnel-fallback_es-ES.md) — cuándo se usa

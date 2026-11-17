@@ -76,7 +76,7 @@ extensión usa para comparar versiones sin arrancar un daemon.
 
 El settings le gana al entorno a propósito: el supervisor reescribe el entorno del servicio
 en cada actualización, así que un bind configurado solo por env desaparecería en silencio.
-El campo de settings es el durable; mirá [Estado](/architecture/state_es-ES.md).
+El campo de settings es el durable; mirá [Estado](../architecture/state_es-ES.md).
 
 ## Tareas
 
@@ -105,10 +105,10 @@ detiene. Recién entonces `main` retorna.
 
 El close code importa: el cliente distingue 1012 (volvé, el daemon vuelve) de 4003 (no
 vuelvas, fuiste revocado) y 4001 (el socket de Pi se cayó). Mirá
-[Protocolo](/subsystems/protocol_es-ES.md).
+[Protocolo](../subsystems/protocol_es-ES.md).
 
 ## Relacionados
 
-- [Superficies HTTP](/architecture/http-surfaces_es-ES.md) — qué contienen los dos routers
-- [Tailcat](/subsystems/tailcat_es-ES.md) — la tarea del túnel en detalle
-- [TLS](/subsystems/tls_es-ES.md) — por qué el listener HTTPS es separado
+- [Superficies HTTP](../architecture/http-surfaces_es-ES.md) — qué contienen los dos routers
+- [Tailcat](../subsystems/tailcat_es-ES.md) — la tarea del túnel en detalle
+- [TLS](../subsystems/tls_es-ES.md) — por qué el listener HTTPS es separado

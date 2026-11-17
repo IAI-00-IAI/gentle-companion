@@ -106,6 +106,6 @@ volvería después de una actualización rutinaria.
 
 ## Relacionados
 
-- [Auth](/architecture/auth_es-ES.md) — cómo se autentica el socket
-- [Flujo de sesión en vivo](/flows/live-session_es-ES.md) — el protocolo en movimiento
-- [UI](/subsystems/ui_es-ES.md) — cómo lo consume el cliente
+- [Auth](../architecture/auth_es-ES.md) — cómo se autentica el socket
+- [Flujo de sesión en vivo](../flows/live-session_es-ES.md) — el protocolo en movimiento
+- [UI](../subsystems/ui_es-ES.md) — cómo lo consume el cliente
