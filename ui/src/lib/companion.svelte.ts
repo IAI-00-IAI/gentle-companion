@@ -8,6 +8,7 @@ import { ApiError, WorkspaceConnectionError, unreachableMessage, workspaceReques
 export { ApiError } from './workspace-connection.ts';
 import { readTunnelConfig, DEFAULT_TUNNEL_PORT, TUNNEL_ADDR_KEY, TUNNEL_PORT_KEY, type TunnelConfig } from './tailcat-tunnel.ts';
 import { createTunnelSocket, createTunnelTransport } from './tailcat-transport.ts';
+import { warmRuntimeCache } from './tailcat-runtime.ts';
 import { diag, diagSeq } from './diagnostics.ts';
 import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TailcatStatus, TempFile } from './types.ts';
 
@@ -178,6 +179,9 @@ class Companion {
       if (tunnelConfig() && this.directUsable === null) {
         this.directUsable = await this.probeDirect();
         diag('boot', `direct probe -> ${this.directUsable}`);
+        // On the LAN the daemon is reachable: warm the persistent runtime cache now,
+        // so leaving the LAN (or reloading off-LAN) still has the tunnel runtime.
+        if (this.directUsable) void warmRuntimeCache();
       }
       const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus }>('/api/context', {}, 10_000, 'json', this.effectiveTransport());
       if (this.directUsable === false && tunnelConfig()) {

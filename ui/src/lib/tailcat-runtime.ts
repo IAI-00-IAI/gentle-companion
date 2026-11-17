@@ -43,18 +43,11 @@ function tailcatGlobal(): TailcatGlobal {
   return globalThis as typeof globalThis & TailcatGlobal;
 }
 
-/** Injects a classic script tag and resolves when it has executed (or rejects). */
-function injectScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = src;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Could not load ${src}. The daemon may be unreachable or an old version.`));
-    document.head.append(script);
-  });
-}
-
 let runtimePromise: Promise<void> | null = null;
+
+/** Cache name for the vendored runtime assets (wasm_exec.js + main.wasm). */
+const RUNTIME_CACHE = 'companion-tailcat-runtime-v1';
+const RUNTIME_ASSETS = ['/bridge/vendor/wasm_exec.js', '/bridge/vendor/main.wasm'];
 
 /**
  * Loads the vendored tailcat runtime once; concurrent and repeat callers share the
@@ -68,10 +61,54 @@ export function loadTailcatRuntime(): Promise<void> {
   return runtimePromise;
 }
 
+/**
+ * Fetches one runtime asset, preferring the persistent cache: a phone that paired on
+ * the LAN must still be able to start the tunnel after leaving it (and after a
+ * reload), when the daemon origin is unreachable and the asset cannot be downloaded.
+ * The network copy wins when reachable so a daemon upgrade is picked up; the cache is
+ * refreshed on every successful download.
+ */
+async function runtimeAsset(path: string): Promise<Response> {
+  const cache = typeof caches === 'undefined' ? null : await caches.open(RUNTIME_CACHE).catch(() => null);
+  try {
+    const response = await fetch(path);
+    if (response.ok && cache) {
+      // Store a clone: the original body is consumed by the caller.
+      await cache.put(path, response.clone()).catch(() => {});
+    }
+    if (response.ok) return response;
+  } catch { /* offline or daemon unreachable: fall back to the cache */ }
+  if (cache) {
+    const cached = await cache.match(path);
+    if (cached) return cached;
+  }
+  throw new Error(`Could not load ${path}. The daemon may be unreachable or an old version.`);
+}
+
+/** Injects a classic script tag from a text body (the cached or fetched runtime). */
+function injectScriptText(code: string): void {
+  const script = document.createElement('script');
+  script.textContent = code;
+  document.head.append(script);
+}
+
+/** Warms the persistent runtime cache while the daemon is reachable (LAN). */
+export async function warmRuntimeCache(): Promise<void> {
+  if (typeof caches === 'undefined') return;
+  try {
+    const cache = await caches.open(RUNTIME_CACHE);
+    await Promise.all(RUNTIME_ASSETS.map(async (path) => {
+      const response = await fetch(path);
+      if (response.ok) await cache.put(path, response.clone());
+    }));
+  } catch { /* warming is best-effort */ }
+}
+
 async function loadVendoredRuntime(): Promise<void> {
   const global = tailcatGlobal();
   if (typeof global.tailcatDial === 'function') return; // already loaded (e.g. the bridge page ran first)
-  await injectScript('/bridge/vendor/wasm_exec.js');
+  const execScript = await (await runtimeAsset('/bridge/vendor/wasm_exec.js')).text();
+  injectScriptText(execScript);
   const Go = global.Go;
   if (typeof Go !== 'function') {
     throw new Error('The tailcat client runtime did not load correctly. Reload the page and retry.');
@@ -80,7 +117,8 @@ async function loadVendoredRuntime(): Promise<void> {
   // so it must be installed before go.run() (the same pattern bridge/app.js uses).
   const ready = new Promise<void>((resolve) => { global.onTailcatReady = resolve; });
   const go = new Go();
-  const { instance } = await WebAssembly.instantiateStreaming(fetch('/bridge/vendor/main.wasm'), go.importObject);
+  const wasmResponse = await runtimeAsset('/bridge/vendor/main.wasm');
+  const { instance } = await WebAssembly.instantiateStreaming(wasmResponse, go.importObject);
   void go.run(instance);
   await ready;
 }

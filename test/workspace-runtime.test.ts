@@ -22,6 +22,7 @@ const source = runeModule('../ui/src/lib/companion.svelte.ts', '\nexport { Compa
   .replaceAll("'./tailcat-tunnel.ts'", JSON.stringify(new URL('../ui/src/lib/tailcat-tunnel.ts', import.meta.url).href))
   .replaceAll("'./tailcat-transport.ts'", JSON.stringify(new URL('../ui/src/lib/tailcat-transport.ts', import.meta.url).href))
   .replaceAll("'./diagnostics.ts'", JSON.stringify(new URL('../ui/src/lib/diagnostics.ts', import.meta.url).href))
+  .replaceAll("'./tailcat-runtime.ts'", JSON.stringify(new URL('../ui/src/lib/tailcat-runtime.ts', import.meta.url).href))
   .replaceAll("'./toast.svelte.ts'", JSON.stringify(toast));
 
 test('actual connection store preserves pairing/drafts safety and handles recovery, stale sockets and revocation', async () => {
