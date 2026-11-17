@@ -116,6 +116,12 @@ fn hostport_any(value: &str) -> Option<(String, u16)> {
 }
 
 async fn remote_bind_addr(state: &AppState) -> String {
+    // Settings first: the supervisor rewrites the service environment on every upgrade,
+    // which silently dropped a bind address configured only through the environment.
+    let configured = state.settings.read().await.device_bind.clone();
+    if !configured.trim().is_empty() {
+        return configured.trim().to_string();
+    }
     if let Some(addr) = std::env::var("PI_COMPANION_DEVICE_ADDR").ok() {
         if let Some((_, port)) = hostport_any(&addr) {
             if (1..=65535).contains(&port) {

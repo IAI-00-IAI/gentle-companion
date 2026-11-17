@@ -150,6 +150,8 @@ export type Settings = {
   tailcatAddress: string;
   /** Port exposed by the Tailcat tunnel. 0 means use the daemon device port. */
   tailcatPort: number;
+  /** Bind address for the device surface, e.g. 0.0.0.0:43722. Empty derives it from the public URL. */
+  deviceBind: string;
 };
 
 export type TailcatStatus = {
