@@ -286,6 +286,31 @@ async fn saving_settings_does_not_erase_the_discovered_tunnel_address() {
     assert_eq!(settings.max_upload_mb, 30, "the user's real change must still apply");
 }
 
+/// A client that sends only the fields it knows about must not reset the rest. The struct
+/// derives `Default`, so a partial body would silently turn every omitted field into its
+/// default — including `bridge_enabled` (true) and the upload limit.
+#[tokio::test]
+async fn a_partial_settings_body_does_not_reset_unrelated_fields() {
+    let state = test_state();
+    {
+        let mut settings = state.settings.write().await;
+        settings.max_upload_mb = 42;
+        settings.bridge_enabled = false;
+        settings.pairing_ttl_minutes = 30;
+    }
+    // Only the field the client actually wants to change.
+    let (status, _) = call(
+        &local_router(state.clone()),
+        put_json("/api/settings", Some(CONSOLE_ORIGIN), json!({ "pairingHttps": true })),
+    ).await;
+    assert_eq!(status, StatusCode::OK);
+    let settings = state.settings.read().await.clone();
+    assert!(settings.pairing_https, "the requested change must apply");
+    assert_eq!(settings.max_upload_mb, 42, "an omitted field must keep its value");
+    assert!(!settings.bridge_enabled, "an omitted field must keep its value");
+    assert_eq!(settings.pairing_ttl_minutes, 30, "an omitted field must keep its value");
+}
+
 #[tokio::test]
 async fn context_reports_the_https_port_only_when_tls_is_enabled() {
     let state = test_state();
