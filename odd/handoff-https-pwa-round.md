@@ -6,29 +6,21 @@ verified unless it says otherwise.
 
 ## Where the code is
 
-| Branch | State | Contents |
-| --- | --- | --- |
-| `main` | merged | Knowledge bundle (PR #12, #13). Links are relative and resolve on GitHub. |
-| `feat/daemon-tls` | **pushed, no PR** | 10 commits: TLS surface, static host, settings fixes, banner link |
-
-`git log --oneline origin/main..origin/feat/daemon-tls`:
+**Everything is merged.** The round landed as three chained PRs, squashed into `main`:
 
 ```
-333bd9d feat(server): opt-in HTTPS surface for an installable client
-5930e94 fix(config): persist the device bind address in settings
-5b3df02 feat(tools): publish the client to a public HTTPS static host
-4999945 docs(knowledge): architecture bundle in OKF format, English and Spanish
-cdae532 docs(odd): record the bundle delivery and the slice boundary
-6ad8d7a fix(tls): never put a wildcard bind in the certificate
-35748ec feat(ui): link the HTTPS banner to the daemon's secure surface
-23f6daa fix(tls): admit the HTTPS twin of every origin, and let the QR use it
-b70d38c fix(settings): stop a settings save from erasing the tunnel address
-e7cd65b fix(settings): apply a settings save as a patch, not a replacement
+e94890a  feat(tools): publish the client to a public HTTPS static host (#15)
+4b201ac  fix(settings): stop a settings save from erasing daemon state (#17)
+59cd5bd  feat(tls): opt-in HTTPS surface so the client can be installed as an app (#14)
+5e28cb2  fix(knowledge): correct the generation timestamp and the producing agent
 ```
 
-~6589 authored lines. That is far past one reviewable slice, so the delivery shape is a
-decision, not a default: chained PRs (TLS surface / static host / settings fixes) or one PR
-with the settings fixes called out as the reviewable core.
+The original branch `feat/daemon-tls` was deleted after merging: it predated two corrections
+that reached `main` (relative knowledge links, real generation timestamps), so merging it would
+have reverted them.
+
+Note on #17: it was originally #16, stacked on #14. Deleting #14's branch on merge made GitHub
+close #16 automatically, so its commits were rebased onto `main` and reopened as #17.
 
 ## Live daemon configuration (this machine)
 
@@ -90,18 +82,7 @@ erasing the tunnel address; a partial body changing only what it names.
 
 ## Planning — next session
 
-### 1. Decide the delivery shape for `feat/daemon-tls` (blocking)
-
-10 commits / ~6589 lines. Recommend chained PRs so each is reviewable:
-
-- **PR A — TLS surface**: `333bd9d`, `6ad8d7a`, `35748ec`, `23f6daa` (plus `5930e94` for
-  the bind persistence it depends on). The security-relevant core.
-- **PR B — static client host**: `5b3df02`. Independent, no server change.
-- **PR C — settings correctness**: `b70d38c`, `e7cd65b`. Small, high value, easy to review.
-
-Knowledge is already on `main`, so nothing here depends on it.
-
-### 2. Real-phone pass of the full HTTPS flow (unverified)
+### 1. Real-phone pass of the full HTTPS flow (unverified)
 
 Nobody has completed this end to end. Steps: open `https://192.168.43.73:43723/`, accept or
 install the cert, download it from `/cert.pem`, install as **CA** (Android: Settings →
@@ -110,7 +91,7 @@ confirm `window.isSecureContext === true`, a registered service worker, and an
 "Install app" affordance. Then re-pair (the current device lacks tunnel coordinates) and
 disconnect the LAN to confirm the tunnel fallback.
 
-### 3. The three areas no review has covered
+### 2. The three areas no review has covered
 
 - **Concurrent-write races.** The `RwLock` protects the data, not the sequence. Two settings
   saves, or a save racing the tunnel's address write, are unexamined.
@@ -121,12 +102,12 @@ disconnect the LAN to confirm the tunnel fallback.
 
 Ask for measured evidence, not a reading.
 
-### 4. Destructive daemon scripts (never exercised)
+### 3. Destructive daemon scripts (never exercised)
 
 `daemon:stop`, `daemon:restart`, `daemon:service:install`, `daemon:service:uninstall`.
 Reviewed but unproven. The user deferred them.
 
-### 5. Known debt, unchanged
+### 4. Known debt, unchanged
 
 Orphaned `tailcat serve` children when the daemon dies without its shutdown path (11
 accumulated once); the DERP map policy expressed twice (`bridge/app.js` and
