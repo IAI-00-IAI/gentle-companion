@@ -324,6 +324,15 @@ struct PairClaimResponse {
     #[serde(rename = "deviceId")]
     device_id: String,
     token: String,
+    /// Tailcat tunnel address, when the tunnel is running. The claiming client stores
+    /// it so it can fall back to the tunnel after leaving the LAN — without this the
+    /// client only learns the address from the QR fragment, and a phone that paired
+    /// by typing the URL directly has no tunnel at all.
+    #[serde(rename = "tunnelAddr", skip_serializing_if = "Option::is_none")]
+    tunnel_addr: Option<String>,
+    /// Device port to dial through the tunnel; 0/absent means the daemon default.
+    #[serde(rename = "tunnelPort", skip_serializing_if = "Option::is_none")]
+    tunnel_port: Option<u16>,
 }
 
 #[derive(Serialize)]
@@ -1129,7 +1138,16 @@ async fn claim_pairing(
     );
     persist(&state).await;
     broadcast(&state, serde_json::json!({ "type": "devices.update" }));
-    Ok(Json(PairClaimResponse { device_id, token }))
+    // Hand the tunnel coordinates to the newly paired device: the pairing exchange is
+    // the one moment the client is guaranteed to be talking to the daemon, so it is
+    // where the fallback path must be delivered (the QR fragment is not always used).
+    let settings = state.settings.read().await;
+    let status = state.tailcat.read().await.status(settings.tailcat_enabled);
+    let tunnel_addr = (status.running && !settings.tailcat_address.is_empty())
+        .then(|| settings.tailcat_address.clone());
+    let tunnel_port = if tunnel_addr.is_some() { Some(tailcat_port(&state).await) } else { None };
+    drop(settings);
+    Ok(Json(PairClaimResponse { device_id, token, tunnel_addr, tunnel_port }))
 }
 
 async fn revoke_device(

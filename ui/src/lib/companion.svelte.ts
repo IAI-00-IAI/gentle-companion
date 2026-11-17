@@ -6,7 +6,7 @@ import { LiveConnection, type Connection, type LiveSocket } from './connection.t
 export type { Connection } from './connection.ts';
 import { ApiError, WorkspaceConnectionError, unreachableMessage, workspaceRequest, type RequestTransport } from './workspace-connection.ts';
 export { ApiError } from './workspace-connection.ts';
-import { readTunnelConfig, type TunnelConfig } from './tailcat-tunnel.ts';
+import { readTunnelConfig, DEFAULT_TUNNEL_PORT, TUNNEL_ADDR_KEY, TUNNEL_PORT_KEY, type TunnelConfig } from './tailcat-tunnel.ts';
 import { createTunnelSocket, createTunnelTransport } from './tailcat-transport.ts';
 import { diag, diagSeq } from './diagnostics.ts';
 import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TailcatStatus, TempFile } from './types.ts';
@@ -627,7 +627,7 @@ class Companion {
   }
 
   async claim(source: { invite: string } | { code: string }, deviceName: string) {
-    const result = await this.request<{ token: string }>('/api/pairing/claim', {
+    const result = await this.request<{ token: string; tunnelAddr?: string; tunnelPort?: number }>('/api/pairing/claim', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ...source, deviceName })
@@ -635,6 +635,18 @@ class Companion {
 
     localStorage.setItem(TOKEN_KEY, result.token);
     this.token = result.token;
+    // The claim response carries the tunnel coordinates (feature tailcat-client S3):
+    // store them so this device can fall back to the tunnel after leaving the LAN,
+    // whether it paired via the QR fragment or by typing the URL directly.
+    if (result.tunnelAddr) {
+      try {
+        localStorage.setItem(TUNNEL_ADDR_KEY, result.tunnelAddr);
+        localStorage.setItem(TUNNEL_PORT_KEY, String(result.tunnelPort ?? DEFAULT_TUNNEL_PORT));
+        diag('pair', `tunnel stored ${result.tunnelAddr.slice(0, 10)}…:${result.tunnelPort ?? DEFAULT_TUNNEL_PORT}`);
+      } catch { /* storage blocked: LAN-only */ }
+    }
+    // Re-evaluate the transport now that the tunnel may exist.
+    this.directUsable = null;
     await this.refresh().catch(() => {});
     this.reconnect();
   }
