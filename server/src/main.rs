@@ -1032,11 +1032,69 @@ async fn get_settings(State(state): State<AppState>) -> Json<Value> {
     }))
 }
 
+/// Apply a JSON patch to the current settings, field by field.
+///
+/// Unknown keys are rejected rather than ignored: silently dropping a misspelled field is
+/// how a user ends up believing they changed something they did not.
+fn merge_settings(mut current: Settings, patch: &Value) -> Result<Settings, String> {
+    let Some(object) = patch.as_object() else {
+        return Err("Settings must be a JSON object.".into());
+    };
+    for (key, value) in object {
+        match key.as_str() {
+            "publicUrl" => current.public_url = string_field(key, value)?,
+            "pairingTtlMinutes" => current.pairing_ttl_minutes = u64_field(key, value)?,
+            "maxUploadMb" => current.max_upload_mb = u64_field(key, value)?,
+            "allowedUploadTypes" => {
+                let list = value.as_array().ok_or_else(|| format!("{key} must be a list."))?;
+                current.allowed_upload_types = list
+                    .iter()
+                    .map(|entry| entry.as_str().map(str::to_string).ok_or_else(|| format!("{key} must contain strings.")))
+                    .collect::<Result<Vec<_>, _>>()?;
+            }
+            "bridgeEnabled" => current.bridge_enabled = bool_field(key, value)?,
+            "tailcatEnabled" => current.tailcat_enabled = bool_field(key, value)?,
+            // Accepted for round-tripping, but the daemon overwrites it from the live
+            // tunnel; see the assignment below.
+            "tailcatAddress" => current.tailcat_address = string_field(key, value)?,
+            "tailcatPort" => {
+                let port = u64_field(key, value)?;
+                current.tailcat_port = u16::try_from(port).map_err(|_| format!("{key} must be at most 65535."))?;
+            }
+            "deviceBind" => current.device_bind = string_field(key, value)?,
+            "pairingHttps" => current.pairing_https = bool_field(key, value)?,
+            other => return Err(format!("Unknown setting: {other}")),
+        }
+    }
+    Ok(current)
+}
+
+fn string_field(key: &str, value: &Value) -> Result<String, String> {
+    value.as_str().map(str::to_string).ok_or_else(|| format!("{key} must be a string."))
+}
+
+fn bool_field(key: &str, value: &Value) -> Result<bool, String> {
+    value.as_bool().ok_or_else(|| format!("{key} must be true or false."))
+}
+
+fn u64_field(key: &str, value: &Value) -> Result<u64, String> {
+    value.as_u64().ok_or_else(|| format!("{key} must be a non-negative whole number."))
+}
+
 async fn put_settings(
     State(state): State<AppState>,
-    Json(next): Json<Settings>,
+    Json(next): Json<Value>,
 ) -> ApiResult<Json<Value>> {
-    let valid = next.validate().map_err(|message| (StatusCode::BAD_REQUEST, message))?;
+    // Merge onto the current settings instead of deserializing a fresh `Settings`.
+    //
+    // `Settings` derives `Default`, so a body carrying only the field the client wants to
+    // change would silently reset every omitted field — the upload limit back to 25, the
+    // bridge back on, the invitation lifetime back to 5 minutes. Applying the patch to the
+    // current value makes an omitted field mean "leave it alone", which is what a caller
+    // sending a partial body expects.
+    let current = state.settings.read().await.clone();
+    let merged = merge_settings(current, &next).map_err(|message| (StatusCode::BAD_REQUEST, message))?;
+    let valid = merged.validate().map_err(|message| (StatusCode::BAD_REQUEST, message))?;
     let old_settings = state.settings.read().await.clone();
     // Capture the bind address before the change so we can warn if the device
     // surface would need to listen on a different address (restart required).
@@ -1047,6 +1105,14 @@ async fn put_settings(
     let tailcat_changed = tailcat_stays_on && (old_settings.tailcat_port != valid.tailcat_port || !old_tailcat_on);
     let mut settings = state.settings.write().await;
     *settings = valid.clone();
+    // `tailcat_address` is discovered by the daemon when the tunnel starts, not chosen by
+    // the user. The settings page round-trips the whole struct, so a stale page would send
+    // an empty address back and erase it — which silently disables the tunnel fallback and
+    // leaves a phone offline the moment it leaves the LAN. Keep the daemon's value unless
+    // the user actually turned the tunnel off.
+    if tailcat_stays_on && old_settings.tailcat_address != valid.tailcat_address {
+        settings.tailcat_address = old_settings.tailcat_address.clone();
+    }
     drop(settings);
     let new_bind = remote_bind_addr(&state).await;
     if old_bind != new_bind {
