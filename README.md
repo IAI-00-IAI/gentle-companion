@@ -260,6 +260,19 @@ The tailcat address is sensitive. Treat it like a pairing code: it grants access
 
 The daemon itself serves a first-class browser client: opening the daemon's URL in a phone browser loads the full Companion UI. The client prefers a direct LAN connection and falls back to the tunnel only when the daemon is not reachable that way, so a phone on the same network stays fast and a phone away from it keeps working. Pairing delivers the tunnel address and device port: the claim response carries them, and the pairing QR also encodes them in the URL fragment (never sent to the server), so a phone scanning it lands already configured; for clients without a camera, the devices page shows a copyable pairing link that carries the same configuration. The static page in [`bridge/`](bridge/README.md) remains as a manual test harness for the tailcat WASM transport, and the address can also be used from tailcat clients such as OpenTailcat or pi-remote.
 
+How the client chooses its path:
+
+- **On the daemon's network:** a direct connection. Fast, no relay involved.
+- **Away from it:** the tailcat tunnel, dialed through the public DERP relay. The switch is automatic — the client re-evaluates the path after a connection failure, so a phone that leaves the network keeps working and one that returns goes back to the direct path.
+
+Known limitations of this release:
+
+- **Do not reload the page while off the network.** The client is served over plain HTTP from the daemon's LAN address, so the page itself cannot be fetched without that network. The live session survives losing the network (the tunnel takes over), but a reload does not. Serving the client over HTTPS — which enables a service worker and an installable app — is the next step.
+- **Binary transfers over the tunnel are not supported yet.** File uploads and downloads report a clear error in tunnel mode; they work normally on the direct path.
+- **The tunnel address is a credential.** Anyone holding it can reach the device surface through the relay, subject to the pairing token. Treat it like a pairing code.
+
+Planned next: **serving the client over HTTPS**, which lifts the reload limitation. TLS puts the client in a secure context, where a service worker can cache the app shell and the tailcat runtime, so the client can be reopened — and installed as an app — while away from the daemon's network. A public static host for the client remains an alternative for deployments that prefer not to run TLS on the daemon itself.
+
 The daemon looks for `tailcat` in this order: the system PATH, a local binary named `tailcat` in the current directory or `bin/`, and then the bundled binary for the current platform. Bundled Tailcat binaries ship for **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) and **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); on macOS the daemon uses the system `tailcat` from PATH. If no binary is found, the daemon shows a per-platform install hint and does not crash:
 
 - **macOS**: `brew install tailcat` (recommended), or `go install github.com/tailscale/tailcat/cmd/tailcat@latest`, `nix profile install nixpkgs#tailcat`, `nix run github:tailscale/tailcat`, or `pixi global install tailcat`.

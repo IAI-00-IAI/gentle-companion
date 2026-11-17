@@ -260,6 +260,19 @@ La dirección Tailcat es sensible. Trátala como un código de asociación: otor
 
 El propio daemon sirve un cliente de navegador de primera clase: abrir la URL del daemon en el navegador de un teléfono carga la UI completa de Companion. El cliente prefiere la conexión directa por LAN y solo recurre al túnel cuando el daemon no es alcanzable así, de modo que un teléfono en la misma red va rápido y uno fuera de ella sigue funcionando. El emparejamiento entrega la dirección del túnel y el puerto del dispositivo: la respuesta del claim los incluye, y el QR de asociación también los codifica en el fragmento de la URL (nunca se envía al servidor), así que un teléfono que lo escanea llega ya configurado; para clientes sin cámara, la página de dispositivos muestra un enlace de asociación copiable que transporta la misma configuración. La página estática de [`bridge/`](bridge/README_es-ES.md) queda como arnés de pruebas manual del transporte WASM de tailcat, y la dirección también puede usarse desde clientes tailcat como OpenTailcat o pi-remote.
 
+Cómo elige el camino el cliente:
+
+- **En la red del daemon:** conexión directa. Rápida, sin relay de por medio.
+- **Fuera de ella:** el túnel tailcat, marcado a través del relay DERP público. El cambio es automático — el cliente reevalúa el camino tras un fallo de conexión, así que un teléfono que sale de la red sigue funcionando y uno que vuelve regresa al camino directo.
+
+Limitaciones conocidas de esta versión:
+
+- **No recargues la página estando fuera de la red.** El cliente se sirve por HTTP simple desde la dirección LAN del daemon, así que la página misma no se puede obtener sin esa red. La sesión viva sobrevive a la pérdida de red (el túnel toma el control), pero una recarga no. Servir el cliente por HTTPS —lo que habilita un service worker y una app instalable— es el paso siguiente.
+- **Las transferencias binarias por el túnel todavía no están soportadas.** Las subidas y descargas de archivos muestran un error claro en modo túnel; funcionan normalmente por el camino directo.
+- **La dirección del túnel es una credencial.** Quien la tenga puede alcanzar la superficie de dispositivo a través del relay, sujeto al token de emparejamiento. Trátala como un código de asociación.
+
+Planteado para lo siguiente: **servir el cliente por HTTPS**, que levanta la limitación de la recarga. TLS pone al cliente en un contexto seguro, donde un service worker puede cachear el shell de la app y el runtime de tailcat, de modo que el cliente se pueda reabrir —e instalar como app— estando fuera de la red del daemon. Un host estático público para el cliente sigue siendo una alternativa para despliegues que prefieran no ejecutar TLS en el propio daemon.
+
 El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego el binario incluido para la plataforma actual. Se envían binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); en macOS el daemon usa el `tailcat` del sistema desde el PATH. Si no se encuentra ningún binario, el daemon muestra un aviso de instalación por plataforma y no se detiene:
 
 - **macOS**: `brew install tailcat` (recomendado), o `go install github.com/tailscale/tailcat/cmd/tailcat@latest`, `nix profile install nixpkgs#tailcat`, `nix run github:tailscale/tailcat` o `pixi global install tailcat`.
