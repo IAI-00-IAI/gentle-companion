@@ -42,11 +42,26 @@ pub struct Settings {
     /// Port exposed by the Tailcat tunnel. 0 means use the daemon device port.
     /// The daemon device port comes from `PI_COMPANION_DEVICE_ADDR` (default 127.0.0.1:43722).
     pub tailcat_port: u16,
+    /// Address the device surface binds to, e.g. `0.0.0.0:43722` to answer on every
+    /// interface. Empty means derive it from the public URL (a LAN IP binds that IP,
+    /// a domain binds loopback). This lives in settings rather than only in the
+    /// environment because the supervisor rewrites the service environment on every
+    /// upgrade, which silently dropped a manually configured bind address.
+    #[serde(default)]
+    pub device_bind: String,
+    /// Point the pairing QR at the HTTPS surface instead of the plain-HTTP address.
+    ///
+    /// A phone that pairs over plain HTTP never gets a secure context, so the app cannot
+    /// be installed. Opt-in because the HTTPS surface is itself opt-in: asking for an
+    /// HTTPS QR while TLS is off falls back to plain HTTP rather than handing the phone a
+    /// link to a closed port.
+    #[serde(default)]
+    pub pairing_https: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true, tailcat_enabled: false, tailcat_address: String::new(), tailcat_port: 0 }
+        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true, tailcat_enabled: false, tailcat_address: String::new(), tailcat_port: 0, device_bind: String::new(), pairing_https: false }
     }
 }
 
@@ -58,6 +73,14 @@ impl Settings {
         }
         if public_url.len() > 300 {
             return Err("Public address is too long.".into());
+        }
+        let device_bind = self.device_bind.trim().to_string();
+        if !device_bind.is_empty() {
+            let port = device_bind.rsplit_once(':').map(|(_, port)| port).unwrap_or("");
+            match port.parse::<u16>() {
+                Ok(port) if port > 0 => {}
+                _ => return Err("Bind address must be host:port, for example 0.0.0.0:43722.".into()),
+            }
         }
         if !(1..=60).contains(&self.pairing_ttl_minutes) {
             return Err("Invitation lifetime must be between 1 and 60 minutes.".into());
@@ -83,7 +106,7 @@ impl Settings {
         }
         // `tailcat_port` is a u16 (0..=65535); 0 means "use the daemon device port".
         // Every in-range value is a valid TCP port, so no extra range check is needed.
-        Ok(Settings { public_url, allowed_upload_types, ..self.clone() })
+        Ok(Settings { public_url, allowed_upload_types, device_bind, ..self.clone() })
     }
 
     /// Whether an upload of `mime` passes the allowlist (always true when the list is empty).

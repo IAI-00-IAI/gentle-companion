@@ -32,7 +32,7 @@
   }
 
   let data = $state<SettingsResponse | null>(null);
-  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [], bridgeEnabled: true, tailcatEnabled: false, tailcatAddress: '', tailcatPort: 0 });
+  let draft = $state<Settings>({ publicUrl: '', pairingTtlMinutes: 5, maxUploadMb: 25, allowedUploadTypes: [], bridgeEnabled: true, tailcatEnabled: false, tailcatAddress: '', tailcatPort: 0, deviceBind: '', pairingHttps: false });
   /** Comma or newline separated MIME patterns, edited as text. */
   let typesText = $state('');
   let saving = $state(false);
@@ -89,7 +89,9 @@
       bridgeEnabled: response.settings?.bridgeEnabled ?? true,
       tailcatEnabled: response.settings?.tailcatEnabled ?? false,
       tailcatAddress: response.settings?.tailcatAddress ?? '',
-      tailcatPort: Number(response.settings?.tailcatPort ?? 0)
+      tailcatPort: Number(response.settings?.tailcatPort ?? 0),
+      deviceBind: response.settings?.deviceBind ?? '',
+      pairingHttps: response.settings?.pairingHttps ?? false
     };
     tailcatStatus = response.tailcatStatus ?? null;
     data = { ...response, settings };
@@ -125,7 +127,9 @@
           bridgeEnabled: draft.bridgeEnabled,
           tailcatEnabled: draft.tailcatEnabled,
           tailcatAddress: draft.tailcatAddress,
-          tailcatPort: Number(draft.tailcatPort)
+          tailcatPort: Number(draft.tailcatPort),
+          deviceBind: draft.deviceBind.trim(),
+          pairingHttps: draft.pairingHttps
         })
       );
       toasts.show(t('settings.toast.saved'), 'success');
@@ -268,6 +272,20 @@
             <input type="checkbox" bind:checked={draft.tailcatEnabled} aria-describedby="tailcat-hint" />
             <span>{t('settings.tailcat.label')}</span>
           </label>
+          <div class="field">
+            <label for="device-bind">{t('settings.device.bind.label')}</label>
+            <div class="unit">
+              <input id="device-bind" class="input" type="text" placeholder="0.0.0.0:43722" bind:value={draft.deviceBind} />
+            </div>
+            <span class="hint">{t('settings.device.bind.hint')}</span>
+          </div>
+          <div class="field">
+            <label class="check" for="pairing-https">
+              <input id="pairing-https" type="checkbox" bind:checked={draft.pairingHttps} aria-describedby="pairing-https-hint" />
+              <span>{t('settings.pairing.https.label')}</span>
+            </label>
+            <span class="hint" id="pairing-https-hint">{t('settings.pairing.https.hint')}</span>
+          </div>
           <div class="field">
             <label for="tailcat-port">{t('settings.tailcat.port.label')}</label>
             <div class="unit">
