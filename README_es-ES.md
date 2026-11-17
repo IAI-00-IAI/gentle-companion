@@ -271,7 +271,20 @@ Limitaciones conocidas de esta versión:
 - **Las transferencias binarias por el túnel todavía no están soportadas.** Las subidas y descargas de archivos muestran un error claro en modo túnel; funcionan normalmente por el camino directo.
 - **La dirección del túnel es una credencial.** Quien la tenga puede alcanzar la superficie de dispositivo a través del relay, sujeto al token de emparejamiento. Trátala como un código de asociación.
 
-Planteado para lo siguiente: **servir el cliente por HTTPS**, que levanta la limitación de la recarga. TLS pone al cliente en un contexto seguro, donde un service worker puede cachear el shell de la app y el runtime de tailcat, de modo que el cliente se pueda reabrir —e instalar como app— estando fuera de la red del daemon. Un host estático público para el cliente sigue siendo una alternativa para despliegues que prefieran no ejecutar TLS en el propio daemon.
+### Servir el cliente por HTTPS
+
+Hoy el cliente se sirve por HTTP simple, y por eso una recarga fuera de la red falla. Dos maneras de resolverlo, cualquiera de las dos alcanza:
+
+**Opción A — TLS en el daemon.** Poner el daemon detrás de HTTPS (un proxy inverso con certificado, o terminación TLS delante de la superficie de dispositivo). El cliente pasa a correr en un contexto seguro, así que un service worker puede cachear el shell de la app y el runtime de tailcat, y el cliente se vuelve instalable como app. Todo queda en el daemon. El certificado tiene que ser válido para el host que abre el teléfono — un certificado autofirmado sobre una IP pelada será rechazado por los navegadores y bloquea el registro del service worker, así que conviene un nombre de host real y un certificado de confianza.
+
+**Opción B — alojar el cliente en un sitio estático público.** Publicar la UI compilada (`server/web-dist/`) junto con `bridge/vendor/` en cualquier host estático HTTPS (GitHub Pages, Netlify, Cloudflare Pages, un object store con CDN). El teléfono abre entonces esa URL pública con la configuración del túnel en el fragmento, por ejemplo `https://ejemplo.com/companion/#tunnel=tc…&port=43722`, y nunca necesita la red del daemon para cargar la app. Requisitos:
+
+- El daemon debe aceptar ese origen. Agregalo a `PI_COMPANION_ALLOWED_ORIGINS` (separados por coma), o el WebSocket y la API responderán `403 Origin not allowed`.
+- El túnel debe estar corriendo y su dirección debe ser alcanzable desde el teléfono, porque todas las peticiones viajan por él.
+- La compilación publicada hay que refrescarla cuando cambie la UI del daemon; ambas se versionan por separado.
+- Los archivos de la página son públicos — nunca pongas tokens ni direcciones en los archivos publicados, solo en el fragmento de la URL, que los navegadores no envían a los servidores.
+
+La opción B no requiere cambios en el servidor ni gestión de certificados, a cambio de alojar el cliente separado del daemon.
 
 El daemon busca `tailcat` en este orden: el PATH del sistema, un binario local llamado `tailcat` en el directorio actual o en `bin/`, y luego el binario incluido para la plataforma actual. Se envían binarios de Tailcat incluidos para **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) y **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); en macOS el daemon usa el `tailcat` del sistema desde el PATH. Si no se encuentra ningún binario, el daemon muestra un aviso de instalación por plataforma y no se detiene:
 

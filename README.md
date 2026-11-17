@@ -271,7 +271,20 @@ Known limitations of this release:
 - **Binary transfers over the tunnel are not supported yet.** File uploads and downloads report a clear error in tunnel mode; they work normally on the direct path.
 - **The tunnel address is a credential.** Anyone holding it can reach the device surface through the relay, subject to the pairing token. Treat it like a pairing code.
 
-Planned next: **serving the client over HTTPS**, which lifts the reload limitation. TLS puts the client in a secure context, where a service worker can cache the app shell and the tailcat runtime, so the client can be reopened — and installed as an app — while away from the daemon's network. A public static host for the client remains an alternative for deployments that prefer not to run TLS on the daemon itself.
+### Serving the client over HTTPS
+
+The client is served over plain HTTP today, which is why a reload off the network fails. Two ways to fix that, either one sufficient:
+
+**Option A — TLS on the daemon.** Put the daemon behind HTTPS (a reverse proxy with a certificate, or TLS termination in front of the device surface). The client then runs in a secure context, so a service worker can cache the app shell and the tailcat runtime, and the client becomes installable as an app. This keeps everything on the daemon. The certificate must be valid for the host the phone opens — a self-signed certificate on a bare IP address will be rejected by browsers and blocks service-worker registration, so use a real hostname and a trusted certificate.
+
+**Option B — host the client on a public static site.** Publish the built UI (`server/web-dist/`) together with `bridge/vendor/` to any HTTPS static host (GitHub Pages, Netlify, Cloudflare Pages, an object store with a CDN). The phone then opens that public URL with the tunnel configuration in the fragment, e.g. `https://example.com/companion/#tunnel=tc…&port=43722`, and never needs the daemon's network to load the app. Requirements:
+
+- The daemon must accept that origin. Add it to `PI_COMPANION_ALLOWED_ORIGINS` (comma-separated), or the WebSocket and the API will answer `403 Origin not allowed`.
+- The tunnel must be running and its address reachable from the phone, since every request travels through it.
+- The published build must be refreshed when the daemon's UI changes; the two are versioned separately.
+- The page's own assets are public — never place tokens or addresses in the published files, only in the URL fragment, which browsers do not send to servers.
+
+Option B needs no server-side change and no certificate management, at the cost of hosting the client separately from the daemon.
 
 The daemon looks for `tailcat` in this order: the system PATH, a local binary named `tailcat` in the current directory or `bin/`, and then the bundled binary for the current platform. Bundled Tailcat binaries ship for **Linux** (`server/vendor/tailcat/tailcat-amd64`, `tailcat-arm64`, `tailcat-armv7`) and **Windows** (`tailcat-win-amd64.exe`, `tailcat-win-arm64.exe`); on macOS the daemon uses the system `tailcat` from PATH. If no binary is found, the daemon shows a per-platform install hint and does not crash:
 
