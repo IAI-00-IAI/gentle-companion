@@ -64,7 +64,8 @@
     "test:extension": "node --test --experimental-strip-types --no-warnings test/*.test.ts ui/automation.test.ts ui/tests/*.test.ts",
     "test:server": "cargo test --manifest-path server/Cargo.toml",
     "test:smoke": "npm run ui:build && cargo build --manifest-path server/Cargo.toml --locked && node tools/smoke-automations.mjs",
-    "test:previews": "npm run ui:build && cargo build --manifest-path server/Cargo.toml --locked && node tools/smoke-previews.mjs"
+    "test:previews": "npm run ui:build && cargo build --manifest-path server/Cargo.toml --locked && node tools/smoke-previews.mjs",
+    "knowledge:check": "python3 tools/check-knowledge.py"
   },
   "pi": {
     "extensions": [

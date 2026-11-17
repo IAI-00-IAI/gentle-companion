@@ -118,6 +118,11 @@ El daemon se niega a arrancar dos veces (sale cuando el puerto de administració
 
 La superficie de administración local y la superficie de dispositivos asociados son escuchadores (listeners) separados. Si expones Gentle Companion a través de un túnel, apunta solo al puerto 43722. Nunca expongas el puerto 43721.
 
+Para una referencia completa de arquitectura — modelo de proceso, superficies HTTP,
+autenticación, cada subsistema, los flujos principales y las guías de operación, con
+diagramas y anclajes al código — mirá el [bundle de conocimiento](knowledge/index_es-ES.md).
+También está en inglés ([en](knowledge/index.md)).
+
 ## Instala la aplicación web en tu teléfono
 
 Abre la **URL de dispositivo HTTPS** del daemon y primero asocia el teléfono. En Android/Chromium, elige **Instalar aplicación** (o **Agregar a pantalla de inicio**) en el menú del navegador. En iPhone/iPad, abre Safari y elige **Compartir → Agregar a pantalla de inicio**; habilita **Abrir como aplicación web** si se ofrece. La instalación no otorga permisos adicionales de sesión.
