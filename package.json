@@ -52,6 +52,8 @@
     "daemon:service:install": "node tools/daemon-service.mjs install",
     "daemon:service:uninstall": "node tools/daemon-service.mjs uninstall",
     "daemon:service:status": "node tools/daemon-service.mjs status",
+    "client:publish": "node tools/publish-client.mjs",
+    "client:publish:check": "node tools/publish-client.mjs --check",
     "automation:mcp": "node --experimental-strip-types --no-warnings src/automation-mcp.ts",
     "pair": "node --experimental-strip-types --no-warnings src/pair-cli.ts",
     "server:dev": "npm run serve",

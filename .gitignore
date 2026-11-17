@@ -13,3 +13,6 @@ ui/.svelte-kit/
 skills/sveltekit-svelte5-tailwind-skill/
 
 .pi/
+
+# Assembled static client (npm run client:publish)
+dist/

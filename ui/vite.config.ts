@@ -20,7 +20,9 @@ export default defineConfig({
         strict: true
       }),
       // Absolute asset URLs: the shell is served from nested routes like /sessions/abc.
-      paths: { relative: false },
+      // A public static host that serves under a subpath (GitHub Pages project sites)
+      // sets BASE_PATH=/<repo> at build time; the daemon serves from the root.
+      paths: { relative: false, base: (process.env.BASE_PATH || '') as '' | `/${string}` },
       // A new build gets a new version; open tabs notice and reload on next navigation.
       version: { pollInterval: 60_000 }
     })

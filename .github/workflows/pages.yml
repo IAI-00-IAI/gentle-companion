@@ -1,0 +1,68 @@
+name: Publish client
+
+# Publishes the Companion client to GitHub Pages so a phone can open it from anywhere,
+# install it as an app, and reach the daemon only through the tailcat tunnel.
+#
+# Prerequisites (once, in the repository settings):
+#   Settings -> Pages -> Source: GitHub Actions
+#
+# IMPORTANT — base path. GitHub Pages serves a project site under /<repo>/, while the
+# built SPA references its assets from the root (/ _app/...). Two supported setups:
+#   * A custom domain (Settings -> Pages -> Custom domain) serves at the root: nothing
+#     else to do.
+#   * The default github.io/<repo>/ path needs the client rebuilt with that base; set the
+#     BASE_PATH variable below to /<repo> and the build picks it up.
+# Without one of the two, the page loads but its assets 404.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_path:
+        description: "Base path for the SPA (empty for a custom domain at the root, /<repo> for github.io)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build the UI
+        env:
+          BASE_PATH: ${{ inputs.base_path }}
+        run: npm run ui:build
+
+      - name: Assemble the publishable tree
+        run: node tools/publish-client.mjs
+
+      - name: Verify the tree
+        run: node tools/publish-client.mjs --check
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/client-pages
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
