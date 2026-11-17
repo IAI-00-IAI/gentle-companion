@@ -4,7 +4,7 @@ title: Extension
 description: What the Pi extension registers, how sharing is toggled, and which hooks feed the phone.
 tags: [subsystem, extension, pi]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: index-ts
     resource: src/index.ts

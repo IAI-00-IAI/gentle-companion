@@ -4,7 +4,7 @@ title: Flujo de sesión en vivo
 description: Cómo una sesión de Pi se vuelve una pantalla — registro, snapshot, replay de actividad, deltas en streaming, asks y steering.
 tags: [flow, session, activity, protocol]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: bridge-ts
     resource: src/bridge.ts

@@ -4,7 +4,7 @@ title: Modelo de procesos del daemon
 description: Qué arranca el daemon, en qué orden, en qué tarea, y cómo se apaga.
 tags: [architecture, startup, shutdown, tokio]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: main-rs
     resource: server/src/main.rs

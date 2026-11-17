@@ -4,7 +4,7 @@ title: Flujo de fallback de túnel
 description: Qué pasa cuando el teléfono sale de la LAN — probe, cambio de transporte, boot del WASM desde caché, y la escalera de reintentos.
 tags: [flow, tunnel, transport, offline]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: companion-ts
     resource: ui/src/lib/companion.svelte.ts

@@ -4,7 +4,7 @@ title: Daemon lifecycle
 description: ensureDaemon's decision tree, the spawn lock, binary resolution, verified downloads, and platform service registration.
 tags: [subsystem, daemon, lifecycle, service]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: daemon-ts
     resource: src/daemon.ts

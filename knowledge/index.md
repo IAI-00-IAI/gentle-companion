@@ -2,7 +2,7 @@
 okf_version: "0.2"
 title: gentle-companion knowledge bundle
 description: Architecture, subsystems, flows and operations of gentle-companion — a Pi extension plus a Rust daemon that puts the real Companion UI on a phone.
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 ---
 
 # gentle-companion

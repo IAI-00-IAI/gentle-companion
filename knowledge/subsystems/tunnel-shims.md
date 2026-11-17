@@ -4,7 +4,7 @@ title: Tunnel shims
 description: Hand-written HTTP/1.1 and RFC 6455 clients over the tunnel, and the three measured fixes that make them work.
 tags: [subsystem, bridge, websocket, http, tunnel]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: http-js
     resource: bridge/http.js

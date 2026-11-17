@@ -4,7 +4,7 @@ title: Shims del túnel
 description: Clientes HTTP/1.1 y RFC 6455 hechos a mano sobre el túnel, y los tres arreglos medidos que los hacen funcionar.
 tags: [subsystem, bridge, websocket, http, tunnel]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: http-js
     resource: bridge/http.js

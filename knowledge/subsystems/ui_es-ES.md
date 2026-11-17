@@ -4,7 +4,7 @@ title: UI del cliente
 description: Las rutas, la máquina de estados de LiveConnection, la política de transporte direct-first, y el camino de datos del daemon a la pantalla.
 tags: [subsystem, ui, svelte, connection]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: connection-ts
     resource: ui/src/lib/connection.ts

@@ -4,7 +4,7 @@ title: Subsistema bridge
 description: Dos capacidades — traer un archivo que el agente mencionó, y proxyar un endpoint de loopback — con las cinco capas de seguridad que las acotan.
 tags: [subsystem, bridge, security, sandbox]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: bridge-rs
     resource: server/src/bridge.rs

@@ -2,7 +2,7 @@
 
 Newest first.
 
-## 2026-09-27 — Bundle created
+## 2026-11-17 — Bundle created
 
 Initial architecture bundle: 21 concepts across architecture, subsystems, flows and
 operations, each with a Spanish counterpart. Derived from a full read of `server/src`,

@@ -4,7 +4,7 @@ title: Ciclo de vida del daemon
 description: El árbol de decisiones de ensureDaemon, el lock de spawn, la resolución del binario, las descargas verificadas y el registro del servicio por plataforma.
 tags: [subsystem, daemon, lifecycle, service]
 status: stable
-generated: { by: agent:gentle-pi, at: 2026-09-27T00:00:00Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
 sources:
   - id: daemon-ts
     resource: src/daemon.ts
