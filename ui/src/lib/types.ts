@@ -152,6 +152,8 @@ export type Settings = {
   tailcatPort: number;
   /** Bind address for the device surface, e.g. 0.0.0.0:43722. Empty derives it from the public URL. */
   deviceBind: string;
+  /** Point the pairing QR at the HTTPS surface instead of the plain-HTTP address. */
+  pairingHttps: boolean;
 };
 
 export type TailcatStatus = {

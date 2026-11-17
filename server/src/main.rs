@@ -208,6 +208,10 @@ struct AppState {
     /// Port of the HTTPS surface, or 0 when TLS is off. The client links from the plain
     /// HTTP LAN page to it, so it has to know whether that surface exists at all.
     tls_port: Arc<std::sync::atomic::AtomicU16>,
+    /// The certificate the HTTPS surface is serving, when it is serving one. A phone has
+    /// to trust it before the app can be installed, and downloading it is the only way to
+    /// do that without moving files by hand.
+    tls_cert: Arc<std::sync::RwLock<Option<Arc<std::path::PathBuf>>>>,
     /// Extra origins allowed on the paired-device surface (PI_COMPANION_ALLOWED_ORIGINS).
     extra_origins: Vec<String>,
     browser_tx: broadcast::Sender<Value>,
@@ -243,6 +247,7 @@ impl AppState {
             tunnel_listener: Arc::new(Mutex::new(None)),
             env_public_url,
             tls_port: Arc::new(std::sync::atomic::AtomicU16::new(0)),
+            tls_cert: Arc::new(std::sync::RwLock::new(None)),
             extra_origins,
             browser_tx,
             kick_tx,
@@ -492,6 +497,33 @@ async fn main() {
 /// `127.0.0.1:<device port>`, so that port must stay plain. A separate HTTPS listener
 /// gives the phone a secure context (installable app, service worker) without touching
 /// the tunnel path at all.
+/// Serve the certificate the HTTPS surface is using, so a phone can install it as a CA.
+///
+/// The file is public material and the route is unauthenticated: it has to be reachable
+/// before a device is paired, which is exactly when it is needed.
+async fn serve_tls_certificate(State(state): State<AppState>) -> Response {
+    let path = state.tls_cert.read().unwrap().clone();
+    let Some(path) = path else {
+        return (StatusCode::NOT_FOUND, "This daemon is not serving HTTPS.").into_response();
+    };
+    match tokio::fs::read(path.as_ref()).await {
+        Ok(bytes) => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "application/x-pem-file"),
+                (header::CONTENT_DISPOSITION, "attachment; filename=\"companion-cert.pem\""),
+                (header::CACHE_CONTROL, "no-cache"),
+            ],
+            bytes,
+        )
+            .into_response(),
+        Err(error) => {
+            tracing::warn!(%error, "cannot read the TLS certificate to serve it");
+            (StatusCode::INTERNAL_SERVER_ERROR, "Cannot read the certificate.").into_response()
+        }
+    }
+}
+
 async fn start_tls_listener(state: AppState, mode: tls::TlsMode, port: u16) {
     if mode == tls::TlsMode::Off {
         return;
@@ -540,11 +572,13 @@ async fn start_tls_listener(state: AppState, mode: tls::TlsMode, port: u16) {
     let router = remote_router(state.clone());
     println!("  HTTPS surface    https://{bind}");
     state.tls_port.store(port, std::sync::atomic::Ordering::Relaxed);
+    *state.tls_cert.write().unwrap() = Some(Arc::new(cert.clone()));
     let result = axum_server::bind_rustls(addr, config)
         .serve(router.into_make_service())
         .await;
-    // The surface is gone, so stop advertising a link to it.
+    // The surface is gone, so stop advertising a link to it or a certificate from it.
     state.tls_port.store(0, std::sync::atomic::Ordering::Relaxed);
+    *state.tls_cert.write().unwrap() = None;
     if let Err(error) = result {
         tracing::warn!(%error, "TLS listener failed");
     }
@@ -556,6 +590,9 @@ fn local_router(state: AppState) -> Router {
         // tailcat-client S4); exact paths, so they win over the bridge proxy catch-all.
         .route("/bridge/vendor/main.wasm", get(assets::serve_bridge_vendor))
         .route("/bridge/vendor/wasm_exec.js", get(assets::serve_bridge_vendor))
+        // The certificate the phone must trust to install the app. Unauthenticated on
+        // purpose: it is public material, and it has to be reachable before pairing.
+        .route("/cert.pem", get(serve_tls_certificate))
         .merge(automation::router(false))
         .route("/api/context", get(local_context))
         .route("/api/sessions", get(list_sessions))
@@ -593,6 +630,7 @@ fn remote_router(state: AppState) -> Router {
         // tunnel loopback mirror also serves.
         .route("/bridge/vendor/main.wasm", get(assets::serve_bridge_vendor))
         .route("/bridge/vendor/wasm_exec.js", get(assets::serve_bridge_vendor))
+        .route("/cert.pem", get(serve_tls_certificate))
         .merge(automation::router(true).layer(middleware::from_fn_with_state(state.clone(), automation::authenticate)))
         .route("/api/context", get(remote_context))
         .route("/api/pairing/claim", post(claim_pairing))
@@ -639,11 +677,53 @@ fn loopback_origins(addr: &str) -> impl Iterator<Item = String> + '_ {
 }
 
 /// Origins a paired-device browser may use: the public address and the loopback device port.
+///
+/// When the HTTPS surface is running, every allowed origin also admits its HTTPS twin on
+/// the TLS port. Switching from the plain-HTTP LAN page to HTTPS changes the origin (same
+/// host, different scheme and port), so without the twin the switch answers 403 — and the
+/// operator would have to list the twin of every interface by hand, including addresses
+/// that never appear in `publicUrl`.
 async fn device_origins(state: &AppState) -> Vec<String> {
     let mut origins: Vec<String> = loopback_origins(remote_addr()).collect();
     origins.extend(origin_of(&public_url(state).await));
     origins.extend(state.extra_origins.iter().cloned());
+    let https_port = state.tls_port.load(std::sync::atomic::Ordering::Relaxed);
+    if https_port != 0 {
+        let twins: Vec<String> = origins
+            .iter()
+            .filter_map(|origin| https_twin(origin, https_port))
+            .collect();
+        origins.extend(twins);
+    }
     origins
+}
+
+/// The HTTPS form of an origin on `port`: the same host, served by the TLS listener.
+///
+/// Returns `None` for anything that is not a plain-HTTP origin with a host, so a malformed
+/// entry in the allow-list cannot invent a bogus twin.
+fn https_twin(origin: &str, port: u16) -> Option<String> {
+    let rest = origin.strip_prefix("http://")?;
+    let host = rest.rsplit_once(':').map(|(host, _)| host).unwrap_or(rest);
+    if host.is_empty() {
+        return None;
+    }
+    Some(format!("https://{host}:{port}"))
+}
+
+/// Base URL a pairing QR should point at.
+///
+/// The HTTPS surface when the operator asked for it and that surface is actually running;
+/// the plain public address otherwise, because a link to a closed port cannot be paired
+/// from. Shared by the settings preview and the real pairing endpoint so the two can never
+/// disagree about where the QR points.
+async fn pairing_base(state: &AppState) -> String {
+    let public = public_url(state).await;
+    let https_port = state.tls_port.load(std::sync::atomic::Ordering::Relaxed);
+    if https_port == 0 || !state.settings.read().await.pairing_https {
+        return public;
+    }
+    https_twin(&public, https_port).unwrap_or(public)
 }
 
 /// Port of the opt-in HTTPS surface: `PI_COMPANION_TLS_PORT`, else device port + 1.
@@ -919,7 +999,7 @@ async fn get_settings(State(state): State<AppState>) -> Json<Value> {
             pairings.retain(|_, invite| invite.expires_at >= now);
             pairings.insert(token.clone(), PairingInvite { expires_at, code: compact[0..8].to_string() });
         }
-        let mut url = format!("{}/pair?invite={}", public_url(&state).await, token);
+        let mut url = format!("{}/pair?invite={}", pairing_base(&state).await, token);
         if tailcat_status.running {
             url.push_str(&format!("#tunnel={}&port={}", tailcat_status.address, tailcat_status.port));
         }
@@ -1132,7 +1212,7 @@ async fn start_pairing(State(state): State<AppState>) -> ApiResult<Json<PairingR
         let port = tailcat_port(&state).await;
         running.then(|| (settings.tailcat_address.clone(), port))
     };
-    let mut url = format!("{}/pair?invite={}", public_url(&state).await, token);
+    let mut url = format!("{}/pair?invite={}", pairing_base(&state).await, token);
     if let Some((addr, port)) = &tunnel {
         url.push_str(&format!("#tunnel={addr}&port={port}"));
     }

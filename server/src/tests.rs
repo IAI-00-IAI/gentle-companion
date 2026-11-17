@@ -132,6 +132,121 @@ async fn shared_downloads_are_private_attachments_and_sources_are_recorded() {
 /// The client offers a link from the plain-HTTP LAN page to the HTTPS surface, so the
 /// context has to say where that surface is. Absent when TLS is off: a link to a port
 /// nothing listens on is worse than no link.
+/// A paired phone that switches from the plain-HTTP LAN page to the HTTPS surface changes
+/// origin: same host, different scheme and port. Requiring the operator to list the HTTPS
+/// twin of every origin by hand means the switch fails with 403 until they notice — and
+/// the phone's address is not even the one in publicUrl when it is on another interface.
+/// So each allowed origin also admits its HTTPS twin on the TLS port.
+#[tokio::test]
+async fn each_allowed_origin_admits_its_https_twin() {
+    let state = test_state();
+    state.tls_port.store(43723, std::sync::atomic::Ordering::Relaxed);
+
+    let origins = device_origins(&state).await;
+    assert!(
+        origins.iter().any(|origin| origin == "https://127.0.0.1:43723"),
+        "the HTTPS twin of loopback must be allowed: {origins:?}"
+    );
+    // The plain origins stay allowed: nothing about turning TLS on may break HTTP.
+    assert!(origins.iter().any(|origin| origin.starts_with("http://")));
+
+    // A LAN origin the operator listed explicitly gets its twin too — this is the phone
+    // case: it dials the interface it is actually on, not the publicUrl address.
+    let lan = "http://192.168.43.73:43722".to_string();
+    let mut with_lan = state.clone();
+    with_lan.extra_origins = vec![lan];
+    let origins = device_origins(&with_lan).await;
+    assert!(
+        origins.iter().any(|origin| origin == "https://192.168.43.73:43723"),
+        "an explicitly allowed LAN origin needs its HTTPS twin: {origins:?}"
+    );
+}
+
+/// With TLS off there is no HTTPS surface, so no HTTPS twin may be invented.
+#[tokio::test]
+async fn no_https_twin_exists_when_tls_is_off() {
+    let state = test_state();
+    state.tls_port.store(0, std::sync::atomic::Ordering::Relaxed);
+    let origins = device_origins(&state).await;
+    assert!(
+        !origins.iter().any(|origin| origin.starts_with("https://")),
+        "TLS is off, so nothing may be allowed over HTTPS: {origins:?}"
+    );
+}
+
+/// The QR must be able to point at the HTTPS surface: a phone that pairs over plain HTTP
+/// never gets a secure context, so the app cannot be installed. The switch is explicit
+/// because the HTTPS surface is opt-in and may not be running.
+#[tokio::test]
+async fn the_pairing_qr_can_target_the_https_surface() {
+    let state = test_state();
+    state.tls_port.store(43723, std::sync::atomic::Ordering::Relaxed);
+    {
+        let mut settings = state.settings.write().await;
+        settings.public_url = "http://192.168.43.73:43722".into();
+        settings.pairing_https = true;
+    }
+    let (status, text) = call(&local_router(state.clone()), post_json("/api/pairing/start", Some(CONSOLE_ORIGIN), json!({}))).await;
+    assert_eq!(status, StatusCode::OK);
+    let response: Value = serde_json::from_str(&text).unwrap();
+    let url = response["url"].as_str().unwrap();
+    assert!(
+        url.starts_with("https://192.168.43.73:43723/pair?invite="),
+        "the QR must use the HTTPS surface on the TLS port: {url}"
+    );
+
+    // With the switch off the QR keeps the plain address, so nothing changes by default.
+    {
+        let mut settings = state.settings.write().await;
+        settings.pairing_https = false;
+    }
+    let (_, text) = call(&local_router(state.clone()), post_json("/api/pairing/start", Some(CONSOLE_ORIGIN), json!({}))).await;
+    let response: Value = serde_json::from_str(&text).unwrap();
+    assert!(response["url"].as_str().unwrap().starts_with("http://192.168.43.73:43722/pair?invite="));
+}
+
+/// Asking for an HTTPS QR when the TLS surface is not running would hand the phone a link
+/// to a closed port. The daemon falls back to plain HTTP instead.
+#[tokio::test]
+async fn the_https_qr_falls_back_when_tls_is_off() {
+    let state = test_state();
+    state.tls_port.store(0, std::sync::atomic::Ordering::Relaxed);
+    {
+        let mut settings = state.settings.write().await;
+        settings.public_url = "http://192.168.43.73:43722".into();
+        settings.pairing_https = true;
+    }
+    let (_, text) = call(&local_router(state.clone()), post_json("/api/pairing/start", Some(CONSOLE_ORIGIN), json!({}))).await;
+    let response: Value = serde_json::from_str(&text).unwrap();
+    let url = response["url"].as_str().unwrap();
+    assert!(url.starts_with("http://192.168.43.73:43722/pair?invite="), "must fall back to plain HTTP: {url}");
+}
+
+/// Trusting the certificate on a phone is the step that makes the app installable, and the
+/// guide tells the user to open https://<ip>:<tls-port>/cert.pem to get it. That route has
+/// to exist, or the instruction sends them to a 404.
+#[tokio::test]
+async fn the_https_surface_serves_its_own_certificate() {
+    let state = test_state();
+    let dir = scratch("tls-cert");
+    let (cert, _key, _) = tls::ensure_self_signed(&dir, &["companion.test".to_string()]).unwrap();
+    *state.tls_cert.write().unwrap() = Some(std::sync::Arc::new(cert.clone()));
+
+    for (router, origin) in [
+        (local_router(state.clone()), CONSOLE_ORIGIN),
+        (remote_router(state.clone()), DEVICE_ORIGIN),
+    ] {
+        let (status, body) = call(&router, get("/cert.pem", Some(origin), None)).await;
+        assert_eq!(status, StatusCode::OK, "the certificate must be downloadable");
+        assert!(body.contains("BEGIN CERTIFICATE"), "must be the PEM itself: {body}");
+    }
+
+    // With TLS off there is no certificate to hand out.
+    *state.tls_cert.write().unwrap() = None;
+    let (status, _) = call(&local_router(state.clone()), get("/cert.pem", Some(CONSOLE_ORIGIN), None)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
 #[tokio::test]
 async fn context_reports_the_https_port_only_when_tls_is_enabled() {
     let state = test_state();

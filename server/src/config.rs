@@ -49,11 +49,19 @@ pub struct Settings {
     /// upgrade, which silently dropped a manually configured bind address.
     #[serde(default)]
     pub device_bind: String,
+    /// Point the pairing QR at the HTTPS surface instead of the plain-HTTP address.
+    ///
+    /// A phone that pairs over plain HTTP never gets a secure context, so the app cannot
+    /// be installed. Opt-in because the HTTPS surface is itself opt-in: asking for an
+    /// HTTPS QR while TLS is off falls back to plain HTTP rather than handing the phone a
+    /// link to a closed port.
+    #[serde(default)]
+    pub pairing_https: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true, tailcat_enabled: false, tailcat_address: String::new(), tailcat_port: 0, device_bind: String::new() }
+        Self { public_url: String::new(), pairing_ttl_minutes: 5, max_upload_mb: 25, allowed_upload_types: Vec::new(), bridge_enabled: true, tailcat_enabled: false, tailcat_address: String::new(), tailcat_port: 0, device_bind: String::new(), pairing_https: false }
     }
 }
 

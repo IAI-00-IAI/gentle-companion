@@ -744,6 +744,9 @@ const messages: Record<Locale, MessageSet> = {
     'settings.tailcat.qr.hint': 'Scan with the phone to pair and open the client with the tunnel pre-configured.',
     'settings.device.bind.label': 'Device bind address',
     'settings.device.bind.hint': 'Where the device surface listens, e.g. 0.0.0.0:43722 to answer on every interface (needed when the machine has both Ethernet and Wi-Fi). Leave empty to derive it from the public address. Takes effect on the next daemon start.',
+
+    'settings.pairing.https.label': 'Point the pairing QR at HTTPS',
+    'settings.pairing.https.hint': 'The QR uses the HTTPS surface so the phone gets a secure context and can install the app. Falls back to plain HTTP when HTTPS is not running.',
     'settings.tailcat.port.label': 'Tunnel port',
     'settings.tailcat.port.hint': 'Port exposed by the Tailcat tunnel. Leave 0 to use the daemon device port (PI_COMPANION_DEVICE_ADDR).',
     'settings.tailcat.running': 'Tunnel active',
@@ -1631,6 +1634,9 @@ const messages: Record<Locale, MessageSet> = {
     'settings.tailcat.qr.hint': 'Escaneá con el teléfono para emparejar y abrir el cliente con el túnel preconfigurado.',
     'settings.device.bind.label': 'Dirección de escucha del dispositivo',
     'settings.device.bind.hint': 'Dónde escucha la superficie de dispositivo, por ejemplo 0.0.0.0:43722 para responder en todas las interfaces (necesario cuando la máquina tiene Ethernet y Wi-Fi). Dejalo vacío para derivarla de la dirección pública. Se aplica en el próximo arranque del daemon.',
+
+    'settings.pairing.https.label': 'Apuntar el QR de emparejamiento a HTTPS',
+    'settings.pairing.https.hint': 'El QR usa la superficie HTTPS para que el teléfono tenga contexto seguro y pueda instalar la app. Vuelve a HTTP plano cuando HTTPS no está corriendo.',
     'settings.tailcat.port.label': 'Puerto del túnel',
     'settings.tailcat.port.hint': 'Puerto expuesto por el túnel Tailcat. Deja 0 para usar el puerto del dispositivo del demonio (PI_COMPANION_DEVICE_ADDR).',
     'settings.tailcat.running': 'Túnel activo',
