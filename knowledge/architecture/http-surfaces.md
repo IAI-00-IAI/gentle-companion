@@ -41,7 +41,7 @@ graph TD
 Anchors: `local_router` at `server/src/main.rs:554`, remote at `:591`. The bridge proxy
 routes are merged **outside** the origin middleware in both (`:587–589`, `:600–616`),
 because a proxied page runs in a sandboxed iframe and sends `Origin: null`; the unguessable
-token is its credential. See [Bridge](/subsystems/bridge.md).
+token is its credential. See [Bridge](../subsystems/bridge.md).
 
 Middleware order matters and is inner-to-outer as written: the body limit is applied
 outside the origin check, so an oversized body from a foreign origin is rejected on size
@@ -116,6 +116,6 @@ the device surface requires a token on every route that matters.
 
 ## Related
 
-- [Auth](/architecture/auth.md) — the credential the device surface checks
-- [Bridge](/subsystems/bridge.md) — why those routes sit outside the guard
-- [Assets](/subsystems/assets.md) — the fallback and its CSP
+- [Auth](../architecture/auth.md) — the credential the device surface checks
+- [Bridge](../subsystems/bridge.md) — why those routes sit outside the guard
+- [Assets](../subsystems/assets.md) — the fallback and its CSP

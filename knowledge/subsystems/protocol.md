@@ -103,6 +103,6 @@ back after a routine upgrade.
 
 ## Related
 
-- [Auth](/architecture/auth.md) — how the socket authenticates
-- [Live session flow](/flows/live-session.md) — the protocol in motion
-- [UI](/subsystems/ui.md) — how the client consumes it
+- [Auth](../architecture/auth.md) — how the socket authenticates
+- [Live session flow](../flows/live-session.md) — the protocol in motion
+- [UI](../subsystems/ui.md) — how the client consumes it

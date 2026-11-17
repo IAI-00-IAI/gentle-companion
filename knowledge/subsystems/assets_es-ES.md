@@ -92,6 +92,6 @@ Tres tests en `server/src/assets.rs` cubren el servicio, el fallback y el header
 
 ## Relacionados
 
-- [UI](/subsystems/ui_es-ES.md) — qué hace el shell una vez cargado
-- [Shims del túnel](/subsystems/tunnel-shims_es-ES.md) — el WASM que la CSP debe permitir
-- [Despliegue](/operations/deployment_es-ES.md) — hostear la misma compilación en otro lado
+- [UI](../subsystems/ui_es-ES.md) — qué hace el shell una vez cargado
+- [Shims del túnel](../subsystems/tunnel-shims_es-ES.md) — el WASM que la CSP debe permitir
+- [Despliegue](../operations/deployment_es-ES.md) — hostear la misma compilación en otro lado

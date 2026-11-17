@@ -78,10 +78,16 @@ def main() -> int:
             if field not in data:
                 warnings.append(f"{relative}: recommended field '{field}' is missing")
 
-    # Link integrity, bundle-absolute links resolved against the bundle root.
+    # Link integrity: relative links resolved against the linking file's
+    # directory; legacy bundle-absolute links against the bundle root.
+    def resolve(path: Path, target: str) -> Path:
+        if target.startswith("/"):
+            return (BUNDLE / target.lstrip("/")).resolve()
+        return (path.parent / target).resolve()
+
     for path in concepts:
         for target in links(path):
-            resolved = (BUNDLE / target.lstrip("/")).resolve()
+            resolved = resolve(path, target)
             if not resolved.exists():
                 errors.append(f"{path.relative_to(BUNDLE)}: broken link -> {target}")
 
@@ -101,11 +107,17 @@ def main() -> int:
         if not path.stem.endswith("_es-ES"):
             continue
         for target in links(path):
-            if target.startswith("/") and not target.endswith("_es-ES.md"):
-                if Path(target).name not in RESERVED:
-                    errors.append(
-                        f"{path.relative_to(BUNDLE)}: Spanish page links to English -> {target}"
-                    )
+            resolved = resolve(path, target)
+            # Only judge in-bundle file targets; missing targets are already
+            # reported by the broken-link check above.
+            if not resolved.is_file():
+                continue
+            if BUNDLE.resolve() not in resolved.parents:
+                continue
+            if not resolved.name.endswith("_es-ES.md") and resolved.name not in RESERVED:
+                errors.append(
+                    f"{path.relative_to(BUNDLE)}: Spanish page links to English -> {target}"
+                )
 
     for warning in warnings:
         print(f"warn: {warning}")

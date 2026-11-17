@@ -55,12 +55,12 @@ the daemon would have to own a coding agent, which is not its job.
 **Extension ↔ daemon** — a WebSocket at `/ws/bridge/{session_id}` carrying typed JSON.
 The extension *registers* a session snapshot and then streams lifecycle events; the daemon
 answers with browser-originated commands. This channel is the only way a session becomes
-visible to devices. Details in [Protocol](/subsystems/protocol.md).
+visible to devices. Details in [Protocol](../subsystems/protocol.md).
 
 **Browser ↔ daemon** — HTTP for reads and mutations, plus `/ws/browser` for a broadcast
 stream. The first frame on that socket is always `{"type":"resync"}`, after which the
 daemon pushes session registrations, patches, activity events and device updates. Details
-in [HTTP surfaces](/architecture/http-surfaces.md).
+in [HTTP surfaces](../architecture/http-surfaces.md).
 
 ## Why two HTTP surfaces
 
@@ -74,8 +74,8 @@ The daemon listens twice, and this is the single most consequential structural c
 The console has no credential — anything that can reach loopback is trusted, which is why
 its origin check is strict and its bind is loopback. The device surface carries a bearer
 token, is exposed on a real interface, and therefore validates both `Origin` and the token.
-See [HTTP surfaces](/architecture/http-surfaces.md) for the exact rules and
-[Auth](/architecture/auth.md) for the credential model.
+See [HTTP surfaces](../architecture/http-surfaces.md) for the exact rules and
+[Auth](../architecture/auth.md) for the credential model.
 
 ## The reachability ladder
 
@@ -94,8 +94,8 @@ graph TD
 ```
 
 The probe result is cached until a request actually fails, so the common case costs one
-request at boot and nothing after. Details in [Tunnel fallback](/flows/tunnel-fallback.md)
-and [UI](/subsystems/ui.md).
+request at boot and nothing after. Details in [Tunnel fallback](../flows/tunnel-fallback.md)
+and [UI](../subsystems/ui.md).
 
 ## What is durable and what is not
 
@@ -107,10 +107,10 @@ and [UI](/subsystems/ui.md).
 | Sessions, activity log, temp files | Memory and the temp dir | Nothing — rebuilt by the Pi WS |
 
 That asymmetry is intentional: a session only exists while Pi runs it, so persisting one
-would persist a lie. See [State](/architecture/state.md).
+would persist a lie. See [State](../architecture/state.md).
 
 ## Related
 
-- [Process model](/architecture/process-model.md) — the startup order that makes this work
-- [Subsystems](/subsystems/extension.md) — each part in depth
-- [Flows](/flows/pairing.md) — the same architecture seen as sequences
+- [Process model](../architecture/process-model.md) — the startup order that makes this work
+- [Subsystems](../subsystems/extension.md) — each part in depth
+- [Flows](../flows/pairing.md) — the same architecture seen as sequences

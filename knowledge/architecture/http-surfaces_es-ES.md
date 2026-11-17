@@ -41,7 +41,7 @@ graph TD
 Anclas: `local_router` en `server/src/main.rs:554`, remote en `:591`. Las rutas del proxy
 del bridge se mezclan **fuera** del middleware de origen en ambos (`:587–589`, `:600–616`),
 porque una página proxyada corre en un iframe sandboxeado y manda `Origin: null`; el token
-no adivinable es su credencial. Mirá [Bridge](/subsystems/bridge_es-ES.md).
+no adivinable es su credencial. Mirá [Bridge](../subsystems/bridge_es-ES.md).
 
 ## Inventario de rutas
 
@@ -110,6 +110,6 @@ solo loopback, y la superficie de dispositivos requiere un token en cada ruta qu
 
 ## Relacionados
 
-- [Autenticación](/architecture/auth_es-ES.md) — la credencial que la superficie de dispositivos chequea
-- [Bridge](/subsystems/bridge_es-ES.md) — por qué esas rutas quedan fuera de la guardia
-- [Assets](/subsystems/assets_es-ES.md) — el fallback y su CSP
+- [Autenticación](../architecture/auth_es-ES.md) — la credencial que la superficie de dispositivos chequea
+- [Bridge](../subsystems/bridge_es-ES.md) — por qué esas rutas quedan fuera de la guardia
+- [Assets](../subsystems/assets_es-ES.md) — el fallback y su CSP

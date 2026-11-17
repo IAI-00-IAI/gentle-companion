@@ -35,7 +35,7 @@ Adds reachability from anywhere. Enable the tunnel in settings; the daemon spawn
 `tailcat serve` and the client dials it when the LAN fails.
 
 Still plain HTTP, so the same browser limits apply. See
-[Tunnel fallback](/flows/tunnel-fallback.md).
+[Tunnel fallback](../flows/tunnel-fallback.md).
 
 ## Shape 3 — a secure origin
 
@@ -101,6 +101,6 @@ per-machine overrides you are willing to re-apply.
 
 ## Related
 
-- [TLS](/subsystems/tls.md) — the dedicated-port constraint
-- [HTTP surfaces](/architecture/http-surfaces.md) — the origin logic in code
-- [Daemon scripts](/operations/daemon-scripts.md) — running it
+- [TLS](../subsystems/tls.md) — the dedicated-port constraint
+- [HTTP surfaces](../architecture/http-surfaces.md) — the origin logic in code
+- [Daemon scripts](../operations/daemon-scripts.md) — running it

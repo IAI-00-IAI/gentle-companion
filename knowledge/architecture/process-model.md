@@ -75,7 +75,7 @@ extension uses to compare versions without starting a daemon.
 
 Settings beat the environment on purpose: the supervisor rewrites the service environment
 on every upgrade, so a bind configured only through env would silently disappear. The
-settings field is the durable one; see [State](/architecture/state.md).
+settings field is the durable one; see [State](../architecture/state.md).
 
 ## Tasks
 
@@ -102,10 +102,10 @@ with capacity 2. Both servers stop accepting, in-flight WebSockets receive close
 
 The close code matters: the client distinguishes 1012 (come back, the daemon is coming
 back) from 4003 (do not come back, you were revoked) and 4001 (the Pi socket dropped).
-See [Protocol](/subsystems/protocol.md).
+See [Protocol](../subsystems/protocol.md).
 
 ## Related
 
-- [HTTP surfaces](/architecture/http-surfaces.md) — what the two routers contain
-- [Tailcat](/subsystems/tailcat.md) — the tunnel task in detail
-- [TLS](/subsystems/tls.md) — why the HTTPS listener is separate
+- [HTTP surfaces](../architecture/http-surfaces.md) — what the two routers contain
+- [Tailcat](../subsystems/tailcat.md) — the tunnel task in detail
+- [TLS](../subsystems/tls.md) — why the HTTPS listener is separate

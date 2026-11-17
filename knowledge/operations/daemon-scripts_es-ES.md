@@ -46,7 +46,7 @@ Cada script acepta `--json` para salida machine-readable.
 `tools/daemon.mjs start` spawnnea el binario resuelto detached, escribe un pid file, y
 espera a que `/api/context` responda. Falla ruidosamente si el puerto ya está ocupado — lo
 cual es también cómo detecta un daemon ya corriendo, porque una segunda instancia sale
-limpia por diseño (ver [Modelo de procesos](/architecture/process-model_es-ES.md)).
+limpia por diseño (ver [Modelo de procesos](../architecture/process-model_es-ES.md)).
 
 ## Stop
 
@@ -82,6 +82,6 @@ punta a punta. Tratarlos como revisados-pero-no-probados hasta que lo estén.
 
 ## Relacionados
 
-- [Ciclo de vida del daemon](/subsystems/daemon-lifecycle_es-ES.md) — el camino automático
-- [Despliegue](/operations/deployment_es-ES.md) — entorno y orígenes
-- [Modelo de procesos](/architecture/process-model_es-ES.md) — el guardia de instancia única del que estos dependen
+- [Ciclo de vida del daemon](../subsystems/daemon-lifecycle_es-ES.md) — el camino automático
+- [Despliegue](../operations/deployment_es-ES.md) — entorno y orígenes
+- [Modelo de procesos](../architecture/process-model_es-ES.md) — el guardia de instancia única del que estos dependen

@@ -143,7 +143,7 @@ icons; everything under `/api/` and `/ws/`, all non-GET, and all cross-origin re
 failure — which is what stops a gateway error page from replacing the app.
 
 Registration is gated on `window.isSecureContext`, which is exactly why the
-[TLS surface](/subsystems/tls.md) exists.
+[TLS surface](../subsystems/tls.md) exists.
 
 ## i18n
 
@@ -157,6 +157,6 @@ Language comes from localStorage `gentle-companion:lang`, defaulting to `en`. Th
 
 ## Related
 
-- [Tunnel fallback](/flows/tunnel-fallback.md) — the policy as a sequence
-- [Tunnel shims](/subsystems/tunnel-shims.md) — what the tunnel transport calls
-- [Protocol](/subsystems/protocol.md) — the messages this consumes
+- [Tunnel fallback](../flows/tunnel-fallback.md) — the policy as a sequence
+- [Tunnel shims](../subsystems/tunnel-shims.md) — what the tunnel transport calls
+- [Protocol](../subsystems/protocol.md) — the messages this consumes

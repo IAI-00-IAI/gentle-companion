@@ -88,6 +88,6 @@ exists to guarantee.
 
 ## Related
 
-- [Tailcat](/subsystems/tailcat.md) — the constraint that forces the extra port
-- [Deployment](/operations/deployment.md) — how to configure it
-- [UI](/subsystems/ui.md) — what the secure context unlocks
+- [Tailcat](../subsystems/tailcat.md) — the constraint that forces the extra port
+- [Deployment](../operations/deployment.md) — how to configure it
+- [UI](../subsystems/ui.md) — what the secure context unlocks

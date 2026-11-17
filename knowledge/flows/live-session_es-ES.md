@@ -43,14 +43,14 @@ sequenceDiagram
 
 `register` es la única fuente de verdad sobre las sesiones. No hay fila en una base de
 datos ni sesión persistida: el socket abriéndose crea la sesión y el socket cerrándose la
-destruye. Mirá [Estado](/architecture/state_es-ES.md).
+destruye. Mirá [Estado](../architecture/state_es-ES.md).
 
 ## La puerta de visibilidad
 
 `remoteEnabled` es un campo del snapshot. El daemon condiciona los broadcasts visibles para
 dispositivos a ese campo, así que una sesión que el usuario no compartió es invisible para
 los dispositivos incluso con un token válido. `/remote-control on` es lo que lo setea;
-mirá [Extensión](/subsystems/extension_es-ES.md).
+mirá [Extensión](../subsystems/extension_es-ES.md).
 
 ## El snapshot y el replay
 
@@ -115,6 +115,6 @@ así que dos teléfonos mirando la misma sesión ven la misma conversación.
 
 ## Relacionados
 
-- [Protocolo](/subsystems/protocol_es-ES.md) — el conjunto de mensajes
-- [UI](/subsystems/ui_es-ES.md) — la máquina de estados del cliente
-- [Emparejamiento](/flows/pairing_es-ES.md) — cómo llegó el teléfono hasta acá
+- [Protocolo](../subsystems/protocol_es-ES.md) — el conjunto de mensajes
+- [UI](../subsystems/ui_es-ES.md) — la máquina de estados del cliente
+- [Emparejamiento](../flows/pairing_es-ES.md) — cómo llegó el teléfono hasta acá

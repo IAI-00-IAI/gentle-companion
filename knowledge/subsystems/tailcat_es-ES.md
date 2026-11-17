@@ -49,7 +49,7 @@ El espejo existe porque el túnel reenvía a `127.0.0.1:<port>` como **HTTP plan
 debe envolverse en TLS: el túnel no termina nada, así que un espejo envuelto en TLS le
 presentaría un certificado a un cliente que no está haciendo un handshake TLS, y el túnel se
 rompería. Esa única restricción es la razón por la que HTTPS vive en un *puerto dedicado* en
-lugar del puerto del dispositivo — ver [TLS](/subsystems/tls_es-ES.md).
+lugar del puerto del dispositivo — ver [TLS](../subsystems/tls_es-ES.md).
 
 Dos detalles de `start_tunnel_listener` (`server/src/main.rs:735`) conviene decirlos con
 precisión:
@@ -94,6 +94,6 @@ duplicada, mantenidas a mano en sincronía.
 
 ## Relacionados
 
-- [Fallback de túnel](/flows/tunnel-fallback_es-ES.md) — cuándo lo usa el cliente
-- [Shims del túnel](/subsystems/tunnel-shims_es-ES.md) — los clientes HTTP y WS dentro de él
-- [TLS](/subsystems/tls_es-ES.md) — la decisión de puerto dedicado que esto fuerza
+- [Fallback de túnel](../flows/tunnel-fallback_es-ES.md) — cuándo lo usa el cliente
+- [Shims del túnel](../subsystems/tunnel-shims_es-ES.md) — los clientes HTTP y WS dentro de él
+- [TLS](../subsystems/tls_es-ES.md) — la decisión de puerto dedicado que esto fuerza

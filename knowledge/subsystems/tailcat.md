@@ -49,7 +49,7 @@ The mirror exists because the tunnel forwards to `127.0.0.1:<port>` as **plain H
 must never be wrapped in TLS: the tunnel terminates nothing, so a TLS-wrapped mirror would
 present a certificate to a client that is not doing a TLS handshake, and the tunnel would
 break. That single constraint is why HTTPS lives on a *dedicated port* instead of on the
-device port — see [TLS](/subsystems/tls.md).
+device port — see [TLS](../subsystems/tls.md).
 
 Two details of `start_tunnel_listener` (`server/src/main.rs:735`) are worth stating exactly:
 
@@ -91,6 +91,6 @@ policy, kept in sync by hand.
 
 ## Related
 
-- [Tunnel fallback](/flows/tunnel-fallback.md) — when the client uses it
-- [Tunnel shims](/subsystems/tunnel-shims.md) — the HTTP and WS clients inside it
-- [TLS](/subsystems/tls.md) — the dedicated-port decision this forces
+- [Tunnel fallback](../flows/tunnel-fallback.md) — when the client uses it
+- [Tunnel shims](../subsystems/tunnel-shims.md) — the HTTP and WS clients inside it
+- [TLS](../subsystems/tls.md) — the dedicated-port decision this forces

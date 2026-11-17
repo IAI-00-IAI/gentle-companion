@@ -122,6 +122,6 @@ copy was in flight would let the copy finish.
 
 ## Related
 
-- [Auth](/architecture/auth.md) — the credential that gates the surface
-- [HTTP surfaces](/architecture/http-surfaces.md) — why these routes bypass the origin guard
-- [Security](/operations/deployment.md) — operator-facing consequences
+- [Auth](../architecture/auth.md) — the credential that gates the surface
+- [HTTP surfaces](../architecture/http-surfaces.md) — why these routes bypass the origin guard
+- [Security](../operations/deployment.md) — operator-facing consequences

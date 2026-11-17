@@ -130,6 +130,6 @@ close ordering.
 
 ## Related
 
-- [UI](/subsystems/ui.md) — the transport policy that selects this path
-- [Tailcat](/subsystems/tailcat.md) — the tunnel these shims run over
-- [Tunnel fallback](/flows/tunnel-fallback.md) — when it is used
+- [UI](../subsystems/ui.md) — the transport policy that selects this path
+- [Tailcat](../subsystems/tailcat.md) — the tunnel these shims run over
+- [Tunnel fallback](../flows/tunnel-fallback.md) — when it is used

@@ -85,14 +85,14 @@ seguir funcionando después de salir de la red: ya sabe cómo discar al túnel.
 | 401 "invalid or already used" | Invitación consumida o expirada | Empezar un emparejamiento nuevo |
 | 429 | Diez códigos incorrectos | Empezar un emparejamiento nuevo |
 | El claim funciona, socket 4003 | Dispositivo revocado entre el claim y la conexión | Emparejar de nuevo |
-| El claim funciona, el socket nunca abre | Origen fuera de la allow-list de dispositivos | Agregar el origen — mirá [Deployment](/operations/deployment_es-ES.md) |
+| El claim funciona, el socket nunca abre | Origen fuera de la allow-list de dispositivos | Agregar el origen — mirá [Deployment](../operations/deployment_es-ES.md) |
 
 El último es el más común en la práctica, y ni siquiera es una falla de emparejamiento: la
 credencial es válida, el origen no está permitido. Mirá
-[Superficies HTTP](/architecture/http-surfaces_es-ES.md).
+[Superficies HTTP](../architecture/http-surfaces_es-ES.md).
 
 ## Relacionados
 
-- [Autenticación](/architecture/auth_es-ES.md) — el modelo de credenciales detrás de esto
-- [Fallback de túnel](/flows/tunnel-fallback_es-ES.md) — para qué sirve la dirección guardada
-- [Deployment](/operations/deployment_es-ES.md) — orígenes permitidos
+- [Autenticación](../architecture/auth_es-ES.md) — el modelo de credenciales detrás de esto
+- [Fallback de túnel](../flows/tunnel-fallback_es-ES.md) — para qué sirve la dirección guardada
+- [Deployment](../operations/deployment_es-ES.md) — orígenes permitidos

@@ -112,7 +112,7 @@ activar un límite de arranques.
 
 **El entorno se reescribe en cada actualización.** Esa es la razón por la que `deviceBind`
 vive en `state.json` y no solo en el entorno — ver
-[Estado](/architecture/state_es-ES.md).
+[Estado](../architecture/state_es-ES.md).
 
 ## Variables de entorno que cambian el comportamiento
 
@@ -129,6 +129,6 @@ vive en `state.json` y no solo en el entorno — ver
 
 ## Relacionados
 
-- [Modelo de procesos](/architecture/process-model_es-ES.md) — qué hace el daemon una vez spawnneado
-- [Scripts del daemon](/operations/daemon-scripts_es-ES.md) — el camino manual
-- [Despliegue](/operations/deployment_es-ES.md) — entorno del servicio y orígenes
+- [Modelo de procesos](../architecture/process-model_es-ES.md) — qué hace el daemon una vez spawnneado
+- [Scripts del daemon](../operations/daemon-scripts_es-ES.md) — el camino manual
+- [Despliegue](../operations/deployment_es-ES.md) — entorno del servicio y orígenes

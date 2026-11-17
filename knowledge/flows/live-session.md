@@ -43,13 +43,13 @@ sequenceDiagram
 
 `register` is the sole source of session truth. There is no database row and no persisted
 session: the socket opening creates the session and the socket closing destroys it. See
-[State](/architecture/state.md).
+[State](../architecture/state.md).
 
 ## Visibility gate
 
 `remoteEnabled` is a field of the snapshot. The daemon gates device-visible broadcasts on
 it, so a session the user has not shared is invisible to devices even with a valid token.
-`/remote-control on` is what sets it; see [Extension](/subsystems/extension.md).
+`/remote-control on` is what sets it; see [Extension](../subsystems/extension.md).
 
 ## The snapshot and the replay
 
@@ -112,6 +112,6 @@ phones watching the same session see the same conversation.
 
 ## Related
 
-- [Protocol](/subsystems/protocol.md) — the message set
-- [UI](/subsystems/ui.md) — the client state machine
-- [Pairing](/flows/pairing.md) — how the phone got here
+- [Protocol](../subsystems/protocol.md) — the message set
+- [UI](../subsystems/ui.md) — the client state machine
+- [Pairing](../flows/pairing.md) — how the phone got here

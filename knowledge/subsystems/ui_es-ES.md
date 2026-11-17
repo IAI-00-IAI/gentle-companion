@@ -147,7 +147,7 @@ van **online-only**. Las navegaciones son network-first con un fallback de cach�
 fallo de fetch — que es lo que evita que una página de error de gateway reemplace la app.
 
 El registro está condicionado a `window.isSecureContext`, que es exactamente por qué existe
-la [superficie TLS](/subsystems/tls_es-ES.md).
+la [superficie TLS](../subsystems/tls_es-ES.md).
 
 ## i18n
 
@@ -161,6 +161,6 @@ detección de `navigator.language`: el valor guardado es la única entrada.
 
 ## Relacionados
 
-- [Fallback de túnel](/flows/tunnel-fallback_es-ES.md) — la política como secuencia
-- [Shims del túnel](/subsystems/tunnel-shims_es-ES.md) — lo que el transporte del túnel llama
-- [Protocolo](/subsystems/protocol_es-ES.md) — los mensajes que esto consume
+- [Fallback de túnel](../flows/tunnel-fallback_es-ES.md) — la política como secuencia
+- [Shims del túnel](../subsystems/tunnel-shims_es-ES.md) — lo que el transporte del túnel llama
+- [Protocolo](../subsystems/protocol_es-ES.md) — los mensajes que esto consume

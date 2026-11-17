@@ -130,6 +130,6 @@ de confianza.
 
 ## Relacionados
 
-- [Extensión](/subsystems/extension_es-ES.md) — la tool y el modo relay RPC
-- [Protocolo](/subsystems/protocol_es-ES.md) — cómo un ask llega a un dispositivo
-- [Estado](/architecture/state_es-ES.md) — el archivo que este subsistema posee
+- [Extensión](../subsystems/extension_es-ES.md) — la tool y el modo relay RPC
+- [Protocolo](../subsystems/protocol_es-ES.md) — cómo un ask llega a un dispositivo
+- [Estado](../architecture/state_es-ES.md) — el archivo que este subsistema posee

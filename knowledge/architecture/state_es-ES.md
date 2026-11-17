@@ -45,7 +45,7 @@ Una sesión existe solo mientras Pi la ejecuta. Persistirla significaría servir
 que no puede aceptar un prompt, y el daemon tendría que inventarle una política de
 expiración. Así que `register` en el socket del bridge es la única fuente de verdad sobre
 las sesiones; cuando el socket se cierra, la sesión desaparece y los dispositivos la ven
-desaparecer. Mirá [Protocolo](/subsystems/protocol_es-ES.md).
+desaparecer. Mirá [Protocolo](../subsystems/protocol_es-ES.md).
 
 La actividad es solo en memoria por la misma razón, con un matiz: es un log de replay
 acotado que le permite a un teléfono que se reconecta reconstruir la transcripción sin
@@ -105,10 +105,10 @@ reescribe el entorno del servicio en cada actualización. Un bind configurado so
 `PI_COMPANION_DEVICE_ADDR` desaparecería en silencio en la próxima versión. La variable de
 entorno sigue ganando en runtime (un override del operador para una corrida), pero la
 respuesta durable está en `state.json`. Mirá
-[Modelo de procesos](/architecture/process-model_es-ES.md).
+[Modelo de procesos](../architecture/process-model_es-ES.md).
 
 ## Relacionados
 
-- [Modelo de procesos](/architecture/process-model_es-ES.md) — dónde se crean estos campos
-- [Autenticación](/architecture/auth_es-ES.md) — los hashes guardados acá
-- [Automatización](/subsystems/automation_es-ES.md) — el único subsistema con su propio archivo
+- [Modelo de procesos](../architecture/process-model_es-ES.md) — dónde se crean estos campos
+- [Autenticación](../architecture/auth_es-ES.md) — los hashes guardados acá
+- [Automatización](../subsystems/automation_es-ES.md) — el único subsistema con su propio archivo

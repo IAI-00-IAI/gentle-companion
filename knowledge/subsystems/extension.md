@@ -86,7 +86,7 @@ Two details that are easy to get wrong:
 
 Disabling reverses it: `setRemoteEnabled(false)`, dialogs and popups torn down, socket
 closed. The daemon then treats the session as unshared and stops broadcasting it. See
-[Protocol](/subsystems/protocol.md).
+[Protocol](../subsystems/protocol.md).
 
 ## The dialog relay
 
@@ -105,6 +105,6 @@ questions from the companion.
 
 ## Related
 
-- [Daemon lifecycle](/subsystems/daemon-lifecycle.md) — what `ensureDaemon` does
-- [Protocol](/subsystems/protocol.md) — the messages these hooks produce
-- [Automation](/subsystems/automation.md) — the RPC relay mode
+- [Daemon lifecycle](../subsystems/daemon-lifecycle.md) — what `ensureDaemon` does
+- [Protocol](../subsystems/protocol.md) — the messages these hooks produce
+- [Automation](../subsystems/automation.md) — the RPC relay mode

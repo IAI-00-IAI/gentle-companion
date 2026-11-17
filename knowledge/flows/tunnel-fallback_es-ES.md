@@ -73,9 +73,9 @@ de query `?derpmap=`, un probe de `bridge/derpmap.json`, `derpmap.json`, y final
 canónico `https://tailcat.dev/derpmap.json`.
 
 El CSP debe permitir ese último en `connect-src` — mirá
-[Assets](/subsystems/assets_es-ES.md). La misma política está expresada en
+[Assets](../subsystems/assets_es-ES.md). La misma política está expresada en
 `bridge/app.js:22–38`, que es política duplicada y deuda documentada en
-[Tailcat](/subsystems/tailcat_es-ES.md).
+[Tailcat](../subsystems/tailcat_es-ES.md).
 
 ## La escalera de reintentos
 
@@ -105,13 +105,13 @@ tres diales frescos.
 | Recargar la página | **No** | Servido por plain HTTP; necesita HTTPS + un service worker |
 
 La última fila es la razón por la que existen la
-[superficie TLS](/subsystems/tls_es-ES.md) y el
-[hosting estático](/operations/deployment_es-ES.md): publicar el cliente en un origen HTTPS
+[superficie TLS](../subsystems/tls_es-ES.md) y el
+[hosting estático](../operations/deployment_es-ES.md): publicar el cliente en un origen HTTPS
 es la única forma de obtener un service worker, y un service worker es la única forma de
 recargar la app cuando el daemon es inalcanzable.
 
 ## Relacionados
 
-- [UI](/subsystems/ui_es-ES.md) — la política en contexto
-- [Shims de túnel](/subsystems/tunnel-shims_es-ES.md) — los clientes que hacen el trabajo
-- [Deployment](/operations/deployment_es-ES.md) — las rutas HTTPS que arreglan la última fila
+- [UI](../subsystems/ui_es-ES.md) — la política en contexto
+- [Shims de túnel](../subsystems/tunnel-shims_es-ES.md) — los clientes que hacen el trabajo
+- [Deployment](../operations/deployment_es-ES.md) — las rutas HTTPS que arreglan la última fila
