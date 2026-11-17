@@ -10,6 +10,7 @@ import { readTunnelConfig, DEFAULT_TUNNEL_PORT, TUNNEL_ADDR_KEY, TUNNEL_PORT_KEY
 import { createTunnelSocket, createTunnelTransport } from './tailcat-transport.ts';
 import { warmRuntimeCache } from './tailcat-runtime.ts';
 import { diag, diagSeq } from './diagnostics.ts';
+import { httpsLinkFor } from './https-link.ts';
 import type { AskAnswers, AskRequest, GitWorktree, PairedDevice, Pairing, Session, SettingsResponse, Settings, TailcatStatus, TempFile } from './types.ts';
 
 /**
@@ -38,6 +39,8 @@ class Companion {
   uploadPolicy = $state<UploadPolicy>({ maxUploadMb: 25, allowedUploadTypes: [] });
   remote = $state(false);
   version = $state('');
+  /** Port of the daemon's HTTPS surface, or 0 when it has none. */
+  httpsPort = $state(0);
   token = $state<string | null>(null);
   connection = $state<Connection>('connecting');
 
@@ -167,6 +170,16 @@ class Companion {
     } catch { return false; }
   }
 
+  /**
+   * The same page over the daemon's HTTPS surface, or null when there is nothing to link
+   * to. Only offered from a plain-HTTP page: on HTTPS the link would be a no-op, and on
+   * the tunnel the address is not the daemon's.
+   */
+  get httpsLink(): string | null {
+    if (typeof location === 'undefined') return null;
+    return httpsLinkFor(location.href, this.httpsPort);
+  }
+
   async boot() {
     if (this.booting || (this.booted && !this.bootError)) return;
     this.booting = true;
@@ -183,7 +196,7 @@ class Companion {
         // so leaving the LAN (or reloading off-LAN) still has the tunnel runtime.
         if (this.directUsable) void warmRuntimeCache();
       }
-      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus }>('/api/context', {}, 10_000, 'json', this.effectiveTransport());
+      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus; httpsPort?: number }>('/api/context', {}, 10_000, 'json', this.effectiveTransport());
       if (this.directUsable === false && tunnelConfig()) {
         // Tunnel worked: re-probe direct on the next boot (the phone may have moved).
         this.directUsable = null;
@@ -197,6 +210,7 @@ class Companion {
       this.version = context.version;
       this.token = this.remote ? localStorage.getItem(TOKEN_KEY) : null;
       if (context.tailcatStatus && typeof context.tailcatStatus.running === 'boolean') this.onTailcatUpdate?.(context.tailcatStatus);
+      this.httpsPort = typeof context.httpsPort === 'number' && context.httpsPort > 0 ? context.httpsPort : 0;
       this.bootError = '';
       this.connectionError = '';
       this.booted = true;

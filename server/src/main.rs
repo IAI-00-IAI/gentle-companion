@@ -205,6 +205,9 @@ struct AppState {
     /// Extra loopback listener serving the device surface while the tailcat tunnel runs.
     tunnel_listener: Arc<Mutex<Option<TunnelHandle>>>,
     env_public_url: Option<String>,
+    /// Port of the HTTPS surface, or 0 when TLS is off. The client links from the plain
+    /// HTTP LAN page to it, so it has to know whether that surface exists at all.
+    tls_port: Arc<std::sync::atomic::AtomicU16>,
     /// Extra origins allowed on the paired-device surface (PI_COMPANION_ALLOWED_ORIGINS).
     extra_origins: Vec<String>,
     browser_tx: broadcast::Sender<Value>,
@@ -239,6 +242,7 @@ impl AppState {
             tailcat: Arc::new(RwLock::new(tailcat::TailcatManager::new())),
             tunnel_listener: Arc::new(Mutex::new(None)),
             env_public_url,
+            tls_port: Arc::new(std::sync::atomic::AtomicU16::new(0)),
             extra_origins,
             browser_tx,
             kick_tx,
@@ -535,10 +539,13 @@ async fn start_tls_listener(state: AppState, mode: tls::TlsMode, port: u16) {
     };
     let router = remote_router(state.clone());
     println!("  HTTPS surface    https://{bind}");
-    if let Err(error) = axum_server::bind_rustls(addr, config)
+    state.tls_port.store(port, std::sync::atomic::Ordering::Relaxed);
+    let result = axum_server::bind_rustls(addr, config)
         .serve(router.into_make_service())
-        .await
-    {
+        .await;
+    // The surface is gone, so stop advertising a link to it.
+    state.tls_port.store(0, std::sync::atomic::Ordering::Relaxed);
+    if let Err(error) = result {
         tracing::warn!(%error, "TLS listener failed");
     }
 }
@@ -861,7 +868,12 @@ async fn remote_context(State(state): State<AppState>) -> Json<Value> {
     // live indicator immediately, not only after the next tunnel state change.
     let enabled = state.settings.read().await.tailcat_enabled;
     let status = state.tailcat.read().await.status(enabled);
-    Json(serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await, "tailcatStatus": { "enabled": status.enabled, "running": status.running, "address": "", "port": status.port, "error": status.error } }))
+    let https_port = state.tls_port.load(std::sync::atomic::Ordering::Relaxed);
+    let mut context = serde_json::json!({ "remote": true, "version": VERSION, "uploadPolicy": upload_policy(&state).await, "bridgeEnabled": bridge_enabled(&state).await, "tailcatStatus": { "enabled": status.enabled, "running": status.running, "address": "", "port": status.port, "error": status.error } });
+    if https_port != 0 {
+        context["httpsPort"] = serde_json::json!(https_port);
+    }
+    Json(context)
 }
 
 /// Local-admin only. Used by the extension to replace an older daemon after a package upgrade.

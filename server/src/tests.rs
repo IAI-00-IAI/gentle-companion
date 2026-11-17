@@ -129,6 +129,31 @@ async fn shared_downloads_are_private_attachments_and_sources_are_recorded() {
     let _ = fs::remove_dir_all(&state.temp_root).await;
 }
 
+/// The client offers a link from the plain-HTTP LAN page to the HTTPS surface, so the
+/// context has to say where that surface is. Absent when TLS is off: a link to a port
+/// nothing listens on is worse than no link.
+#[tokio::test]
+async fn context_reports_the_https_port_only_when_tls_is_enabled() {
+    let state = test_state();
+    let (status, text) = call(&remote_router(state.clone()), get("/api/context", Some(DEVICE_ORIGIN), None)).await;
+    assert_eq!(status, StatusCode::OK);
+    let context: Value = serde_json::from_str(&text).unwrap();
+    assert!(
+        context.get("httpsPort").is_none(),
+        "TLS is off, so there is no HTTPS surface to link to: {context}"
+    );
+
+    {
+        let mut settings = state.settings.write().await;
+        settings.device_bind = "0.0.0.0:43722".into();
+    }
+    state.tls_port.store(43723, std::sync::atomic::Ordering::Relaxed);
+    let (status, text) = call(&remote_router(state.clone()), get("/api/context", Some(DEVICE_ORIGIN), None)).await;
+    assert_eq!(status, StatusCode::OK);
+    let context: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(context["httpsPort"], 43723);
+}
+
 #[tokio::test]
 async fn context_exposes_current_upload_policy_without_private_settings() {
     let state = test_state();

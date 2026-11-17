@@ -140,7 +140,19 @@
 <a class="skip-link" href="#main">{t('shell.skip')}</a>
 
 {#if bare}
-  <main class="bare scroll" id="main"><ConnectionNotice />{@render children()}</main>
+  <main class="bare scroll" id="main">
+    {#if insecureContext && !httpsBannerDismissed}
+      <div class="banner danger" role="alert">
+        <Icon name="alert" />
+        <span>{t('shell.banner.https')}</span>
+        {#if companion.httpsLink}
+          <a class="btn btn-sm btn-primary" href={companion.httpsLink}>{t('shell.banner.https.open')}</a>
+        {/if}
+        <button class="btn btn-sm btn-ghost" onclick={dismissHttpsBanner} aria-label={t('shell.banner.dismiss')}>{t('shell.banner.dismiss')}</button>
+      </div>
+    {/if}
+    <ConnectionNotice />{@render children()}
+  </main>
 {:else}
   <div class="shell" class:working={Boolean(workPhase)} data-work-phase={workPhase}>
     <span class="sr-only" role="status">{workPhase === 'thinking' ? t('shell.working.thinking') : workPhase === 'working' ? t('shell.working.working') : ''}</span>
@@ -218,6 +230,9 @@
         <div class="banner danger" role="alert">
           <Icon name="alert" />
           <span>{t('shell.banner.https')}</span>
+          {#if companion.httpsLink}
+            <a class="btn btn-sm btn-primary" href={companion.httpsLink}>{t('shell.banner.https.open')}</a>
+          {/if}
           <button class="btn btn-sm btn-ghost" onclick={dismissHttpsBanner} aria-label={t('shell.banner.dismiss')}>{t('shell.banner.dismiss')}</button>
         </div>
       {/if}
