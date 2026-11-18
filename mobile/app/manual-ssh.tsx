@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -56,6 +57,7 @@ interface Notice {
 }
 
 export default function ManualSshScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [host, setHost] = useState('');
@@ -270,13 +272,10 @@ export default function ManualSshScreen() {
             reportDisabledPress
             accessibilityHint="Abre la conexión SSH con tu computadora"
           />
-          {/* V1 (QR scan) is not part of this slice, so the artboard's secondary
-              action is rendered disabled instead of pointing at a missing route. */}
           <GhostButton
             label="Escanear el QR en su lugar"
-            onPress={() => undefined}
-            disabled
-            accessibilityHint="El escaneo de QR todavía no está implementado en esta build"
+            onPress={() => router.replace('/scan-qr')}
+            accessibilityHint="Vuelve a la pantalla de escaneo de QR"
           />
         </View>
       </KeyboardAvoidingView>

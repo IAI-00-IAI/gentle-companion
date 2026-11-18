@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 
-/** Entry route: onboarding starts at manual SSH entry (V2) until V1 ships. */
+/** Entry route: QR first (V1), manual SSH as the alternative path (V2). */
 export default function Index() {
-  return <Redirect href="/manual-ssh" />;
+  return <Redirect href="/scan-qr" />;
 }
