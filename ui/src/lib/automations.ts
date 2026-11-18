@@ -119,13 +119,15 @@ export function minimumTriggerGap(expression: string): number {
 export function validateAutomationStep(value: unknown, label = 'Step'): void {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label}: provide a JSON object.`);
   const step = value as Record<string, unknown>;
-  if (!['command', 'pi'].includes(String(step.type))) throw new Error(`${label}: type must be command or pi.`);
+  // `gentle-shell` is what the editor writes and what its message promises; `pi` is the
+  // legacy name, still accepted so automations saved before the rename keep validating.
+  if (!['command', 'gentle-shell', 'pi'].includes(String(step.type))) throw new Error(`${label}: type must be command or gentle-shell.`);
   const allowed = step.type === 'command' ? ['type', 'command', 'args', 'cwd', 'timeoutSeconds'] : ['type', 'prompt', 'cwd', 'timeoutSeconds'];
   if (Object.keys(step).some(key => !allowed.includes(key))) throw new Error(`${label}: unknown field.`);
   const text = step.type === 'command' ? step.command : step.prompt;
   if (typeof text !== 'string' || !text.trim() || text.length > 65536 || text.includes('\0')) throw new Error(`${label}: provide a valid ${step.type === 'command' ? 'executable' : 'prompt'}.`);
   if (step.type === 'command' && (!Array.isArray(step.args) || step.args.length > 100 || step.args.some(arg => typeof arg !== 'string' || arg.length > 16384 || arg.includes('\0')))) throw new Error(`${label}: args must be an array of at most 100 valid strings.`);
-  if (step.type === 'pi' && typeof step.cwd !== 'string') throw new Error(`${label}: Pi requires an absolute workdir.`);
+  if ((step.type === 'gentle-shell' || step.type === 'pi') && typeof step.cwd !== 'string') throw new Error(`${label}: Pi requires an absolute workdir.`);
   if (step.cwd !== undefined && (typeof step.cwd !== 'string' || !/^(\/|[a-zA-Z]:[\\/]|\\\\)/.test(step.cwd) || step.cwd.includes('\0'))) throw new Error(`${label}: working directory must be absolute.`);
   if (step.timeoutSeconds !== undefined && (typeof step.timeoutSeconds !== 'number' || !Number.isInteger(step.timeoutSeconds) || step.timeoutSeconds < 1 || step.timeoutSeconds > 86400)) throw new Error(`${label}: timeout must be 1–86400 seconds.`);
 }

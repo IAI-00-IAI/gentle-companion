@@ -22,6 +22,11 @@ pub enum Action {
         #[serde(rename = "timeoutSeconds")]
         timeout_seconds: Option<u64>,
     },
+    /// Runs a headless agent turn. The wire name is `gentle-shell` — the harness that
+    /// carries the Companion extension — which is what the editor writes and what its
+    /// validation message promises. `pi` stays accepted as an alias so definitions saved
+    /// before the rename keep loading.
+    #[serde(rename = "gentle-shell", alias = "pi")]
     Pi {
         prompt: String,
         cwd: String,
@@ -711,6 +716,13 @@ async fn execute_with_retry(
     unreachable!()
 }
 
+/// Program an `Action::Pi` spawns.
+///
+/// `gentle-shell`, not `pi`: the latter runs Pi without gentle-shell's extensions, so the
+/// spawned session would be invisible to the Companion UI and could never surface an ask.
+/// The harness binary is what carries the extension that registers the session.
+const PI_PROGRAM: &str = "gentle-shell";
+
 async fn execute_action(
     state: &AppState,
     id: &str,
@@ -718,7 +730,7 @@ async fn execute_action(
     a: &Action,
     cancel: &mut watch::Receiver<bool>,
 ) -> Result<String, (&'static str, String)> {
-    execute_action_program(state, id, run, a, cancel, FsPath::new("pi")).await
+    execute_action_program(state, id, run, a, cancel, FsPath::new(PI_PROGRAM)).await
 }
 async fn execute_action_program(
     state: &AppState,
@@ -1079,6 +1091,29 @@ pub async fn tick(state: &AppState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// Automations must launch the harness that carries the Companion extension, not the
+    /// bare Pi CLI. `pi` runs Pi without gentle-shell's extensions, so an automation would
+    /// start a session the Companion UI can never see or answer.
+    /// The wire name of the `Action::Pi` variant is `gentle-shell`: that is what the editor
+    /// writes and what its error message promises. `rename_all = "camelCase"` alone would
+    /// serialise the variant as "pi", so an automation authored in the UI failed validation
+    /// with a message that named the very value it rejected.
+    #[test]
+    fn the_wire_name_of_the_pi_action_is_gentle_shell() {
+        let action: Action = serde_json::from_value(serde_json::json!({
+            "type": "gentle-shell", "prompt": "summarize", "cwd": "/tmp"
+        })).expect("'gentle-shell' must deserialize");
+        assert!(matches!(action, Action::Pi { .. }));
+        // It round-trips: what the editor writes is what the daemon reads back.
+        let text = serde_json::to_value(&action).unwrap();
+        assert_eq!(text["type"], "gentle-shell");
+    }
+
+    #[test]
+    fn an_automation_runs_gentle_shell_not_bare_pi() {
+        assert_eq!(PI_PROGRAM, "gentle-shell");
+    }
+
     #[test]
     fn timezone_defaults_and_invalid_zones_are_rejected() {
         let mut d = retry_definition();

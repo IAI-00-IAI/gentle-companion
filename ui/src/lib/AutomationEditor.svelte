@@ -35,7 +35,7 @@
       const rest = stepMatch[2];
       const map: Record<string, string> = {
         'provide a JSON object.': 'automation.editor.error.step.object',
-        'type must be command or pi.': 'automation.editor.error.step.type',
+        'type must be command or gentle-shell.': 'automation.editor.error.step.type',
         'unknown field.': 'automation.editor.error.step.unknown',
         'provide a valid executable.': 'automation.editor.error.step.text',
         'provide a valid prompt.': 'automation.editor.error.step.text',
@@ -75,7 +75,7 @@
   }
 
   function add(stage: Stage, type: 'command' | 'pi') {
-    stages[stage].push({ id: nextId++, text: JSON.stringify(type === 'command' ? { type, command: 'echo', args: ['Hello from Gentle Companion'] } : { type, prompt: 'Summarize this repository without changing files.', cwd: '/absolute/project' }, null, 2) });
+    stages[stage].push({ id: nextId++, text: JSON.stringify(type === 'command' ? { type, command: 'echo', args: ['Hello from Gentle Companion'] } : { type: 'gentle-shell', prompt: 'Summarize this repository without changing files.', cwd: '/absolute/project' }, null, 2) });
   }
   function move(stage: Stage, index: number, delta: number) {
     const list = [...stages[stage]];
