@@ -82,7 +82,12 @@ async function runtimeAsset(path: string): Promise<Response> {
     const cached = await cache.match(path);
     if (cached) return cached;
   }
-  throw new Error(`Could not load ${path}. The daemon may be unreachable or an old version.`);
+  // Nothing on the network and nothing cached. Off-LAN this is the expected state for a
+  // phone that never loaded the app while the daemon was reachable, and the raw asset
+  // path is not actionable: name the thing the user can actually change.
+  throw new Error(
+    'The tunnel runtime is not available on this device yet. Open this workspace once on the same local network as the daemon so it can be saved for offline use, then try again.'
+  );
 }
 
 /** Injects a classic script tag from a text body (the cached or fetched runtime). */
