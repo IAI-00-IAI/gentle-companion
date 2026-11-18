@@ -104,6 +104,22 @@ de un problema de certificado. Si apuntás Firefox a un daemon viejo, eso es lo 
 Los certificados generados antes de este arreglo se reutilizan, así que borrá `<data dir>/tls/`
 y reiniciá el daemon para obtener uno que acepten los dos navegadores.
 
+### Firefox en Android ignora las CA instaladas por el usuario
+
+Aun con un certificado correcto con `CA:TRUE` instalado, **Firefox para Android no confía por
+defecto en el almacén de certificados de usuario de Android**. Chrome sí, y esa diferencia hace
+que parezca un bug de Companion: el mismo origen carga en Chrome y responde "el workspace no
+respondió a tiempo" en Firefox.
+
+Hay que decirle a Firefox que use el almacén del sistema:
+
+1. Ajustes → **Acerca de Firefox** → tocá el logo **cinco veces** → *Ajustes secretos activados*.
+2. Ajustes → **Ajustes secretos** → activá **Use Android CA store**.
+3. Forzá el cierre de Firefox y volvé a abrirlo.
+
+Si preferís no cambiar ajustes del navegador, usá Chrome: no necesita ningún paso extra y da la
+app instalable, el service worker y el cliente completo.
+
 ## Qué resuelve y qué no
 
 **Resuelve**

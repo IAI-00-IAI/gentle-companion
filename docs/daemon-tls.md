@@ -101,6 +101,22 @@ problem. If you point Firefox at an older daemon, that is what you will see.
 Certificates generated before this was fixed are reused, so delete `<data dir>/tls/` and
 restart the daemon to get one that both browsers accept.
 
+### Firefox on Android ignores user-installed CAs
+
+Even with a correct `CA:TRUE` certificate installed, **Firefox for Android does not trust
+the Android user certificate store by default**. Chrome does, which makes the difference look
+like a Companion bug: the same origin loads in Chrome and answers "the workspace did not
+respond in time" in Firefox.
+
+Firefox has to be told to use the system store:
+
+1. Settings → **About Firefox** → tap the logo **five times** → *Secret settings enabled*.
+2. Settings → **Secret settings** → enable **Use Android CA store**.
+3. Force-stop Firefox and reopen it.
+
+If you would rather not change browser settings, use Chrome: it needs no extra step and gives
+the installable app, the service worker and the whole client.
+
 ## What this fixes, and what it does not
 
 **Fixes**
