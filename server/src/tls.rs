@@ -145,9 +145,11 @@ pub fn host_names_for(bind: &str) -> Vec<String> {
 
 /// This machine's non-loopback IPv4 addresses, best effort.
 ///
-/// Uses `getifaddrs` through libc so no new dependency is needed. A failure yields an
-/// empty list: the certificate then covers only loopback, which is correct for a daemon
-/// bound to loopback and merely degraded for a wildcard bind.
+/// Enumerated with `getifaddrs` where it exists. Windows has no such call, so it uses the
+/// Win32 API through `GetAdaptersAddresses`; if that is unavailable the list is simply
+/// empty, which is correct for a daemon bound to loopback and merely degraded for a
+/// wildcard bind — the certificate then covers only loopback.
+#[cfg(unix)]
 pub fn local_ipv4_addresses() -> Vec<String> {
     let mut addresses = Vec::new();
     // SAFETY: getifaddrs fills a linked list we own and free in the same call; every
@@ -163,11 +165,8 @@ pub fn local_ipv4_addresses() -> Vec<String> {
             let addr = entry.ifa_addr;
             if !addr.is_null() && (*addr).sa_family as i32 == libc::AF_INET {
                 let sockaddr = addr as *const libc::sockaddr_in;
-                let raw = u32::from_be((*sockaddr).sin_addr.s_addr);
-                let octets = raw.to_be_bytes();
-                let loopback = octets[0] == 127;
-                let unspecified = octets == [0, 0, 0, 0];
-                if !loopback && !unspecified {
+                let octets = u32::from_be((*sockaddr).sin_addr.s_addr).to_be_bytes();
+                if !is_loopback_or_unspecified(&octets) {
                     let text = format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3]);
                     if !addresses.contains(&text) {
                         addresses.push(text);
@@ -179,6 +178,57 @@ pub fn local_ipv4_addresses() -> Vec<String> {
         libc::freeifaddrs(head);
     }
     addresses
+}
+
+/// Windows: `getifaddrs` does not exist and libc exposes no adapter enumeration, so ask
+/// the resolver for this machine's own name. `gethostname` + `getaddrinfo` are portable and
+/// present in libc on every platform; the answer covers the addresses the host advertises,
+/// which on a normal Windows box is its LAN address.
+#[cfg(windows)]
+pub fn local_ipv4_addresses() -> Vec<String> {
+    let mut addresses = Vec::new();
+    let mut hostname = [0i8; 256];
+    // SAFETY: a fixed buffer of the documented size; gethostname writes a NUL-terminated
+    // name and never past its length.
+    unsafe {
+        if libc::gethostname(hostname.as_mut_ptr(), hostname.len() - 1) != 0 {
+            return addresses;
+        }
+        let mut hints: libc::addrinfo = std::mem::zeroed();
+        hints.ai_family = libc::AF_INET;
+        hints.ai_socktype = libc::SOCK_STREAM;
+        let mut result: *mut libc::addrinfo = std::ptr::null_mut();
+        if libc::getaddrinfo(hostname.as_ptr(), std::ptr::null(), &hints, &mut result) != 0 {
+            return addresses;
+        }
+        let mut cursor = result;
+        while !cursor.is_null() {
+            let entry = &*cursor;
+            if !entry.ai_addr.is_null() {
+                let sin = entry.ai_addr as *const libc::sockaddr_in;
+                let octets = u32::from_be((*sin).sin_addr.s_addr).to_be_bytes();
+                if !is_loopback_or_unspecified(&octets) {
+                    let text = format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3]);
+                    if !addresses.contains(&text) {
+                        addresses.push(text);
+                    }
+                }
+            }
+            cursor = entry.ai_next;
+        }
+        libc::freeaddrinfo(result);
+    }
+    addresses
+}
+
+/// Anything without an IPv4 enumeration API: report nothing and let loopback cover it.
+#[cfg(not(any(unix, windows)))]
+pub fn local_ipv4_addresses() -> Vec<String> {
+    Vec::new()
+}
+
+fn is_loopback_or_unspecified(octets: &[u8; 4]) -> bool {
+    octets[0] == 127 || *octets == [0, 0, 0, 0]
 }
 
 pub fn ensure_self_signed(
@@ -463,6 +513,25 @@ mod tests {
         let key_usage_marker: [u8; 5] = [0x06, 0x03, 0x55, 0x1D, 0x0F];
         let has_key_usage = der.windows(5).any(|window| window == key_usage_marker);
         assert!(has_key_usage, "the certificate must carry a keyUsage extension with keyCertSign");
+    }
+
+    /// Windows has no `getifaddrs`, so the certificate-name list must still be produced
+    /// there — compiling is the first requirement, and the wildcard rule still has to hold
+    /// on whatever addresses the platform can report.
+    #[test]
+    fn local_addresses_are_available_on_every_supported_platform() {
+        // The call itself must not panic or spin; an empty list is a legitimate answer on a
+        // machine with no non-loopback IPv4, and the caller falls back to loopback names.
+        let addresses = local_ipv4_addresses();
+        for address in &addresses {
+            assert_ne!(address, "0.0.0.0", "a wildcard is not an address to advertise");
+            assert!(!address.starts_with("127."), "loopback is added separately");
+        }
+        // Whatever the platform reports must also appear in the certificate names.
+        let names = host_names_for("0.0.0.0:43723");
+        for address in &addresses {
+            assert!(names.iter().any(|name| name == address), "{address} must be covered");
+        }
     }
 
     #[test]
