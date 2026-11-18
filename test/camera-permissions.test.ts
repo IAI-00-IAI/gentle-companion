@@ -111,6 +111,11 @@ test('closing the scanner releases a camera granted after dismissal', async () =
     $state: (value: unknown) => value,
     $derived: (value: unknown) => value,
     $effect: () => {},
+    // The page derives whether to show the pairing form; this test is about the camera, so
+    // a permissive stub keeps the script evaluation independent of the pairing rules.
+    showsPairingForm: () => true,
+    showsRevokedNotice: () => false,
+    companion: { token: null, connection: 'connecting' },
     onMount: (fn: () => void) => fn(),
     onDestroy: () => {},
     page: { url: new URL('https://companion.example/pair') },

@@ -9,8 +9,13 @@
   import { errorMessage } from '#lib/toast.svelte.ts';
   import { cameraAvailability, cameraFailure, devicePermissions, openCameraStream } from '#lib/device-permissions.svelte.ts';
   import { t , langStore} from '#lib/i18n.svelte.ts';;
+  import { showsPairingForm, showsRevokedNotice } from '#lib/pairing-state.ts';
 
   const invite = $derived(page.url.searchParams.get('invite'));
+  // A revoked device keeps its screen instead of a dead end: the token is already gone, so
+  // pairing again is the only useful action and must stay reachable.
+  const showsForm = $derived(showsPairingForm({ hasToken: Boolean(companion.token), connection: companion.connection, invite: Boolean(invite) }));
+  const showsRevoked = $derived(showsRevokedNotice({ hasToken: Boolean(companion.token), connection: companion.connection, invite: Boolean(invite) }));
   let name = $state(guessName());
   let code = $state('');
   let pairing = $state(false);
@@ -180,11 +185,17 @@ $effect(() => { $langStore; });
   <section class="card pair">
     <img src={logo} alt="Gentle Companion" width="64" height="64" />
 
-    {#if companion.connection === 'revoked' && !invite}
+    {#if showsRevoked}
+      <!-- Explained above the form, never instead of it: a revoked device still has to be
+           able to pair again without reinstalling the app. -->
       <span class="eyebrow">{t('pair.revoked.eyebrow')}</span>
       <h1>{t('pair.revoked.title')}</h1>
       <p class="muted">{t('pair.revoked.body1')}<strong>{t('pair.devices')}</strong>{t('pair.revoked.body2')}</p>
-    {:else}
+    {/if}
+    {#if showsForm}
+      {#if showsRevoked}
+        <p class="eyebrow">{t('pair.revoked.again')}</p>
+      {/if}
       <span class="eyebrow">{invite ? t('pair.eyebrow.invite') : t('pair.eyebrow.notpaired')}</span>
       <h1>{invite ? t('pair.h1.invite') : t('pair.h1.notpaired')}</h1>
       <p class="muted">{t('pair.intro')}</p>
