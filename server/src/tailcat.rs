@@ -4,6 +4,7 @@
 //! process and captures the tailcat address from stdout. The address is used
 //! by the UI to display the tunnel endpoint for phone clients.
 
+use std::path::Path;
 use std::time::Duration;
 
 use tokio::io::AsyncBufReadExt;
@@ -58,6 +59,24 @@ pub struct TailcatManager {
     error: String,
 }
 
+/// Arguments for `tailcat serve`.
+///
+/// `--key` points at a key file inside the daemon's data directory. Without it tailcat
+/// generates an ephemeral identity, so the tunnel address changes on every start and a
+/// paired phone keeps dialling an address that no longer exists. Keeping the key in our
+/// own directory (rather than tailcat's global config) means it sits with the rest of the
+/// daemon's state and inherits the same permissions.
+pub(crate) fn serve_args(port: u16, data_dir: &Path) -> Vec<String> {
+    let key = data_dir.join("tailcat").join("default.private.json");
+    vec![
+        "serve".to_string(),
+        "--json".to_string(),
+        "--key".to_string(),
+        key.to_string_lossy().into_owned(),
+        port.to_string(),
+    ]
+}
+
 impl TailcatManager {
     pub fn new() -> Self {
         Self {
@@ -97,8 +116,44 @@ impl TailcatManager {
 
         debug!(tailcat_bin = ?tailcat_bin, "starting tailcat server");
 
+        // The key lives in our data dir; tailcat writes it on first start and reuses it
+        // afterwards, which is what keeps the tunnel address stable across restarts.
+        let key_dir = crate::config::data_dir().join("tailcat");
+        if let Err(error) = std::fs::create_dir_all(&key_dir) {
+            let error = TailcatError::Spawn(format!("cannot create {}: {error}", key_dir.display()));
+            self.error = error.to_string();
+            return Err(error);
+        }
+        // tailcat will not create the key itself — it fails with "no such file or
+        // directory" — so generate it once, and reuse it forever after. This is what keeps
+        // the tunnel address stable.
+        let key_path = key_dir.join("default.private.json");
+        if !key_path.exists() {
+            let generated = Command::new(&tailcat_bin)
+                .args(["genkey", "--key"])
+                .arg(&key_path)
+                .stdin(std::process::Stdio::null())
+                .output()
+                .await;
+            match generated {
+                Ok(output) if output.status.success() => {
+                    debug!(key = %key_path.display(), "generated a persistent tailcat key");
+                }
+                Ok(output) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let error = TailcatError::Spawn(format!("tailcat genkey failed: {}", stderr.trim()));
+                    self.error = error.to_string();
+                    return Err(error);
+                }
+                Err(error) => {
+                    let error = TailcatError::Spawn(format!("cannot run tailcat genkey: {error}"));
+                    self.error = error.to_string();
+                    return Err(error);
+                }
+            }
+        }
         let mut output = Command::new(&tailcat_bin)
-            .args(["serve", "--json", &port.to_string()])
+            .args(serve_args(port, &crate::config::data_dir()))
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::inherit())

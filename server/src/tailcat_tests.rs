@@ -130,6 +130,37 @@ async fn tailcat_manager_stop_when_not_running_is_error() {
     assert!(matches!(manager.stop().await, Err(TailcatError::NotRunning)));
 }
 
+/// The tunnel address must survive a daemon restart.
+///
+/// tailcat with no `--key` generates an ephemeral identity, so every start yields a new
+/// address. A phone that stored the previous one keeps dialling something that no longer
+/// exists — which is exactly the failure observed live: the tunnel "did not respond in
+/// time" because five restarts had invalidated five addresses. Passing a persistent key
+/// path keeps the address stable, so a paired device keeps working across restarts,
+/// upgrades and crashes.
+#[test]
+fn the_tailcat_command_uses_a_persistent_key_inside_the_data_directory() {
+    let dir = std::path::Path::new("/tmp/companion-tailcat-test");
+    let args = crate::tailcat::serve_args(43722, dir);
+
+    let key_position = args.iter().position(|arg| arg == "--key").expect("--key must be passed");
+    let key_path = &args[key_position + 1];
+
+    assert!(
+        key_path.starts_with(&dir.to_string_lossy().into_owned()),
+        "the key must live in the daemon's data dir, not in a global config: {key_path}"
+    );
+    assert!(
+        key_path.ends_with(".private.json"),
+        "tailcat expects a *.private.json key path: {key_path}"
+    );
+    // Never "new": that is the ephemeral mode this fix exists to replace.
+    assert_ne!(key_path, "new");
+    // The port and --json keep working exactly as before.
+    assert!(args.contains(&"--json".to_string()));
+    assert!(args.contains(&43722.to_string()));
+}
+
 #[tokio::test]
 async fn settings_roundtrip_preserves_tailcat_fields() {
     let tmp = scratch("settings-roundtrip");
