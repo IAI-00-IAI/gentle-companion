@@ -193,12 +193,14 @@ $effect(() => { $langStore; });
       <p class="muted">{t('pair.revoked.body1')}<strong>{t('pair.devices')}</strong>{t('pair.revoked.body2')}</p>
     {/if}
     {#if showsForm}
-      {#if showsRevoked}
-        <p class="eyebrow">{t('pair.revoked.again')}</p>
+      <!-- The revoked block above already explains the situation and names the action, so
+           repeating "not paired yet / connect this device" here stacked two headings that
+           said the same thing. One explanation, then the form. -->
+      {#if !showsRevoked}
+        <span class="eyebrow">{invite ? t('pair.eyebrow.invite') : t('pair.eyebrow.notpaired')}</span>
+        <h1>{invite ? t('pair.h1.invite') : t('pair.h1.notpaired')}</h1>
+        <p class="muted">{t('pair.intro')}</p>
       {/if}
-      <span class="eyebrow">{invite ? t('pair.eyebrow.invite') : t('pair.eyebrow.notpaired')}</span>
-      <h1>{invite ? t('pair.h1.invite') : t('pair.h1.notpaired')}</h1>
-      <p class="muted">{t('pair.intro')}</p>
 
       {#if !invite}
         <section class="scanner" aria-label={t('pair.scanner.label')}>
