@@ -1,0 +1,37 @@
+[package]
+name = "mobile-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "AGPL-3.0"
+description = "Gentle Movil Rust core: QR pairing, ed25519 device identity and SSH transport behind the frozen v1 FFI surface (docs/mobile-protocol-spec.md §6)."
+publish = false
+
+[lib]
+name = "mobile_core"
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[dependencies]
+# SSH transport. `ring` backend instead of the default `aws-lc-rs` so the crate
+# builds without a C toolchain-capable cmake/nasm setup and stays on rust 1.75.
+# 0.54.1 is the newest russh release whose MSRV is 1.75.
+russh = { version = "=0.54.1", default-features = false, features = ["ring", "flate2"] }
+# ed25519 device identity + release-signature verification. 2.1.1 is the newest
+# 2.x line that still builds on rust 1.75.
+ed25519-dalek = { version = "=2.1.1", features = ["rand_core"] }
+rand_core = { version = "=0.6.4", features = ["getrandom"] }
+tokio = { version = "=1.42.0", features = ["io-util", "net", "sync", "rt", "time", "macros"] }
+thiserror = "=1.0.69"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+
+# --- MSRV 1.75 pins -------------------------------------------------------------
+# The crates below are pulled in transitively (home by russh, zeroize by
+# ed25519-dalek/curve25519-dalek). Their latest releases raised rust-version above
+# 1.75, so they are pinned here to keep the committed Cargo.lock buildable on the
+# crate's declared MSRV. Remove a pin only together with the `rust-version` field.
+home = "=0.5.9"
+zeroize = "=1.8.1"
+
+[dev-dependencies]
+tokio = { version = "=1.42.0", features = ["io-util", "net", "sync", "rt", "time", "macros"] }
