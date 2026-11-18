@@ -16,3 +16,6 @@ skills/sveltekit-svelte5-tailwind-skill/
 
 # Assembled static client (npm run client:publish)
 dist/
+
+# Local planning bundle (per-session handoffs and next-development plans)
+local/
