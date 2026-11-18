@@ -100,11 +100,19 @@ where the binary cache and `state.json` live.
 
 ## Settings that outlive the environment
 
-`Settings.deviceBind` is persisted rather than read only from the environment, because the
-supervisor rewrites the service environment on every upgrade. A bind configured only
-through `PI_COMPANION_DEVICE_ADDR` would silently vanish at the next version. The env var
-still wins at runtime (an operator override for one run), but the durable answer is in
-`state.json`. See [Process model](../architecture/process-model.md).
+Three settings persist in `state.json` rather than living only in the environment, for the
+same reason: the supervisor rewrites the service environment on every upgrade, so anything
+configured only there silently vanishes at the next version.
+
+| Setting | Field | Why it must be persisted |
+| --- | --- | --- |
+| `deviceBind` | `server/src/config.rs:51` | The bind address the user configured must survive a supervisor reinstall |
+| `pairingHttps` | `server/src/config.rs:59` | Point the pairing QR at the HTTPS surface — off means the QR stays plain HTTP |
+| `tlsSelfSigned` | `server/src/config.rs:67` | The HTTPS opt-in switch; it disappeared twice before it became a setting |
+
+The env var still wins at runtime (an operator override for one run), but the durable
+answer is in `state.json`. See [Process model](../architecture/process-model.md) and
+[TLS](../subsystems/tls.md).
 
 ## Related
 

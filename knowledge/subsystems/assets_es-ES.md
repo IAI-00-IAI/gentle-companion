@@ -86,6 +86,26 @@ La división es lo que hace invisible una actualización: el shell siempre se re
 que una compilación nueva se nota en la próxima carga, mientras que los assets hasheados
 nunca se vuelven a traer.
 
+## El service worker
+
+El service worker (`ui/static/service-worker.js`) decide qué pasa cuando el daemon está
+inalcanzable, y cachea por *rol*:
+
+| Qué | Política | Por qué |
+| --- | --- | --- |
+| Nombre de caché | `pi-companion-shell-v7` (línea 4) | Subir la versión es cómo un worker invalida sus propias cachés al activarse |
+| Navegaciones | Network-first, con una respuesta ≥500 o un rechazo de `fetch` cayendo al shell cacheado | Un túnel cerrado puede responder con una página HTML de gateway, no solo un error de fetch; el shell puede explicarlo y ofrecer reintentar |
+| `/_app/immutable/*` | **Network-first**, la caché solo como fallback sin conexión (línea 41) | Los nombres hasheados son únicos por compilación, así que una copia cacheada está o actualizada o vencida para siempre |
+| La lista `SHELL` (`/`, manifest, iconos) | Cache-first (línea 56) | Chica, estable, necesaria sin conexión |
+| `/api/*`, `/ws/*` | Nunca se cachea | Los datos tienen que estar vivos |
+
+La regla network-first para los assets hasheados existe por un bug real: cache-first **fijó
+la app a la compilación que se cacheó primero**, de modo que el shell recién revalidado
+cargaba y después cada asset daba 404 — el daemon ya no servía esos nombres hasheados. El
+modo incógnito funcionaba porque no tiene service worker, que es justamente la firma de ese
+bug. Los cambios de ruta en el cliente por sí solos nunca lo arreglan; un bump de versión
+del worker y network-first son lo que lo arregla.
+
 ## Verificación
 
 Tres tests en `server/src/assets.rs` cubren el servicio, el fallback y el header de CSP.

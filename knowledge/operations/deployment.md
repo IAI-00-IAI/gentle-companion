@@ -43,10 +43,35 @@ Two ways, and they solve different problems:
 
 | Route | Gives | Costs |
 | --- | --- | --- |
-| **TLS on the daemon** (`PI_COMPANION_TLS_SELF_SIGNED=1`) | Secure context on the LAN; installable app; clipboard | A certificate warning unless you supply a real cert |
+| **TLS on the daemon** (the persisted `tlsSelfSigned` switch, or `PI_COMPANION_TLS_SELF_SIGNED=1`) | Secure context on the LAN; installable app; clipboard | A certificate warning unless you supply a real cert |
 | **Static host** (`npm run client:publish`) | Secure origin that works from anywhere; the daemon is only reached through the tunnel | A public deploy step; the origin must be allowed |
 
 Both are documented in full in `docs/daemon-tls.md` and `docs/static-client-host.md`.
+
+## Publishing the client to a static host
+
+The same client build can be published to any static host (GitHub Pages, Netlify, …) with
+`npm run client:publish` (`tools/publish-client.mjs`); `--check` only verifies the build.
+The workflow is `.github/workflows/pages.yml`.
+
+**`.nojekyll` is required** (`tools/publish-client.mjs:101`): GitHub Pages runs Jekyll by
+default, and Jekyll drops directories starting with `_` — which is exactly where the
+built client lives (`_app/`). Without the file the page loads and every asset 404s.
+
+**Base path.** Pages serves a project site under `/<repo>/`, while the built SPA references
+its assets from the root (`/ _app/...`). Two supported setups — without one of the two, the
+page loads but its assets 404:
+
+- A custom domain (Settings → Pages → Custom domain) serves at the root: nothing else to do.
+- The default `github.io/<repo>/` path needs the client rebuilt with that base: set the
+  `BASE_PATH` variable (workflow input, or `ui/vite.config.ts:25`,
+  `paths.base = process.env.BASE_PATH || ''`) to `/<repo>` and the build picks it up.
+
+**Allowed origins.** A phone served from the static host reaches the daemon only through the
+tailcat tunnel, and the daemon validates `Origin`. Add the static origin to
+`PI_COMPANION_ALLOWED_ORIGINS` (comma-separated), or the WebSocket answers
+**403 Origin not allowed** after a successful claim — the failure that looks like a broken
+pairing and is not.
 
 ## Environment variables
 

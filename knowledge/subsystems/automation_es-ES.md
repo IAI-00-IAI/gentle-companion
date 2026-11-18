@@ -91,7 +91,29 @@ sequenceDiagram
   end
 ```
 
-`Action::Pi` spawnnea `pi --mode rpc --no-session` con
+## La acción de agente
+
+El tipo de acción de agente es **`gentle-shell`**: el rename de serde es explícito
+(`#[serde(rename = "gentle-shell", alias = "pi")]` sobre la variante `Pi`)
+(`server/src/automation.rs:22–32`), y el alias `pi` sigue aceptándose para que las
+definiciones guardadas antes del rename sigan cargando. El editor de la UI solo escribe y
+solo acepta `command | gentle-shell | pi` (`ui/src/lib/automations.ts:124`).
+
+Dos razones para que el nombre en el cable no sea `pi`:
+
+- El daemon spawnnea `gentle-shell` (el programa es `PI_PROGRAM = "gentle-shell"`,
+  `server/src/automation.rs:724`), no `pi`: el segundo corre Pi sin las extensiones de
+  gentle-shell, así que la sesión spawnneada sería invisible para la UI de Companion y
+  nunca podría mostrar una pregunta en el teléfono.
+- El editor ya escribía `gentle-shell` mientras el daemon todavía esperaba el nombre viejo,
+  así que una automatización creada en la UI fallaba la validación con un mensaje que
+  nombraba el valor que rechazaba — el desajuste era pura deriva del formato en el cable
+  (arreglado en `server/src/automation.rs:29`).
+
+## La acción
+
+La acción de agente es `Action::Pi { prompt, cwd, timeout_seconds }` (`server/src/automation.rs:28–32`).
+Spawnnea `gentle-shell` (`PI_PROGRAM`, `server/src/automation.rs:724`) con
 `PI_COMPANION_AUTOMATION_{ID,RUN_ID}` en el entorno, registra una sesión **read-only y
 remote-enabled**, retransmite los asks de `extension_ui_request` a los dispositivos con
 deadlines, y completa en `agent_settled` (`:830–1050`).
@@ -107,7 +129,7 @@ un flake; una post-acción fallida se reporta pero no resucita el run.
 ## Cancelación y recuperación de crashes
 
 La cancelación manda señales al **grupo** de procesos, no al proceso (`:830–1050`), así que
-un hijo `pi` que spawneara una shell muere con ella. En el apagado, `cancel_all` espera 5 s
+un hijo `gentle-shell` que spawneara una shell muere con ella. En el apagado, `cancel_all` espera 5 s
 (`:1036`) antes de rendirse con un run.
 
 La persistencia es `automations.json`, escrito atómicamente (tmp + rename). Al arrancar,

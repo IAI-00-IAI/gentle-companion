@@ -81,6 +81,25 @@ policy invalidates caches that would otherwise keep the old headers.
 The split is what makes an upgrade invisible: the shell is always revalidated, so a new
 build is noticed on the next load, while the hashed assets are never re-fetched.
 
+## The service worker
+
+The service worker (`ui/static/service-worker.js`) decides what happens when the daemon is
+unreachable, and it caches by *role*:
+
+| What | Policy | Why |
+| --- | --- | --- |
+| Cache name | `pi-companion-shell-v7` (line 4) | Bumping the version is how a worker invalidates its own caches on activate |
+| Navigations | Network-first, with a ≥500 answer or a `fetch` rejection falling back to the cached shell | A closed tunnel can answer with a gateway HTML page, not just a fetch error; the shell can explain that and offer retry |
+| `/_app/immutable/*` | **Network-first**, cache only as the offline fallback (line 41) | Hashed names are unique per build, so a cached copy is either current or stale forever |
+| The `SHELL` list (`/`, manifest, icons) | Cache-first (line 56) | Small, stable, needed offline |
+| `/api/*`, `/ws/*` | Never cached | Data must be live |
+
+The network-first rule for hashed assets exists because of a real bug: cache-first **pinned
+the app to whatever build was cached first**, so the freshly revalidated shell loaded and
+then every asset 404'd — the daemon no longer served those hashed names. Incognito worked
+because it has no service worker, which is the signature of exactly this bug. Client-side
+route changes alone never fix it; a worker version bump and network-first are what fix it.
+
 ## Verification
 
 Three tests in `server/src/assets.rs` cover serving, the fallback, and the CSP header.

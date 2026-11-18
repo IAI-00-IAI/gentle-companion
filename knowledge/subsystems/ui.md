@@ -142,6 +142,15 @@ icons; everything under `/api/` and `/ws/`, all non-GET, and all cross-origin re
 **online-only**. Navigations are network-first with a cache fallback on ≥500 or fetch
 failure — which is what stops a gateway error page from replacing the app.
 
+Hashed assets get special treatment. `/_app/immutable/*` is **network-first** with the cache
+as the offline fallback (`service-worker.js:41`), not cache-first: hashed names are unique
+per build, so a cached copy is either current or stale forever. Cache-first pinned the app
+to whatever build was cached first — the freshly revalidated shell loaded, then every asset
+404'd because the daemon no longer served those hashed names. Incognito worked because it
+has no service worker, which is the signature of exactly this bug. The worker version
+(`pi-companion-shell-v7`, line 4) and network-first are what fix it. See
+[Assets](../subsystems/assets.md).
+
 Registration is gated on `window.isSecureContext`, which is exactly why the
 [TLS surface](../subsystems/tls.md) exists.
 

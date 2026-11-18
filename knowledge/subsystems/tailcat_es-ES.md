@@ -81,6 +81,27 @@ muere.
 | Puerto cambiado en settings | Reiniciar en el puerto nuevo (`:951`) |
 | Apagado del daemon | `stop_tailcat` |
 
+## La identidad persistente
+
+La dirección del túnel es **persistente**, y eso es deliberado — la dirección es todo el
+sentido del túnel.
+
+`serve_args(port, data_dir)` (`server/src/tailcat.rs:69`) apunta `--key` a
+`<data dir>/tailcat/default.private.json`, y en el primer uso `start` corre
+`tailcat genkey --key <path>` (`:130–136`) para escribirla. La clave vive en el directorio
+de datos del propio daemon en lugar de la configuración global de tailcat, así queda con el
+resto del estado del daemon y hereda los mismos permisos.
+
+El paso de genkey existe porque **tailcat no crea el archivo de clave por sí mismo** — se
+niega a arrancar con "no such file or directory" (`:127`). El manager la genera una vez y
+la reutiliza para siempre después.
+
+Sin `--key`, tailcat genera una **identidad efímera**, y la dirección del túnel cambia en
+cada arranque del daemon. Un teléfono emparejado sigue marcando una dirección que ya no
+existe; la UI reporta "el workspace no respondió a tiempo", que se lee exactamente como un
+fallo de red. La clave persistente es sobre lo que realmente descansa el poder ser
+alcanzable fuera de casa — ver [Fallback de túnel](../flows/tunnel-fallback_es-ES.md).
+
 ## Deuda conocida
 
 Los hijos de `tailcat serve` pueden quedar huérfanos cuando el daemon muere sin ejecutar su

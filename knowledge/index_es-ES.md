@@ -1,8 +1,8 @@
----
+--- 
 okf_version: "0.2"
 title: Bundle de conocimiento de gentle-companion
 description: Arquitectura, subsistemas, flujos y operación de gentle-companion — una extensión de Pi más un daemon en Rust que pone la UI real de Companion en un teléfono.
-generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-18T07:47:50Z }
 ---
 
 # gentle-companion
@@ -36,8 +36,8 @@ teléfono como una app web real, alcanzable por la LAN o a través de un túnel 
 | [Protocolo](subsystems/protocol_es-ES.md) | Conjuntos de mensajes de ambos WebSockets |
 | [Bridge](subsystems/bridge_es-ES.md) | Búsqueda de archivos y proxy de endpoints loopback |
 | [Automatizaciones](subsystems/automation_es-ES.md) | Definiciones, tick de cron, ejecución de runs |
-| [Tailcat](subsystems/tailcat_es-ES.md) | Proceso del túnel y espejo loopback |
-| [TLS](subsystems/tls_es-ES.md) | HTTPS optativo en puerto dedicado |
+| [Tailcat](subsystems/tailcat_es-ES.md) | Proceso del túnel y espejo loopback — la identidad persistente y la estabilidad de dirección que compra |
+| [TLS](subsystems/tls_es-ES.md) | HTTPS optativo en puerto dedicado — tres modos, regla del wildcard, restricción de Firefox en Android, `/cert.pem` |
 | [Assets](subsystems/assets_es-ES.md) | SPA embebido, CSP, caché |
 | [UI](subsystems/ui_es-ES.md) | Rutas, máquina de estados de conexión, direct-first |
 | [Shims del túnel](subsystems/tunnel-shims_es-ES.md) | Clientes HTTP/1.1 y RFC 6455 sobre el túnel |

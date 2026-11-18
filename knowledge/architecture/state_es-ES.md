@@ -100,12 +100,20 @@ dónde viven el caché del binario y `state.json`.
 
 ## Settings que sobreviven al entorno
 
-`Settings.deviceBind` se persiste en lugar de leerse solo del entorno, porque el supervisor
-reescribe el entorno del servicio en cada actualización. Un bind configurado solo por
-`PI_COMPANION_DEVICE_ADDR` desaparecería en silencio en la próxima versión. La variable de
-entorno sigue ganando en runtime (un override del operador para una corrida), pero la
-respuesta durable está en `state.json`. Mirá
-[Modelo de procesos](../architecture/process-model_es-ES.md).
+Tres settings se persisten en `state.json` en lugar de vivir solo en el entorno, por la
+misma razón: el supervisor reescribe el entorno del servicio en cada actualización, así que
+cualquier cosa configurada solo ahí desaparece en silencio en la próxima versión.
+
+| Setting | Campo | Por qué debe persistirse |
+| --- | --- | --- |
+| `deviceBind` | `server/src/config.rs:51` | La dirección de bind que el usuario configuró debe sobrevivir a una reinstalación del supervisor |
+| `pairingHttps` | `server/src/config.rs:59` | Apunta el QR de emparejamiento a la superficie HTTPS — apagado significa que el QR queda en HTTP plano |
+| `tlsSelfSigned` | `server/src/config.rs:67` | El interruptor de participación HTTPS; desapareció dos veces antes de convertirse en un setting |
+
+La variable de entorno sigue ganando en runtime (un override del operador para una
+corrida), pero la respuesta durable está en `state.json`. Mirá
+[Modelo de procesos](../architecture/process-model_es-ES.md) y
+[TLS](../subsystems/tls_es-ES.md).
 
 ## Relacionados
 

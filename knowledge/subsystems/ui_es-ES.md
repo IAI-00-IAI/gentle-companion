@@ -146,6 +146,16 @@ todo lo que está bajo `/api/` y `/ws/`, todo lo no-GET, y todas las peticiones 
 van **online-only**. Las navegaciones son network-first con un fallback de caché en ≥500 o
 fallo de fetch — que es lo que evita que una página de error de gateway reemplace la app.
 
+Los assets hasheados reciben un tratamiento especial. `/_app/immutable/*` va
+**network-first** con la caché como fallback sin conexión (`service-worker.js:41`), no
+cache-first: los nombres hasheados son únicos por compilación, así que una copia cacheada
+está o actualizada o vencida para siempre. Cache-first fijó la app a la compilación que se
+cacheó primero — el shell recién revalidado cargaba, y después cada asset daba 404 porque
+el daemon ya no servía esos nombres hasheados. El modo incógnito funcionaba porque no
+tiene service worker, que es justamente la firma de ese bug. La versión del worker
+(`pi-companion-shell-v7`, línea 4) y network-first son lo que lo arregla. Ver
+[Assets](../subsystems/assets_es-ES.md).
+
 El registro está condicionado a `window.isSecureContext`, que es exactamente por qué existe
 la [superficie TLS](../subsystems/tls_es-ES.md).
 

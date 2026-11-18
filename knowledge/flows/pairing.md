@@ -74,6 +74,22 @@ Beyond the token, the claim response carries `tunnelAddr` and `tunnelPort`
 (`server/src/main.rs`). That is what lets a phone that paired over the LAN keep working
 after it leaves the network: it already knows how to dial the tunnel.
 
+## What the QR encodes
+
+`pairing_base` (`server/src/main.rs:721`) decides where the QR points. When it returns the
+plain public URL, the QR encodes `http://<host>:<port>/pair?invite=…`; when the HTTPS
+surface is up **and** `Settings.pairingHttps` (`server/src/config.rs:59`) is on, it returns
+the HTTPS twin — `https://<host>:<tls port>/pair?invite=…` — instead.
+
+Both forms carry the same `#tunnel={addr}&port={port}` fragment when the tunnel is running
+(`server/src/main.rs:995–1006`), so the phone learns the tunnel either way.
+
+The claim accepts **either origin** of the same daemon: the HTTPS twin of an already
+allowed plain-HTTP origin is accepted by `device_origins` (`server/src/main.rs`), which
+adds the twins of every allowed origin when the TLS port is live (`:694–700`). A QR minted
+before TLS was switched on still pairs after the switch — the phone does not have to
+re-scan.
+
 ## Failure modes
 
 | Symptom | Cause | Fix |

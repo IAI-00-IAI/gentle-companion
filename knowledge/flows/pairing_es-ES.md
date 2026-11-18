@@ -78,6 +78,23 @@ Más allá del token, la respuesta del claim lleva `tunnelAddr` y `tunnelPort`
 (`server/src/main.rs`). Eso es lo que le permite a un teléfono que se emparejó por la LAN
 seguir funcionando después de salir de la red: ya sabe cómo discar al túnel.
 
+## Qué codifica el QR
+
+`pairing_base` (`server/src/main.rs:721`) decide a dónde apunta el QR. Cuando devuelve la
+URL pública plana, el QR codifica `http://<host>:<puerto>/pair?invite=…`; cuando la
+superficie HTTPS está activa **y** `Settings.pairingHttps` (`server/src/config.rs:59`) está
+activo, devuelve el gemelo HTTPS — `https://<host>:<puerto tls>/pair?invite=…` — en su
+lugar.
+
+Ambas formas llevan el mismo fragmento `#tunnel={addr}&port={port}` cuando el túnel está
+corriendo (`server/src/main.rs:995–1006`), así que el teléfono aprende el túnel igual.
+
+El claim acepta **cualquiera de las dos** formas de origen del mismo daemon: el gemelo
+HTTPS de un origen plano-HTTP ya permitido es aceptado por `device_origins`
+(`server/src/main.rs`), que agrega los gemelos de todo origen permitido cuando el puerto
+TLS está activo (`:694–700`). Un QR generado antes de activar TLS sigue emparejando
+después del cambio — el teléfono no tiene que re-escanear.
+
 ## Modos de falla
 
 | Síntoma | Causa | Arreglo |

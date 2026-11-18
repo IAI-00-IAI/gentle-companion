@@ -74,7 +74,7 @@ run by at most half a minute and never skips one.
 sequenceDiagram
   participant T as tick
   participant R as run task
-  participant P as pi --mode rpc
+  participant P as gentle-shell --mode rpc
   participant D as devices
   T->>R: spawn
   R->>R: preconditions
@@ -90,7 +90,11 @@ sequenceDiagram
   end
 ```
 
-`Action::Pi` spawns `pi --mode rpc --no-session` with
+## The agent action
+
+The agent action is `Action::Pi { prompt, cwd, timeout_seconds }`, with the wire name
+`gentle-shell` (see [below](#the-agent-action)).
+It spawns `gentle-shell` (`PI_PROGRAM`, `server/src/automation.rs:724`) with
 `PI_COMPANION_AUTOMATION_{ID,RUN_ID}` in the environment, registers a **read-only,
 remote-enabled** session, relays `extension_ui_request` asks to devices with deadlines, and
 completes on `agent_settled` (`:830–1050`).
@@ -102,9 +106,27 @@ user can *watch* and *answer*, not steer.
 Only the main actions are retried. A failed precondition is a decision, not a flake; a
 failed post-action is reported but does not resurrect the run.
 
+## The agent action
+
+The agent action type is **`gentle-shell`**: the serde rename is explicit
+(`#[serde(rename = "gentle-shell", alias = "pi")]` on the `Pi` variant)
+(`server/src/automation.rs:22–32`), and the `pi` alias stays accepted so definitions saved
+before the rename keep loading. The UI editor only writes and only accepts
+`command | gentle-shell | pi` (`ui/src/lib/automations.ts:124`).
+
+Two reasons the wire name is not `pi`:
+
+- The daemon spawns `gentle-shell` (the program is `PI_PROGRAM = "gentle-shell"`,
+  `server/src/automation.rs:724`), not `pi`: the latter runs Pi without gentle-shell's
+  extensions, so the spawned session would be invisible to the Companion UI and could
+  never surface an ask on the phone.
+- The editor already wrote `gentle-shell` while the daemon still expected the legacy name,
+  so an automation authored in the UI failed validation with a message naming the value it
+  rejected — the mismatch was pure wire-format drift (fixed at `server/src/automation.rs:29`).
+
 ## Cancellation and crash recovery
 
-Cancellation sends to the process **group**, not the process (`:830–1050`), so a `pi`
+Cancellation sends to the process **group**, not the process (`:830–1050`), so a `gentle-shell`
 child that spawned a shell dies with it. On shutdown, `cancel_all` waits 5 s
 (`:1036`) before giving up on a run.
 

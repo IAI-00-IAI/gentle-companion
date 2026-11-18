@@ -78,6 +78,27 @@ the broadcast is what keeps an open page current when the tunnel comes up or die
 | Port changed in settings | Restart on the new port (`:951`) |
 | Daemon shutdown | `stop_tailcat` |
 
+## The persistent identity
+
+The tunnel address is **persistent**, and that is deliberate — the address is the whole
+point of the tunnel.
+
+`serve_args(port, data_dir)` (`server/src/tailcat.rs:69`) points `--key` at
+`<data dir>/tailcat/default.private.json`, and on first use `start` runs
+`tailcat genkey --key <path>` (`:130–136`) to write it. The key lives in the daemon's own
+data directory rather than tailcat's global config, so it sits with the rest of the
+daemon's state and inherits the same permissions.
+
+The genkey step exists because **tailcat will not create the key file itself** — it refuses
+to start with "no such file or directory" (`:127`). The manager generates it once and
+reuses it forever after.
+
+Without `--key`, tailcat generates an **ephemeral identity**, and the tunnel address
+changes on every daemon start. A paired phone keeps dialling an address that no longer
+exists; the UI reports "the workspace did not respond in time", which looks exactly like a
+network fault. The persistent key is what being reach-able away from home actually rests
+on — see [Tunnel fallback](../flows/tunnel-fallback.md).
+
 ## Known debt
 
 `tailcat serve` children can be orphaned when the daemon dies without running its shutdown

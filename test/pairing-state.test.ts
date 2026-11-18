@@ -28,3 +28,20 @@ test('an invite always shows the pairing form', () => {
 test('the revoked explainer is not shown when an invite is present', () => {
   assert.equal(showsRevokedNotice({ hasToken: false, connection: 'revoked', invite: true }), false);
 });
+
+// The sequence a revocation actually produces: forget() clears the token and sets the
+// connection to 'revoked' in the same tick the layout navigates to /pair. The page must end
+// up showing the form, because the device holds no credential — the state it arrives with
+// is the only input it gets.
+test('the state a revocation hands to the page shows the form', () => {
+  // Exactly what forget() leaves behind.
+  const afterForget = { hasToken: false, connection: 'revoked', invite: false };
+  assert.equal(showsPairingForm(afterForget), true, 'the form must be reachable');
+  assert.equal(showsRevokedNotice(afterForget), true, 'and explained');
+});
+
+test('a device that only lost its connection keeps the app, not the form', () => {
+  // This is the case the rule must NOT break: offline is not unpaired.
+  assert.equal(showsPairingForm({ hasToken: true, connection: 'offline', invite: false }), false);
+  assert.equal(showsRevokedNotice({ hasToken: true, connection: 'offline', invite: false }), false);
+});

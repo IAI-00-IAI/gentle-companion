@@ -44,10 +44,37 @@ Dos caminos, y resuelven problemas distintos:
 
 | Ruta | Da | Cuesta |
 | --- | --- | --- |
-| **TLS en el daemon** (`PI_COMPANION_TLS_SELF_SIGNED=1`) | Contexto seguro en la LAN; app instalable; portapapeles | Una advertencia de certificado salvo que proveas un cert real |
+| **TLS en el daemon** (el interruptor persistido `tlsSelfSigned`, o `PI_COMPANION_TLS_SELF_SIGNED=1`) | Contexto seguro en la LAN; app instalable; portapapeles | Una advertencia de certificado salvo que proveas un cert real |
 | **Host estático** (`npm run client:publish`) | Origen seguro que funciona desde cualquier lugar; el daemon solo se alcanza por el túnel | Un paso de deploy público; el origen debe estar permitido |
 
 Ambos están documentados en detalle en `docs/daemon-tls.md` y `docs/static-client-host.md`.
+
+## Publicar el cliente en un host estático
+
+La misma compilación del cliente se puede publicar en cualquier host estático (GitHub
+Pages, Netlify, …) con `npm run client:publish` (`tools/publish-client.mjs`); `--check`
+solo verifica la compilación. El workflow es `.github/workflows/pages.yml`.
+
+**`.nojekyll` es obligatorio** (`tools/publish-client.mjs:101`): GitHub Pages corre Jekyll
+por defecto, y Jekyll descarta los directorios que empiezan con `_` — que es exactamente
+dónde vive el cliente compilado (`_app/`). Sin el archivo, la página carga y cada asset da
+404.
+
+**Base path.** Pages sirve un sitio de proyecto bajo `/<repo>/`, mientras que el SPA
+compilado referencia sus assets desde la raíz (`/ _app/...`). Dos configuraciones
+soportadas — sin una de las dos, la página carga pero sus assets dan 404:
+
+- Un dominio propio (Settings → Pages → Custom domain) sirve en la raíz: nada más que
+  hacer.
+- El camino por defecto `github.io/<repo>/` necesita que el cliente se recompile con esa
+  base: poné la variable `BASE_PATH` (input del workflow, o `ui/vite.config.ts:25`,
+  `paths.base = process.env.BASE_PATH || ''`) a `/<repo>` y la compilación la toma.
+
+**Orígenes permitidos.** Un teléfono servido desde el host estático alcanza el daemon solo
+por el túnel tailcat, y el daemon valida `Origin`. Agregá el origen estático a
+`PI_COMPANION_ALLOWED_ORIGINS` (separado por comas), o el WebSocket responde
+**403 Origin not allowed** después de un claim exitoso — el fallo que parece un
+emparejamiento roto y no lo es.
 
 ## Variables de entorno
 

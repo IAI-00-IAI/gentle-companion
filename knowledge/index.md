@@ -1,8 +1,8 @@
----
+--- 
 okf_version: "0.2"
 title: gentle-companion knowledge bundle
 description: Architecture, subsystems, flows and operations of gentle-companion — a Pi extension plus a Rust daemon that puts the real Companion UI on a phone.
-generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-17T11:23:06Z }
+generated: { by: agent:gentle-shell/4.8.0-main.95179bd6db8e, at: 2026-11-18T07:47:50Z }
 ---
 
 # gentle-companion
@@ -36,8 +36,8 @@ web app, reached over the LAN or through a tailcat tunnel.
 | [Protocol](subsystems/protocol.md) | Bridge WS and browser WS message sets |
 | [Bridge](subsystems/bridge.md) | File fetch and loopback endpoint proxy |
 | [Automation](subsystems/automation.md) | Definitions, cron tick, run execution |
-| [Tailcat](subsystems/tailcat.md) | Tunnel process and loopback mirror |
-| [TLS](subsystems/tls.md) | Opt-in HTTPS on a dedicated port |
+| [Tailcat](subsystems/tailcat.md) | Tunnel process and loopback mirror — the persistent identity and the address stability it buys |
+| [TLS](subsystems/tls.md) | Opt-in HTTPS on a dedicated port — three modes, the wildcard rule, the Firefox-on-Android constraint, `/cert.pem` |
 | [Assets](subsystems/assets.md) | Embedded SPA, CSP, caching |
 | [UI](subsystems/ui.md) | Routes, connection state machine, direct-first |
 | [Tunnel shims](subsystems/tunnel-shims.md) | HTTP/1.1 and RFC 6455 clients over the tunnel |
