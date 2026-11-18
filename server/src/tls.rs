@@ -180,43 +180,29 @@ pub fn local_ipv4_addresses() -> Vec<String> {
     addresses
 }
 
-/// Windows: `getifaddrs` does not exist and libc exposes no adapter enumeration, so ask
-/// the resolver for this machine's own name. `gethostname` + `getaddrinfo` are portable and
-/// present in libc on every platform; the answer covers the addresses the host advertises,
-/// which on a normal Windows box is its LAN address.
+/// Windows: libc exposes neither `getifaddrs` nor `getaddrinfo` here, so ask the routing
+/// table instead. A UDP socket "connected" to a public address reports the local address
+/// the OS would use, which is exactly the LAN address a phone dials. No packets are sent:
+/// `connect` on UDP only fixes the peer, and std does this portably with no dependencies.
 #[cfg(windows)]
 pub fn local_ipv4_addresses() -> Vec<String> {
     let mut addresses = Vec::new();
-    let mut hostname = [0i8; 256];
-    // SAFETY: a fixed buffer of the documented size; gethostname writes a NUL-terminated
-    // name and never past its length.
-    unsafe {
-        if libc::gethostname(hostname.as_mut_ptr(), hostname.len() - 1) != 0 {
-            return addresses;
-        }
-        let mut hints: libc::addrinfo = std::mem::zeroed();
-        hints.ai_family = libc::AF_INET;
-        hints.ai_socktype = libc::SOCK_STREAM;
-        let mut result: *mut libc::addrinfo = std::ptr::null_mut();
-        if libc::getaddrinfo(hostname.as_ptr(), std::ptr::null(), &hints, &mut result) != 0 {
-            return addresses;
-        }
-        let mut cursor = result;
-        while !cursor.is_null() {
-            let entry = &*cursor;
-            if !entry.ai_addr.is_null() {
-                let sin = entry.ai_addr as *const libc::sockaddr_in;
-                let octets = u32::from_be((*sin).sin_addr.s_addr).to_be_bytes();
-                if !is_loopback_or_unspecified(&octets) {
-                    let text = format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3]);
-                    if !addresses.contains(&text) {
-                        addresses.push(text);
+    for probe in ["8.8.8.8:53", "1.1.1.1:53"] {
+        if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0") {
+            if socket.connect(probe).is_ok() {
+                if let Ok(local) = socket.local_addr() {
+                    if let std::net::IpAddr::V4(ip) = local.ip() {
+                        let octets = ip.octets();
+                        if !is_loopback_or_unspecified(&octets) {
+                            let text = ip.to_string();
+                            if !addresses.contains(&text) {
+                                addresses.push(text);
+                            }
+                        }
                     }
                 }
             }
-            cursor = entry.ai_next;
         }
-        libc::freeaddrinfo(result);
     }
     addresses
 }
