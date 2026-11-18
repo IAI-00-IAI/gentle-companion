@@ -282,14 +282,14 @@
             <span class="hint">{t('settings.device.bind.hint')}</span>
           </div>
           <div class="field">
-            <label class="check" for="tls-self-signed">
+            <label class="check-field" for="tls-self-signed">
               <input id="tls-self-signed" type="checkbox" bind:checked={draft.tlsSelfSigned} aria-describedby="tls-hint" />
               <span>{t('settings.tls.label')}</span>
             </label>
             <span class="hint" id="tls-hint">{t('settings.tls.hint')}</span>
           </div>
           <div class="field">
-            <label class="check" for="pairing-https">
+            <label class="check-field" for="pairing-https">
               <input id="pairing-https" type="checkbox" bind:checked={draft.pairingHttps} aria-describedby="pairing-https-hint" />
               <span>{t('settings.pairing.https.label')}</span>
             </label>
@@ -414,6 +414,17 @@
     align-items: center;
     gap: 10px;
     min-height: 44px;
+  }
+
+  /* The global form-control rules give inputs a 40px min-height and a focus shadow that
+     look wrong on a checkbox, especially in the light theme. AutomationEditor already
+     neutralises them the same way; without this the box renders inside a stray frame. */
+  .check-field input {
+    min-height: auto;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    box-shadow: none;
   }
 
   .narrow {
