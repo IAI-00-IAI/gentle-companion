@@ -53,3 +53,32 @@ test('the warming helper tolerates a failed download', () => {
 test('runtime assets stay the two vendored files', () => {
   assert.match(runtimeSource, /RUNTIME_ASSETS\s*=\s*\[[^\]]*wasm_exec\.js[^\]]*main\.wasm[^\]]*\]/s);
 });
+
+test('the boot context request allows a cold tunnel start', () => {
+  // A cold tunnel boot loads ~8 MB of runtime through the relay before /api/context can
+  // even be sent. Pinning 10s (the LAN default) aborts the request mid-flight, the boot
+  // fails, and the 1s retry restarts the whole runtime load — so it never completes.
+  const contextCall = bootSource
+    .split('\n')
+    .find((line) => line.includes("'/api/context'") && line.includes('effectiveTransport'));
+
+  assert.ok(contextCall, 'boot still probes /api/context over the effective transport');
+  assert.ok(
+    !/,\s*10_000\s*,/.test(contextCall),
+    `the tunnel-capable boot probe must not pin the LAN timeout; found: ${contextCall.trim()}`
+  );
+});
+
+test('the shell cache version is bumped so installed clients pick up new builds', () => {
+  // The shell ('/') is served cache-first. Without a version bump an installed client
+  // keeps the old HTML, which references chunk hashes the daemon no longer serves: the
+  // app silently pins itself to a build that has been fixed several times over.
+  const sw = readFileSync(new URL('../ui/static/service-worker.js', import.meta.url), 'utf8');
+  const match = sw.match(/const CACHE = 'pi-companion-shell-v(\d+)'/);
+
+  assert.ok(match, 'the cache name stays versioned');
+  assert.ok(
+    Number(match[1]) >= 8,
+    `the shell cache must be v8 or later after the tunnel fixes, found v${match?.[1]}`
+  );
+});
