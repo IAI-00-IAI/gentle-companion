@@ -155,16 +155,44 @@ def _render_and_cache(now: float) -> str:
     # hostnamectl — 2026-11-18). ricardoPC: provided by TelfMNG, corrected by
     # Ricardo (df /: 31%); not measured in place (192.168.2.11, ssh open, no
     # credentials authorized).
-    # Hardware inventory lives in hardware.local.json, which is git-ignored: this file is
-    # published, and the inventory carries hostnames, disk usage and GPU details of
-    # Ricardo's machines. The published dashboard renders an empty inventory when the
-    # file is absent, which is what a reader of the repository sees.
+    # Hardware inventory. The measured values are the default so a fresh clone renders
+    # the table; hardware.local.json, when present, overrides them with whatever is
+    # measured on the machine running this. The file is git-ignored because it is a
+    # local override, not because the values are secret.
+    HARDWARE_DEFAULT = [
+        {
+            "name": "💻 ricardo-HP-Xubuntu (laptop)",
+            "cpu": "Intel Core i3-6006U @ 2.00 GHz (Skylake, 2C/4T)",
+            "cpu_max": "2.000 MHz",
+            "ram": "12 GB (11 Gi usables)",
+            "gpu": "Intel HD Graphics 520 (integrada) + AMD Radeon R5 M330 (Sun XT) dedicada",
+            "vram": "R5 M330: 2048 MB dedicada (medida, glxinfo) · HD 520: sin VRAM propia, comparte RAM",
+            "so": "Ubuntu 24.04 LTS",
+            "kernel": "6.8.1-1015-realtime",
+            "chassis": "Laptop",
+            "discos": "/: 81 GB (90 % lleno) · /home: 369 GB (93 % lleno)",
+            "fuente": "Medido in situ (lscpu/free/lspci/lsblk/df/hostnamectl), 18-nov"
+        },
+        {
+            "name": "🖥️ ricardoPC (escritorio)",
+            "cpu": "AMD Athlon 200GE with Radeon Vega Graphics (2C/4T, Zen) @ 3.2 GHz — medido por SSH (lscpu)",
+            "cpu_max": "3.200 MHz",
+            "ram": "13 Gi total · ~8,4 Gi usados · ~5,2 Gi disponibles — medido por SSH (free -h)",
+            "gpu": "NVIDIA GeForce RTX 3060 Lite Hash Rate — VRAM 12.288 MiB (12 GB), medido por SSH con nvidia-smi · driver 615.71.09",
+            "vram": "RTX 3060 LHR: 12.288 MiB (12 GB) GDDR6 — MEDIDO por TelfMNG vía SSH con nvidia-smi (driver 615.71.09)",
+            "so": "Ubuntu 26.04 LTS",
+            "kernel": "7.2.10-zabbly+",
+            "chassis": "Desktop",
+            "discos": "/: 64 GB (31 % lleno) · /home: 679 GB (94 % lleno) · sda ST2000DM008 1,8T · sdb WDC WD2000FYYZ 1,8T · sdd WDC WD10EZEX 931,5G · sde TOSHIBA MK2575GSX 232,9G — medido por SSH (lsblk)",
+            "fuente": "MEDIDO IN SITU por TelfMNG vía SSH (18-nov-2026): lscpu, free -h, nvidia-smi, lsblk (driver NVIDIA 615.71.09)"
+        }
+    ]
     from pathlib import Path as _Path
     _hw_file = _Path(__file__).with_name("hardware.local.json")
     try:
         HARDWARE = json.loads(_hw_file.read_text())
     except (OSError, json.JSONDecodeError):
-        HARDWARE = []
+        HARDWARE = HARDWARE_DEFAULT
 
     # 5c. Full measured report for the HP laptop (this host), collapsing <details>.
     import subprocess
