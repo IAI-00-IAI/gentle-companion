@@ -5,6 +5,42 @@ use crate::tailcat::{TailcatError, TailcatManager};
 
 use crate::tests::{call, post_json, test_state};
 
+/// Points `PATH` at an empty directory for the duration of a test.
+///
+/// `find_tailcat_bin` checks `PATH` before the current directory, so a real `tailcat`
+/// installed on the machine (a developer following the docs) would win over the fake
+/// binary these tests drop in the cwd, and the assertion sees a real address instead of
+/// `tc-abc123`. The guard owns the previous value and restores it on drop, including on
+/// panic. Tests that use it must not run in parallel with each other: they mutate a
+/// process-global.
+struct IsolatedPath {
+    previous: Option<std::ffi::OsString>,
+    dir: std::path::PathBuf,
+}
+
+impl IsolatedPath {
+    fn empty() -> Self {
+        let dir = scratch("tailcat-path");
+        std::fs::create_dir_all(&dir).expect("path dir");
+        let previous = std::env::var_os("PATH");
+        // SAFETY: the two tests that use this guard run in the same process and are the
+        // only writers of PATH; the guard restores it on drop. Rust 2024 marks env writes
+        // unsafe because a concurrent reader could observe a torn value.
+        unsafe { std::env::set_var("PATH", &dir) };
+        Self { previous, dir }
+    }
+}
+
+impl Drop for IsolatedPath {
+    fn drop(&mut self) {
+        match self.previous.take() {
+            Some(value) => unsafe { std::env::set_var("PATH", value) },
+            None => unsafe { std::env::remove_var("PATH") },
+        }
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
 /// The tunnel pairing QR encodes the pairing URL with the tunnel address and device
 /// port in the fragment (`#tunnel=<addr>&port=<port>`): the invite stays the only
 /// query parameter, and fragments are never sent to the server, so neither value can
@@ -56,6 +92,8 @@ async fn tunnel_pairing_encodes_the_tunnel_address_in_the_fragment() {
 
 #[tokio::test]
 async fn tailcat_manager_starts_and_reports_address_with_fake_binary() {
+    // A real `tailcat` on PATH (installed per the docs) would win over the fake below.
+    let _path = IsolatedPath::empty();
     let tmp = scratch("tailcat-test");
     std::fs::create_dir_all(&tmp).unwrap();
 
@@ -93,6 +131,8 @@ sleep 3
 
 #[tokio::test]
 async fn tailcat_manager_records_error_when_binary_does_not_emit_address() {
+    // A real `tailcat` on PATH would answer with a valid address and defeat the case.
+    let _path = IsolatedPath::empty();
     let tmp = scratch("tailcat-error-test");
     std::fs::create_dir_all(&tmp).unwrap();
 

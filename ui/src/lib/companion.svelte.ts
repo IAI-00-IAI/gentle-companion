@@ -206,11 +206,16 @@ class Companion {
       if (tunnelConfig() && this.directUsable === null) {
         this.directUsable = await this.probeDirect();
         diag('boot', `direct probe -> ${this.directUsable}`);
-        // On the LAN the daemon is reachable: warm the persistent runtime cache now,
-        // so leaving the LAN (or reloading off-LAN) still has the tunnel runtime.
-        if (this.directUsable) void warmRuntimeCache();
       }
-      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus; httpsPort?: number }>('/api/context', {}, 10_000, 'json', this.effectiveTransport());
+      // The tunnel needs the vendored runtime on the device. Warm it whenever it is
+      // configured, not only on the LAN: a phone whose default network is mobile data
+      // fails the direct probe and would otherwise never cache it, and the tunnel
+      // cannot fetch it from an origin it has left. Warming is best-effort.
+      if (tunnelConfig()) void warmRuntimeCache();
+      // No explicit timeout: workspaceRequest already gives tunnel transports 30s and
+      // direct requests 10s. Pinning the LAN value here aborts a cold tunnel boot, whose
+      // runtime load runs through the relay before this request is even sent.
+      const context = await workspaceRequest<{ remote: boolean; version: string; uploadPolicy?: UploadPolicy; tailcatStatus?: TailcatStatus; httpsPort?: number }>('/api/context', {}, undefined, 'json', this.effectiveTransport());
       if (this.directUsable === false && tunnelConfig()) {
         // Tunnel worked: re-probe direct on the next boot (the phone may have moved).
         this.directUsable = null;

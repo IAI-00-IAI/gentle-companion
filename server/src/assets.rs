@@ -27,6 +27,7 @@ struct WebAssets;
 #[derive(RustEmbed)]
 #[folder = "../bridge/vendor/"]
 #[include = "main.wasm"]
+#[include = "main.wasm.gz"]
 #[include = "wasm_exec.js"]
 struct BridgeVendorAssets;
 
@@ -152,13 +153,100 @@ pub async fn serve_bridge_vendor(uri: Uri, request_headers: HeaderMap) -> Respon
     if let Ok(value) = HeaderValue::from_str(&content_type) {
         headers.insert(header::CONTENT_TYPE, value);
     }
+
+    // The Go runtime is ~34 MB raw and a precompressed copy ships next to it. A client
+    // that accepts gzip gets ~8 MB instead, which is the difference between the tunnel
+    // starting and timing out on mobile data. The wire bytes are gzipped, but the
+    // Content-Type stays the uncompressed type and Content-Encoding says how to read
+    // them: `instantiateStreaming` still needs `application/wasm`.
+    if accepts_gzip(&request_headers) {
+        if let Some(compressed) = BridgeVendorAssets::get(&format!("{name}.gz")) {
+            headers.insert(header::CONTENT_ENCODING, HeaderValue::from_static("gzip"));
+            let mut vary = HeaderValue::from_static("accept-encoding");
+            vary.set_sensitive(false);
+            headers.insert(header::VARY, vary);
+            return (headers, compressed.data.into_owned()).into_response();
+        }
+    }
+
     (headers, asset.data.into_owned()).into_response()
+}
+
+/// Whether the request advertises gzip support. `q=0` is an explicit refusal, so it
+/// must win over a bare token in the same header.
+fn accepts_gzip(headers: &HeaderMap) -> bool {
+    let Some(value) = headers.get(header::ACCEPT_ENCODING).and_then(|value| value.to_str().ok()) else {
+        return false;
+    };
+    value.split(',').any(|part| {
+        let mut pieces = part.split(';');
+        let coding = pieces.next().unwrap_or_default().trim();
+        if !coding.eq_ignore_ascii_case("gzip") {
+            return false;
+        }
+        !pieces.any(|param| {
+            let mut kv = param.split('=');
+            let key = kv.next().unwrap_or_default().trim();
+            let val = kv.next().unwrap_or_default().trim();
+            key.eq_ignore_ascii_case("q") && val.parse::<f32>().is_ok_and(|q| q == 0.0)
+        })
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn the_vendored_runtime_is_served_gzipped_when_the_client_accepts_it() {
+        let mut request_headers = HeaderMap::new();
+        request_headers.insert(header::ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate, br"));
+        let response = serve_bridge_vendor("/bridge/vendor/main.wasm".parse().unwrap(), request_headers).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        // The wire bytes are compressed, but the type must stay the uncompressed one:
+        // WebAssembly.instantiateStreaming rejects anything that is not application/wasm.
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "application/wasm");
+        assert_eq!(response.headers()[header::CONTENT_ENCODING], "gzip");
+        assert_eq!(response.headers()[header::VARY], "accept-encoding");
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&body[..2], &[0x1f, 0x8b], "a gzip member starts with 1f 8b");
+        assert!(body.len() < 12_000_000, "compressed body should be ~8 MB, got {}", body.len());
+    }
+
+    #[tokio::test]
+    async fn a_client_without_gzip_gets_the_raw_runtime() {
+        let response = serve_bridge_vendor("/bridge/vendor/main.wasm".parse().unwrap(), HeaderMap::new()).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "application/wasm");
+        assert!(response.headers().get(header::CONTENT_ENCODING).is_none());
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&body[..4], &[0x00, 0x61, 0x73, 0x6d], "a wasm module starts with \0asm");
+    }
+
+    #[tokio::test]
+    async fn q_zero_is_a_refusal() {
+        let mut request_headers = HeaderMap::new();
+        request_headers.insert(header::ACCEPT_ENCODING, HeaderValue::from_static("gzip;q=0, identity"));
+        let response = serve_bridge_vendor("/bridge/vendor/main.wasm".parse().unwrap(), request_headers).await;
+
+        assert!(response.headers().get(header::CONTENT_ENCODING).is_none());
+    }
+
+    #[tokio::test]
+    async fn the_support_script_is_not_compressed() {
+        let mut request_headers = HeaderMap::new();
+        request_headers.insert(header::ACCEPT_ENCODING, HeaderValue::from_static("gzip"));
+        let response = serve_bridge_vendor("/bridge/vendor/wasm_exec.js".parse().unwrap(), request_headers).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "application/javascript; charset=utf-8");
+        assert!(response.headers().get(header::CONTENT_ENCODING).is_none());
+    }
 
     #[tokio::test]
     async fn pwa_assets_are_served_with_correct_types_and_revalidation() {
