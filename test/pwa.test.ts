@@ -153,3 +153,51 @@ test('offline navigation falls back to public shell without caching session HTML
     assert.deepEqual(writes, []);
   }
 });
+
+test('the shell is revalidated so a rebuild reaches an installed client', async () => {
+  // '/' is precached at install. Serving it straight from the cache with no network
+  // attempt pins an installed client to the HTML of whatever build it first saw: the
+  // shell loads, references chunk hashes the daemon no longer serves, and every fix
+  // after that build stays invisible until the user clears site data by hand.
+  let fetched = 0;
+  const put: string[] = [];
+  const handlers: Record<string, (event: any) => void> = {};
+  runInNewContext(worker, {
+    self: {
+      location: { origin: 'https://companion.example' },
+      addEventListener: (name: string, handler: (event: any) => void) => { handlers[name] = handler; },
+      skipWaiting: async () => {},
+      clients: { claim: async () => {} }
+    },
+    caches: {
+      open: async () => ({ addAll: async () => {}, put: async (r: any) => { put.push(r.url); } }),
+      keys: async () => [],
+      delete: async () => {},
+      match: async () => new Response('<html>stale shell</html>')
+    },
+    fetch: async () => { fetched += 1; return new Response('network', { status: 200 }); },
+    URL, Response, Headers
+  });
+  let responded: Promise<Response> | undefined;
+  handlers.fetch({
+    request: { method: 'GET', mode: 'cors', url: 'https://companion.example/', headers: new Headers() },
+    respondWith: (value: Promise<Response>) => { responded = value; }
+  });
+  await responded!;
+  // The response body cannot be read across the vm boundary; the network hit is the fact
+  // that matters, plus the fresh copy replacing the stale one.
+  assert.equal(fetched, 1, 'the shell must be requested from the network, not served from a stale cache');
+  assert.equal(put.length, 1, 'the fresh shell replaces the cached copy');
+});
+
+test('an offline client still gets the cached shell', async () => {
+  const { handlers } = harness(false);
+  let responded: Promise<Response> | undefined;
+  handlers.fetch({
+    request: { method: 'GET', mode: 'cors', url: 'https://companion.example/', headers: new Headers() },
+    respondWith: (value: Promise<Response>) => { responded = value; }
+  });
+  // Offline throws in fetch, so the worker must fall back to the cached shell rather
+  // than rejecting: the assertion is that the promise resolves at all.
+  assert.ok(await responded!, 'an offline client must still receive a response');
+});

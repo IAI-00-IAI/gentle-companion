@@ -54,17 +54,20 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (SHELL.includes(url.pathname)) {
+    // Network-first with the cache as the offline fallback. Preferring the cache would
+    // pin an installed client to the HTML of whatever build it first saw: the shell would
+    // load, reference chunk hashes the daemon no longer serves, and every later fix would
+    // stay invisible until the user cleared site data by hand.
     event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
+      fetch(request)
+        .then((response) => {
           if (response.ok && response.type !== 'opaque') {
             const copy = response.clone();
             event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy)));
           }
           return response;
-        });
-      })
+        })
+        .catch(async () => (await caches.match(request)) || Response.error())
     );
   }
 });
