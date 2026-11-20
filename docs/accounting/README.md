@@ -1,17 +1,17 @@
 ---
 type: Readme
-title: "ContaMNG — dashboard estático publicable"
+title: "CONTA — dashboard estático publicable"
 description: "Versión estática del dashboard de cuota, coste y financiación: HTML plano, gráficos como imágenes, sin JavaScript ni CDN. Datos reales del ciclo."
 tags: [publicación, estático, contabilidad]
 status: verified
 generated: 2026-11-20T02:00:00+01:00
 source:
-  - "accounting/ (árbol de trabajo de ContaMNG en mistral-gateway)"
+  - "accounting/ (árbol de trabajo de CONTA en mistral-gateway)"
 verified: 2026-11-20
 stale_after: 2026-12-01
 ---
 
-# ContaMNG — dashboard estático
+# CONTA — dashboard estático
 
 Esta carpeta es la **versión publicable** del dashboard de contabilidad. Se puede abrir desde
 cualquier sitio (incluso con `file://`) o servir desde GitHub Pages bajo un subpath: todos los

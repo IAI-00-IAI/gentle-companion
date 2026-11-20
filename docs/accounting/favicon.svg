@@ -1,16 +1,17 @@
-<!-- OKF-METADATA
-type: Icon Asset
-title: "Favicon ContaMNG — rosa + barras de evolución"
-description: "Favicon del dashboard de contabilidad: rosa (linaje visual de la app) sobre barras doradas de evolución. Legible a 16 px."
-status: draft
-generated: 2026-11-19T00:25:00+01:00
-source:
-  - "Linaje visual: gentle-companion/ui/static/favicon.png (rosa carmesí)"
-verified: 2026-11-19
-stale_after: 2027-06-30
--->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <title>ContaMNG — contabilidad y financiación</title>
+<metadata id="okf">
+type: &quot;Icon Asset&quot;
+title: &quot;Favicon CONTA — rosa + barras de evolución&quot;
+description: &quot;Favicon del dashboard de contabilidad: rosa (linaje visual de la app) sobre barras doradas de evolución. Legible a 16 px.&quot;
+status: &quot;draft&quot;
+generated: &quot;2026-11-19T00:25:00+01:00&quot;
+source:
+  - &quot;Linaje visual: gentle-companion/ui/static/favicon.png (rosa carmesí)&quot;
+verified: &quot;2026-11-19&quot;
+stale_after: &quot;2027-06-30&quot;
+</metadata>
+
+  <title>CONTA — contabilidad y financiación</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#20304f"/>
