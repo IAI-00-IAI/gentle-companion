@@ -247,6 +247,26 @@ The most expensive failure mode we hit all day is not being wrong — it is **lo
 - A regex that matches nothing is an error, not an empty result — the two must be distinguishable.
 - A rule that is only remembered gets forgotten: make it executable (`check-parity.py`, `check_okf.py`).
 
+## File references in conversation (rule, 2026-11-20)
+
+When you mention a file in conversation, write it as a **clickable absolute path with a line number**, not as prose.
+
+```
+Bad:   "I fixed the submit function in the ask sheet"
+Good:  `/home/ricardo/Trabajo/IAI/gentle-companion/ui/src/lib/AskSheet.svelte:100`
+Range: `/home/ricardo/Trabajo/IAI/gentle-companion/ui/src/lib/AskSheet.svelte:79-110`
+```
+
+1. **Absolute**, not relative — a relative path cannot be opened from a different cwd.
+2. **`:line`** when you mean a specific place; a range when you mean a block.
+3. **Between backticks**, so it renders as code and the terminal can detect it.
+4. One path per reference. Citing three files means three paths, never "the three socket files".
+5. Plain paths remain correct in commit messages and docs — those are artifacts, not conversation.
+
+**Why**: Ricardo reviews these threads. A clickable path takes him to the line; a described path makes him search. Evidence versus a claim about evidence.
+
+**Caveat, stated honestly**: clickability depends on the terminal emulator, and the installed documentation exposes no explicit file-link mechanism. The *format* is what we standardise; absolute-path-plus-line remains correct and greppable even where it is not clickable.
+
 ## Verification lessons (repeated failures worth not repeating)
 
 1. **Never measure an exit code through a pipe.** `cmd | tail -1` reports `tail`'s status, always 0. Cost: a false accusation against a working guard.
@@ -254,6 +274,10 @@ The most expensive failure mode we hit all day is not being wrong — it is **lo
 3. **UI labels lie; the session jsonl tells the truth.** `PI_MODEL` and `intercom list` are start-time snapshots. Two wrong conclusions in one day.
 4. **A check that cannot fail verifies nothing.** A test injected against the wrong key proved nothing; the same mistake nearly condemned a correct guard.
 5. **Silence is the worst failure mode for a watchdog.** "Scanning all" then scanning nothing looks identical to "all healthy".
+6. **A wrong-shape parse answers confidently and wrongly.** Six instances in one round, all the same family: a reader that finds nothing and reports it as a result instead of an error.
+   - Compaction count matched the literal `"type":"compaction"`, which depends on the serializer emitting no space after the colon. A fixture written with `json.dumps` (which adds one) was read as **zero records**.
+   - `automations.json` root parsed as a list when it is `{"definitions": [4], "runs": [186]}`; the result was `count: 0`, which reads as catastrophic data loss and was merely a wrong shape.
+   - The rule: when a count comes back 0 or a lookup comes back empty, **prove the reader works before believing the emptiness** — parse a known-good sample, or assert the shape. An empty result is a claim, not a fact.
 
 ## OKF by format (the rule that keeps biting)
 
@@ -272,6 +296,7 @@ The header is format-transparent, but its **shape is not free choice**:
 - 2026-11-19: Watchdog / perroGuardian section added at Ricardo's request, after two sessions burned hours in loops that looked alive in the UI. Detection must use the session jsonl, never the UI label.
 - 2026-11-19: Tool discipline section added — unbounded `grep` caused an exhaustion loop in IMGsMNG (827 KB of tool results, 4 compactions). Grep now requires `limit` and scoped `path`.
 - 2026-11-19: Rule 6 added at Ricardo's request — web pages must open in a NEW WINDOW, never a new tab. **Extended after an incident**: an `xdg-open` launched Firefox (20+ windows, hundreds of tabs) and collapsed the GUI. MIME handlers for http/https/text/html corrected to `chromium-browser.desktop`; bare `xdg-open` is now forbidden for user-facing pages.
+- 2026-11-20: Added the file-reference rule — absolute paths with line numbers in conversation, at Ricardo's request.
 - 2026-11-20: Added the silent-no-match family section — six instances in one day of checks that look correct while finding nothing. Added after KOS reported an empty hero quote rendering with exit 0.
 - 2026-11-20: Added Infrastructure & incidents, Verification lessons and OKF-by-format sections after the 19-20 Nov round (network, firewall, watchdog, suspend/wake, accounting dashboard).
 - 2026-11-19: IMGsMNG relocated to the correct worktree. New session `01a1f448` at `~/Trabajo/IAI/gentle-companion-aesthetic` with the local model; old `01a1eefd` (cwd gentle-shell) closed. Memory access preserved: Engram attaches to project, not cwd.

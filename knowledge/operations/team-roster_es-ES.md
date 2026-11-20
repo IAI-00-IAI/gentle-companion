@@ -229,6 +229,26 @@ La celda del A2 está degradada (~2562/3010 mAh) y el teléfono **se apaga solo 
 
 **PerroGuardian**: cuatro automations de Companion en el HP (`watchdog-router-health` */15, `watchdog-reachability` 7,37, `watchdog-agents` 3,18,33,48, `watchdog-relay-alerts` */10). El oráculo de sesiones vivas es `herdr pane list`, **no** `intercom` (no existe fuera de una sesión de agente). Solo detecta e informa: sin auto-remediación. Se mataron tres clases de falso positivo: stall en sesión idle (idle ≠ stalled), bucle en comandos que comparten prefijo (comparar argumentos completos, no 60 caracteres), y un lector que parseaba cero tool calls en silencio (pi los anida en `message.content[]`).
 
+## Referencias a ficheros en la conversación (regla, 2026-11-20)
+
+Al mencionar un fichero en conversación, escribirlo como **ruta absoluta clicable con número de línea**, no como prosa.
+
+```
+Mal:   "arreglé la función submit del ask sheet"
+Bien:  `/home/ricardo/Trabajo/IAI/gentle-companion/ui/src/lib/AskSheet.svelte:100`
+Rango: `/home/ricardo/Trabajo/IAI/gentle-companion/ui/src/lib/AskSheet.svelte:79-110`
+```
+
+1. **Absoluta**, no relativa — una ruta relativa no se puede abrir desde otro cwd.
+2. **`:línea`** cuando se habla de un sitio concreto; un rango cuando es un bloque.
+3. **Entre comillas invertidas**, para que se renderice como código y el terminal pueda detectarla.
+4. Una ruta por referencia. Citar tres ficheros son tres rutas, nunca «los tres ficheros del socket».
+5. Las rutas planas siguen siendo correctas en mensajes de commit y docs — eso son artefactos, no conversación.
+
+**Por qué**: Ricardo revisa estos hilos. Una ruta clicable le lleva a la línea; una ruta descrita le obliga a buscar. Evidencia frente a una afirmación sobre la evidencia.
+
+**Salvedad, dicha con honestidad**: la clicabilidad depende del emulador de terminal, y la documentación instalada no expone un mecanismo explícito de enlaces a fichero. Lo que se estandariza es **el formato**; ruta absoluta más línea sigue siendo correcto y greppable aunque no sea clicable.
+
 ## La familia del «no encuentra y calla» (seis casos en un día, 2026-11-20)
 
 El modo de fallo más caro del día no es equivocarse: es **parecer correcto mientras no se encuentra nada**. Seis casos distintos, seis agentes distintos.
@@ -275,6 +295,7 @@ El encabezado es transparente al formato, pero su **forma no es elección libre*
 - 2026-11-19: Añadida la sección del PerroGuardian a petición de Ricardo, tras dos sesiones que quemaron horas en bucles que en la interfaz parecían vivas. La detección debe usar el jsonl de la sesión, nunca la etiqueta de la interfaz.
 - 2026-11-19: Añadida la sección de disciplina de herramientas — un `grep` sin acotar causó un bucle de agotamiento en IMGsMNG (827 KB de resultados, 4 compactaciones). Ahora el grep exige `limit` y `path` acotado.
 - 2026-11-19: Añadida la regla 6 a petición de Ricardo — las páginas web se abren en VENTANA NUEVA, nunca en pestaña nueva. **Ampliada tras un incidente**: un `xdg-open` lanzó Firefox (20+ ventanas, cientos de pestañas) y colapsó la GUI. Corregidos los manejadores MIME de http/https/text/html a `chromium-browser.desktop`; queda prohibido `xdg-open` pelado para páginas dirigidas a Ricardo.
+- 2026-11-20: Añadida la regla de referencias a ficheros — rutas absolutas con número de línea en conversación, a petición de Ricardo.
 - 2026-11-20: Añadida la sección de la familia del «no encuentra y calla» — seis casos en un día de comprobaciones que parecen correctas mientras no encuentran nada. Añadida tras reportar KOS una cita héroe vacía renderizada con exit 0.
 - 2026-11-20: Añadidas las secciones de Infraestructura e incidencias, Lecciones de verificación y OKF por formato, tras la ronda del 19-20 de noviembre (red, firewall, vigilante, suspender/despertar, dashboard de contabilidad).
 - 2026-11-19: IMGsMNG reubicado al árbol de trabajo correcto. Sesión nueva `01a1f448` en `~/Trabajo/IAI/gentle-companion-aesthetic` con el modelo local; la antigua `01a1eefd` (cwd gentle-shell) queda cerrada. Acceso a memoria preservado: Engram se ata al proyecto, no al cwd.
