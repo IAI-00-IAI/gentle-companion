@@ -312,3 +312,8 @@ The header is format-transparent, but its **shape is not free choice**:
   - `wmctrl -e` takes the FRAME origin, but `xwininfo` reports the CLIENT. The offset here is +5 x and +29 y (titlebar). Asking wmctrl for 1366,21 lands the client at 1371,50. Always verify with `xwininfo | grep Absolute` and compute from there.
   - `wmctrl -lG` prints the same client-ish numbers; use `xwininfo` as the source of truth when the margin matters.
 - 2026-11-21: **TelfMNG renamed to INFRA: operaciones y red** by Ricardo. The role is no longer phone-only: it now covers operations **and network/infrastructure** — the A2 (adb, scrcpy), the OpenWrt HG556a router (firewall, WoL, etherwake), suspend/wake of the PCs, and the perroGuardian watchdog. Alias updated via `orchestrator_session_id`; session ID unchanged (`01a1ef70`). Board's "Who is who" and routing lines updated to the new name; historical Log entries keep "TelfMNG" on purpose, since that is who did the work at the time.
+- 2026-11-20: **NOMENCLATURE RULE from Ricardo: it is Bonsai2.** His words: "acostúmbrate a llamarla Bonsai2, así los nuevos no se confundirán". Until now the same thing was written four ways — `IMGs-Manager`, `IMGsMNG`, "the local model", and `bonsai2-TernaryL-27B` — and new agents read them as different things.
+  - **Bonsai2** = the model and the vision role. Use this in prose.
+  - `IMGs-Manager` = only the agent session name, when the session itself needs disambiguating.
+  - `bonsai2-TernaryL-27B` = only in configs and logs, never in prose.
+  Applies to every agent. The board's "Who is who" table still says IMGs-Manager for the role cell; that is the session, and it is correct there.
