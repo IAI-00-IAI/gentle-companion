@@ -229,6 +229,27 @@ La celda del A2 está degradada (~2562/3010 mAh) y el teléfono **se apaga solo 
 
 **PerroGuardian**: cuatro automations de Companion en el HP (`watchdog-router-health` */15, `watchdog-reachability` 7,37, `watchdog-agents` 3,18,33,48, `watchdog-relay-alerts` */10). El oráculo de sesiones vivas es `herdr pane list`, **no** `intercom` (no existe fuera de una sesión de agente). Solo detecta e informa: sin auto-remediación. Se mataron tres clases de falso positivo: stall en sesión idle (idle ≠ stalled), bucle en comandos que comparten prefijo (comparar argumentos completos, no 60 caracteres), y un lector que parseaba cero tool calls en silencio (pi los anida en `message.content[]`).
 
+## La familia del «no encuentra y calla» (seis casos en un día, 2026-11-20)
+
+El modo de fallo más caro del día no es equivocarse: es **parecer correcto mientras no se encuentra nada**. Seis casos distintos, seis agentes distintos.
+
+| Caso | Qué hizo en silencio | Consecuencia |
+|---|---|---|
+| `check_number_format.py` medido tras un pipe | Informaba del exit de `tail`, siempre 0 | Se acusó a un guard que sí funcionaba |
+| `"type":"compaction"` buscado por substring | Dependía de que el serializador no pusiera espacio tras `:`; `json.dumps` lo pone | Un lector contó **cero** compactaciones y parecía sano |
+| Canon marcado como superado por versión del nombre | El Consolidado contiene **las dos** revisiones dentro | Marcar por nombre habría congelado un error en el registro |
+| Regex `\*\*(...)\*\*` sobre markdown partido | Coincidencia de una línea sobre una frase que se parte | La página renderizó una **cita héroe vacía**, exit 0 |
+| Fechas de los exports parseadas ingenuamente | Un sello mes-primero leído como día-primero | Una **distribución falsa de meses 1→31** totalmente plausible |
+| `du -sm` para el tamaño del corpus | Cuenta bloques asignados, no bytes | 21 MB informados como 43 MB |
+
+**La regla que se deduce de los seis:** toda comprobación automática debe poder **fallar de forma visible**, y todo parser debe **afirmar sus totales**. En concreto:
+- Nunca medir un código de salida a través de un pipe.
+- Parsear datos estructurados; usar substring solo como prefiltro, nunca para concluir.
+- Afirmar los recuentos y rangos esperados (mensajes, ficheros, filas) y negarse a publicar si no cuadran.
+- Preferir tamaños de fichero a `du` para corpus.
+- Un regex que no casa nada es un error, no un resultado vacío: los dos deben distinguirse.
+- Una regla que solo se recuerda se olvida: hacerla ejecutable (`check-parity.py`, `check_okf.py`).
+
 ## Lecciones de verificación (fallos repetidos que no conviene repetir)
 
 1. **Nunca medir un código de salida a través de un pipe.** `cmd | tail -1` informa del estado de `tail`, siempre 0. Coste: una acusación falsa contra un guard que funcionaba.
@@ -254,6 +275,7 @@ El encabezado es transparente al formato, pero su **forma no es elección libre*
 - 2026-11-19: Añadida la sección del PerroGuardian a petición de Ricardo, tras dos sesiones que quemaron horas en bucles que en la interfaz parecían vivas. La detección debe usar el jsonl de la sesión, nunca la etiqueta de la interfaz.
 - 2026-11-19: Añadida la sección de disciplina de herramientas — un `grep` sin acotar causó un bucle de agotamiento en IMGsMNG (827 KB de resultados, 4 compactaciones). Ahora el grep exige `limit` y `path` acotado.
 - 2026-11-19: Añadida la regla 6 a petición de Ricardo — las páginas web se abren en VENTANA NUEVA, nunca en pestaña nueva. **Ampliada tras un incidente**: un `xdg-open` lanzó Firefox (20+ ventanas, cientos de pestañas) y colapsó la GUI. Corregidos los manejadores MIME de http/https/text/html a `chromium-browser.desktop`; queda prohibido `xdg-open` pelado para páginas dirigidas a Ricardo.
+- 2026-11-20: Añadida la sección de la familia del «no encuentra y calla» — seis casos en un día de comprobaciones que parecen correctas mientras no encuentran nada. Añadida tras reportar KOS una cita héroe vacía renderizada con exit 0.
 - 2026-11-20: Añadidas las secciones de Infraestructura e incidencias, Lecciones de verificación y OKF por formato, tras la ronda del 19-20 de noviembre (red, firewall, vigilante, suspender/despertar, dashboard de contabilidad).
 - 2026-11-19: IMGsMNG reubicado al árbol de trabajo correcto. Sesión nueva `01a1f448` en `~/Trabajo/IAI/gentle-companion-aesthetic` con el modelo local; la antigua `01a1eefd` (cwd gentle-shell) queda cerrada. Acceso a memoria preservado: Engram se ata al proyecto, no al cwd.
 - 2026-11-19: Creada esta copia en castellano (`team-roster_es-ES.md`) a petición de Ricardo: su lengua materna, mejor absorción de su esquema mental; la inglesa se queda para los agentes y evita traducciones reiteradas.

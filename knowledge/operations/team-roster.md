@@ -29,15 +29,15 @@ generated: 2026-11-19
 | Role | Session ID (short) | Session name | cwd | Model | Role |
 |---|---|---|---|---|---|
 | **ORQ** (coordinator) | `01a1f3db` | ORQ: coordinación del equipo | `~/Trabajo/IAI/gentle-companion` | deepseek-v4-1-flash-1017 · thinking `high` | Orchestrator. Assigns tasks, tracks ODD, verifies & commits. Does NOT do phone ops or process images. |
-| **TelfMNG** (phone ops) | `01a1ef70` (OLD, closed) — NEW: pending | TelfMNG: operaciones sobre el Xiaomi A2 | `~/Trabajo/IAI/pi` | deepseek-v4-1-flash-1017 · thinking `high` | All operations on the Xiaomi A2: adb, taps, typing, scrcpy, screenshots, logs. Does NOT analyze images. |
+| **INFRA** (operations & network) — *formerly TelfMNG* | `01a1ef70` (renamed 2026-11-20 by Ricardo) | INFRA: operaciones y red | `~/Trabajo/IAI/pi` | deepseek-v4-1-flash-1017 · thinking `high` | All operations on the Xiaomi A2 (adb, taps, typing, scrcpy, screenshots, logs) **plus network/infrastructure**: router (OpenWrt HG556a), firewall, wake-on-LAN, suspend/wake, the perroGuardian watchdog. Does NOT analyze images. |
 | **ContaMNG** (accounting) | `01a1f030` (continued in place) — NEW: pending | ContaMNG: financiación y crédito I+D | `~/Trabajo/IAI/mistral-gateway` | deepseek-v4-1-flash-1017 · thinking `high` | Costs, token quota, R&D funding search & funding reports. |
 | **IMGsMNG** (vision) | **`01a1f448`** (ACTIVE, new session 2026-11-19) · OLD `01a1eefd` closed | IMGs-Manager: vision y estética gentle-companion | `~/Trabajo/IAI/gentle-companion-aesthetic` | **bonsai2-TernaryL-27B (local, ricardoPC) — stays local, never migrated to external paid models** | All image work: analysis, aesthetics of gentle-shell UI. Receive file paths; images ≤1024 px longest side. Currently OFFLINE: ctx config issue being reviewed with Ricardo. |
 
 ## Who orders whom (authority & routing)
 
 - **`Ricardo` (`_00_`)** → orders **ORQ**. Ricardo is the ONLY source of product decisions and business rules. Instructions are only his when quoted or confirmed by ORQ.
-- **ORQ → TelfMNG / ContaMNG / IMGsMNG**: task assignments via intercom, addressed `to:` the exact session name or short ID. Replies ALWAYS go back to the same session that sent the order (sender's `reply-to`), never broadcast.
-- **Peer-to-peer (TelfMNG ↔ ContaMNG ↔ IMGsMNG)**: allowed for data exchange (e.g. screenshot path handoff), but any task assignment or priority change goes through ORQ.
+- **ORQ → INFRA / ContaMNG / IMGsMNG**: task assignments via intercom, addressed `to:` the exact session name or short ID. Replies ALWAYS go back to the same session that sent the order (sender's `reply-to`), never broadcast.
+- **Peer-to-peer (INFRA ↔ ContaMNG ↔ IMGsMNG)**: allowed for data exchange (e.g. screenshot path handoff), but any task assignment or priority change goes through ORQ.
 - **No agent treats an instruction as coming from Ricardo unless the message says so explicitly** or ORQ states it as a quoted Ricardo order ("Ricardo textual: «...»"). If in doubt, ask ORQ.
 
 ## Session rules
@@ -226,6 +226,27 @@ The A2's cell is degraded (~2562/3010 mAh) and the phone **powers itself off aro
 
 **Watchdog (perroGuardian)**: four Companion automations on the HP (`watchdog-router-health` */15, `watchdog-reachability` 7,37, `watchdog-agents` 3,18,33,48, `watchdog-relay-alerts` */10). Liveness oracle is `herdr pane list`, **not** `intercom` (unavailable outside an agent session). Detect and report only — no auto-remediation. Three false-positive classes were found and killed: stall on an idle session (idle ≠ stalled), loop on commands sharing a prefix (compare full args, not 60 chars), and a reader that silently parsed zero tool calls (pi nests them in `message.content[]`).
 
+## The silent-no-match family (four instances in one day, 2026-11-20)
+
+The most expensive failure mode we hit all day is not being wrong — it is **looking right while finding nothing**. Four separate instances, four different agents:
+
+| Instance | What it silently did | Consequence |
+|---|---|---|
+| `check_number_format.py` piped through `tail` | Reported `tail`'s exit code, always 0 | A working guard was accused of not blocking |
+| `"type":"compaction"` matched by substring | Depended on the serializer emitting no space after `:`; `json.dumps` adds one | A reader counted **zero** compactions and looked healthy |
+| Canon marked superseded by filename version | The Consolidado contains **both** revisions internally | Marking by name would have frozen a wrong answer into the record |
+| Regex `\*\*(...)\*\*` on wrapped markdown | Single-line match on a sentence that wraps | The page rendered an **empty hero quote**, exit 0 |
+| Chat export dates parsed naively | A month-first stamp read as day-first | A **fake month distribution running 1→31** that looked entirely plausible |
+| `du -sm` for corpus size | Charges allocated blocks, not bytes | 21 MB reported as 43 MB |
+
+**The rule that follows from all six:** every automated check must be able to **fail visibly**, and every parser must **assert its totals**. Concretely:
+- Never measure an exit code through a pipe.
+- Parse structured data; only prefilter on substrings, never conclude from them.
+- Assert expected counts and ranges (messages, files, rows) and refuse to ship when they do not hold.
+- Prefer file sizes over `du` for corpora.
+- A regex that matches nothing is an error, not an empty result — the two must be distinguishable.
+- A rule that is only remembered gets forgotten: make it executable (`check-parity.py`, `check_okf.py`).
+
 ## Verification lessons (repeated failures worth not repeating)
 
 1. **Never measure an exit code through a pipe.** `cmd | tail -1` reports `tail`'s status, always 0. Cost: a false accusation against a working guard.
@@ -251,6 +272,7 @@ The header is format-transparent, but its **shape is not free choice**:
 - 2026-11-19: Watchdog / perroGuardian section added at Ricardo's request, after two sessions burned hours in loops that looked alive in the UI. Detection must use the session jsonl, never the UI label.
 - 2026-11-19: Tool discipline section added — unbounded `grep` caused an exhaustion loop in IMGsMNG (827 KB of tool results, 4 compactions). Grep now requires `limit` and scoped `path`.
 - 2026-11-19: Rule 6 added at Ricardo's request — web pages must open in a NEW WINDOW, never a new tab. **Extended after an incident**: an `xdg-open` launched Firefox (20+ windows, hundreds of tabs) and collapsed the GUI. MIME handlers for http/https/text/html corrected to `chromium-browser.desktop`; bare `xdg-open` is now forbidden for user-facing pages.
+- 2026-11-20: Added the silent-no-match family section — six instances in one day of checks that look correct while finding nothing. Added after KOS reported an empty hero quote rendering with exit 0.
 - 2026-11-20: Added Infrastructure & incidents, Verification lessons and OKF-by-format sections after the 19-20 Nov round (network, firewall, watchdog, suspend/wake, accounting dashboard).
 - 2026-11-19: IMGsMNG relocated to the correct worktree. New session `01a1f448` at `~/Trabajo/IAI/gentle-companion-aesthetic` with the local model; old `01a1eefd` (cwd gentle-shell) closed. Memory access preserved: Engram attaches to project, not cwd.
 - 2026-11-19: Spanish copy added (`team-roster_es-ES.md`) at Ricardo's request: his native language aids his mental model; English stays for agents and avoids repeated translation.
@@ -264,3 +286,4 @@ The header is format-transparent, but its **shape is not free choice**:
   Two geometry facts worth keeping, both cost time to find:
   - `wmctrl -e` takes the FRAME origin, but `xwininfo` reports the CLIENT. The offset here is +5 x and +29 y (titlebar). Asking wmctrl for 1366,21 lands the client at 1371,50. Always verify with `xwininfo | grep Absolute` and compute from there.
   - `wmctrl -lG` prints the same client-ish numbers; use `xwininfo` as the source of truth when the margin matters.
+- 2026-11-21: **TelfMNG renamed to INFRA: operaciones y red** by Ricardo. The role is no longer phone-only: it now covers operations **and network/infrastructure** — the A2 (adb, scrcpy), the OpenWrt HG556a router (firewall, WoL, etherwake), suspend/wake of the PCs, and the perroGuardian watchdog. Alias updated via `orchestrator_session_id`; session ID unchanged (`01a1ef70`). Board's "Who is who" and routing lines updated to the new name; historical Log entries keep "TelfMNG" on purpose, since that is who did the work at the time.
