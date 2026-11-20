@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Icon stroke width — three variants</title>
+<style>
+  :root {
+    --bg:#1a1218; --surface:#20161e; --surface-2:#241822; --surface-3:#342230;
+    --border:#342230; --border-strong:#4d3146;
+    --text:#F6EFF3; --text-2:#A78E9B; --text-3:#76616B;
+    --accent:#F095C8; --accent-hover:#FFB1DD; --accent-text:#FFB1DD; --accent-ink:#28121E;
+    --accent-soft:rgb(240 149 200 / 0.12); --accent-line:rgb(240 149 200 / 0.38);
+    --ok:#b4e7c7; --warning:#e0c27a; --info:#a9c7ee; --danger:#FF718F;
+    --ok-soft:rgb(180 231 199 / 0.14); --warning-soft:rgb(224 194 122 / 0.14);
+    --info-soft:rgb(169 199 238 / 0.14); --danger-soft:rgb(255 113 143 / 0.12);
+    --clay-radius:22px;
+    --clay-raised:0 12px 26px -12px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.07), inset 0 -4px 8px rgb(0 0 0 / 0.38);
+    --clay-soft:0 5px 12px -6px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.07), inset 0 -2px 5px rgb(0 0 0 / 0.32);
+    --clay-pressed:inset 0 3px 8px rgb(0 0 0 / 0.5), inset 0 -1px 0 rgb(255 255 255 / 0.05);
+    --radius:12px; --radius-lg:16px; --radius-pill:999px;
+    --font:Inter,"SF Pro Text",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:"IosevkaTerm NF","Iosevka Term","JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;width:1440px;background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.5;padding:32px 40px 48px}
+  h1{font-size:1.5rem;margin:0 0 6px;letter-spacing:-0.02em}
+  .lead{color:var(--text-2);margin:0 0 10px;max-width:104ch}
+  .method{color:var(--text-3);font-size:.8rem;margin:0 0 22px;max-width:104ch;border-left:2px solid var(--accent-line);padding-left:12px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:start}
+  .variant{background:var(--surface);border:1px solid var(--border);border-radius:var(--clay-radius);box-shadow:var(--clay-raised);padding:18px}
+  .variant header{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .variant h2{font-size:1rem;margin:0;font-family:var(--mono)}
+  .chip{font-family:var(--mono);font-size:.7rem;padding:3px 8px;border-radius:var(--radius-pill);border:1px solid var(--border-strong);color:var(--text-2)}
+  .chip.default{background:var(--info-soft);color:var(--info);border-color:transparent}
+  .chip.current{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+  .chip.bold{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+  .tradeoff{color:var(--text-2);font-size:.84rem;margin:6px 0 14px;min-height:4.6em}
+  .cap{color:var(--text-3);font-size:.72rem;margin:0 0 6px;font-family:var(--mono)}
+  .zoom{display:flex;gap:14px;justify-content:space-between;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--clay-pressed);color:var(--accent)}
+  .zoom .big{display:grid;place-items:center}
+  .row2{display:grid;gap:14px;margin-top:14px}
+  .navs{display:grid;gap:6px}
+  .navlink{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:var(--radius);
+    background:var(--surface-2);box-shadow:var(--clay-soft);color:var(--text-2);text-decoration:none;font-size:.88rem}
+  .navlink.active{background:var(--surface);color:var(--accent-text);box-shadow:var(--clay-pressed)}
+  .navlink .ic{display:grid;place-items:center;color:currentColor}
+  .navlink .count{margin-left:auto;background:var(--accent);color:var(--accent-ink);font-size:.7rem;
+    border-radius:var(--radius-pill);padding:1px 7px;font-weight:600}
+  .tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:6px;box-shadow:var(--clay-raised)}
+  .tab{flex:1;display:grid;place-items:center;gap:3px;padding:7px 4px;border-radius:var(--radius);color:var(--text-3);text-decoration:none;font-size:.7rem}
+  .tab.active{background:var(--surface-2);color:var(--accent-text);box-shadow:var(--clay-pressed)}
+  .tab-icon{display:grid;place-items:center;min-height:22px}
+
+  .chosen{font-family:var(--mono);font-size:.68rem;padding:3px 8px;border-radius:var(--radius-pill);
+    background:var(--ok-soft);color:var(--ok);margin-left:auto}
+  .variant-chosen{border-color:var(--accent-line);box-shadow:var(--clay-raised),0 0 0 1px var(--accent-line)}
+  .statuses{display:flex;gap:4px;margin-left:auto}
+  .st{display:inline-flex;align-items:center;gap:4px;font-size:.66rem;font-weight:600;
+    padding:1px 6px;border-radius:var(--radius-pill);font-family:var(--mono)}
+  .st i{width:6px;height:6px;border-radius:50%;background:currentColor;display:block}
+  .st.working{background:var(--ok-soft);color:var(--ok)}
+  .st.waiting{background:var(--warning-soft);color:var(--warning)}
+  .st.finished{background:var(--danger-soft);color:var(--danger)}
+  .st.finished i{border-radius:1px}
+  .st.waiting i{border-radius:1px;transform:rotate(45deg)}
+  .st.working i{border-radius:50%;box-shadow:0 0 0 2px rgb(180 231 199 / .25)}
+  .note{margin:22px 0 0;color:var(--text-2);font-size:.82rem;border-left:2px solid var(--accent-line);padding-left:12px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+  <h1>Icon stroke width — three variants</h1>
+  <p class="lead">The same Lucide paths from <code>ui/src/lib/Icon.svelte</code>, at the three candidate weights, shown large enough to judge and at the sizes they actually ship.</p>
+  <p class="method">Each column is one number: the <code>strokeWidth</code> prop. Paths, sizes, colours and spacing are identical across all three, so the only variable is line weight.</p>
+  <div class="grid">
+      <section class="variant variant-chosen">
+        <header><span class="chip default">B1</span><h2>stroke-width 2.0</h2><span class="chosen">&#10003; chosen</span></header>
+        <p class="tradeoff">It was only ever about silencing the unused-selector warning; the visual weight was never a goal. Subtlest; icons recede behind labels.</p>
+        <div class="zoom"><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m13 2-3 8H4l7 12 3-8h6L13 2Z"/></svg></span><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></span></div>
+        <p class="cap">At 64 px — the honest test of weight difference</p>
+        <div class="row2">
+          <div>
+            <p class="cap">Sidebar nav, 18 px (real size)</p>
+            <nav class="navs"><a class="navlink active" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span>Overview</span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span><span>Sessions</span><span class="statuses"><span class="st working" title="Working"><i></i>3</span><span class="st waiting" title="Waiting for you"><i></i>1</span><span class="st finished" title="Finished"><i></i>5</span></span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m13 2-3 8H4l7 12 3-8h6L13 2Z"/></svg></span><span>Automations</span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></span><span>Devices</span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg></span><span>Settings</span></a></nav>
+          </div>
+          <div>
+            <p class="cap">Mobile tab bar, 20 px</p>
+            <div class="tabs"><a class="tab active" href="#"><span class="tab-icon"><svg class="" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span>Overview</span></a><a class="tab" href="#"><span class="tab-icon"><svg class="" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span><span>Sessions</span></a><a class="tab" href="#"><span class="tab-icon"><svg class="" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m13 2-3 8H4l7 12 3-8h6L13 2Z"/></svg></span><span>Automations</span></a></div>
+          </div>
+        </div>
+      </section>
+      <section class="variant">
+        <header><span class="chip current">B2</span><h2>stroke-width 2.5</h2></header>
+        <p class="tradeoff">Ships today. Bonsai2 judged the step from 2.0 to 2.5 as not obviously different in a screenshot.</p>
+        <div class="zoom"><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m13 2-3 8H4l7 12 3-8h6L13 2Z"/></svg></span><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></span></div>
+        <p class="cap">At 64 px — the honest test of weight difference</p>
+        <div class="row2">
+          <div>
+            <p class="cap">Sidebar nav, 18 px (real size)</p>
+            <nav class="navs"><a class="navlink active" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span>Overview</span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span><span>Sessions</span><span class="statuses"><span class="st working" title="Working"><i></i>3</span><span class="st waiting" title="Waiting for you"><i></i>1</span><span class="st finished" title="Finished"><i></i>5</span></span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m13 2-3 8H4l7 12 3-8h6L13 2Z"/></svg></span><span>Automations</span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></span><span>Devices</span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg></span><span>Settings</span></a></nav>
+          </div>
+          <div>
+            <p class="cap">Mobile tab bar, 20 px</p>
+            <div class="tabs"><a class="tab active" href="#"><span class="tab-icon"><svg class="" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span>Overview</span></a><a class="tab" href="#"><span class="tab-icon"><svg class="" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span><span>Sessions</span></a><a class="tab" href="#"><span class="tab-icon"><svg class="" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m13 2-3 8H4l7 12 3-8h6L13 2Z"/></svg></span><span>Automations</span></a></div>
+          </div>
+        </div>
+      </section>
+      <section class="variant">
+        <header><span class="chip bold">B3</span><h2>stroke-width 3.0</h2></header>
+        <p class="tradeoff">A stroke weight you can actually see at a glance. Heavier; may crowd the 44px nav rows and fight the text.</p>
+        <div class="zoom"><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m13 2-3 8H4l7 12 3-8h6L13 2Z"/></svg></span><span class="big"><svg class="" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></span></div>
+        <p class="cap">At 64 px — the honest test of weight difference</p>
+        <div class="row2">
+          <div>
+            <p class="cap">Sidebar nav, 18 px (real size)</p>
+            <nav class="navs"><a class="navlink active" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span>Overview</span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span><span>Sessions</span><span class="statuses"><span class="st working" title="Working"><i></i>3</span><span class="st waiting" title="Waiting for you"><i></i>1</span><span class="st finished" title="Finished"><i></i>5</span></span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m13 2-3 8H4l7 12 3-8h6L13 2Z"/></svg></span><span>Automations</span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></span><span>Devices</span></a><a class="navlink" href="#"><span class="ic"><svg class="" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg></span><span>Settings</span></a></nav>
+          </div>
+          <div>
+            <p class="cap">Mobile tab bar, 20 px</p>
+            <div class="tabs"><a class="tab active" href="#"><span class="tab-icon"><svg class="" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span>Overview</span></a><a class="tab" href="#"><span class="tab-icon"><svg class="" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span><span>Sessions</span></a><a class="tab" href="#"><span class="tab-icon"><svg class="" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m13 2-3 8H4l7 12 3-8h6L13 2Z"/></svg></span><span>Automations</span></a></div>
+          </div>
+        </div>
+      </section>
+  </div>
+  <p class="note">This is a mockup for a decision, not the change. <code>Icon.svelte</code> still defaults to <code>2</code> and the nav passes <code>2.5</code>.</p>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Gentle Companion — design system</title>
+<style>
+  :root {
+    --bg: #1a1218; --bg-sunken: #000000; --surface: #20161e; --surface-2: #241822; --surface-3: #342230;
+    --border: #342230; --border-strong: #4d3146; --border-soft: #ffffff17;
+    --text: #F6EFF3; --text-2: #A78E9B; --text-3: #76616B;
+    --accent: #F095C8; --accent-hover: #FFB1DD; --accent-text: #FFB1DD; --accent-ink: #28121E;
+    --accent-soft: rgb(240 149 200 / 0.12); --accent-line: rgb(240 149 200 / 0.38);
+    --ok: #b4e7c7; --warning: #e0c27a; --info: #a9c7ee; --danger: #FF718F;
+    --ok-soft: rgb(180 231 199 / 0.14); --warning-soft: rgb(224 194 122 / 0.14);
+    --info-soft: rgb(169 199 238 / 0.14); --danger-soft: rgb(255 113 143 / 0.12);
+    --clay-radius: 22px;
+    --clay-raised: 0 12px 26px -12px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.07), inset 0 -4px 8px rgb(0 0 0 / 0.38);
+    --clay-soft: 0 5px 12px -6px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.07), inset 0 -2px 5px rgb(0 0 0 / 0.32);
+    --clay-pressed: inset 0 3px 8px rgb(0 0 0 / 0.5), inset 0 -1px 0 rgb(255 255 255 / 0.05);
+    --clay-accent: 0 10px 20px -10px rgb(240 149 200 / 0.6), inset 0 2px 1px rgb(255 255 255 / 0.35), inset 0 -4px 7px rgb(95 35 65 / 0.4);
+    --radius-sm: 8px; --radius: 12px; --radius-lg: 16px; --radius-pill: 999px; --radius-bento: 20px;
+    --font: Inter, "SF Pro Text", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: "IosevkaTerm NF", "Iosevka Term", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; width: 1440px; background: var(--bg); color: var(--text);
+    font-family: var(--font); font-size: 15px; line-height: 1.5;
+    padding: 40px 48px 64px;
+  }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 1rem; margin: 40px 0 14px; color: var(--accent-text); letter-spacing: 0.02em; text-transform: uppercase; }
+  p.lead { color: var(--text-2); margin: 0 0 8px; max-width: 78ch; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .sw { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+  .sw .chip { height: 46px; }
+  .sw .meta { padding: 8px 10px; font-size: 0.74rem; line-height: 1.35; }
+  .sw .meta b { display: block; font-family: var(--mono); font-size: 0.72rem; color: var(--text); }
+  .sw .meta span { color: var(--text-3); font-family: var(--mono); }
+  .type-row { display: flex; align-items: baseline; gap: 16px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .type-row .sample { flex: 1; }
+  .type-row .label { width: 130px; color: var(--text-3); font-size: 0.75rem; font-family: var(--mono); }
+  .radii { display: flex; gap: 14px; flex-wrap: wrap; }
+  .radii div {
+    width: 92px; height: 62px; display: grid; place-items: center;
+    background: var(--surface-2); border: 1px solid var(--border);
+    box-shadow: var(--clay-soft); font-size: 0.7rem; color: var(--text-2);
+  }
+  .shadows { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .shadows div {
+    height: 88px; display: grid; place-items: center; border-radius: var(--clay-radius);
+    background: var(--surface); font-family: var(--mono); font-size: 0.7rem; color: var(--text-2);
+  }
+  .components { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--clay-radius); box-shadow: var(--clay-raised); padding: 18px; }
+  .panel h3 { margin: 0 0 12px; font-size: 0.8rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
+  .btn {
+    min-height: 42px; padding: 10px 18px; border-radius: var(--radius-lg); border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text); box-shadow: var(--clay-soft);
+    font: inherit; font-size: 0.9rem; cursor: pointer;
+  }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; box-shadow: var(--clay-accent); font-weight: 600; }
+  .btn:focus-visible, .navlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .navlink {
+    display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px;
+    border-radius: var(--radius); background: var(--surface-2); box-shadow: var(--clay-soft);
+    color: var(--text-2); text-decoration: none; font-size: 0.9rem;
+  }
+  .navlink.active { background: var(--surface); color: var(--accent-text); box-shadow: var(--clay-pressed); }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-pill); font-size: 0.75rem; }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+  .badge.warn { background: var(--warning-soft); color: var(--warning); }
+  .badge.info { background: var(--info-soft); color: var(--info); }
+  .badge.danger { background: var(--danger-soft); color: var(--danger); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  code { font-family: var(--mono); font-size: 0.85em; background: var(--code-bg, #171018); padding: 1px 5px; border-radius: 5px; }
+  .note { color: var(--text-2); font-size: 0.82rem; border-left: 2px solid var(--accent-line); padding-left: 12px; margin: 14px 0 0; }
+</style>
+</head>
+<body>
+  <h1>Gentle Companion — design system</h1>
+  <p class="lead">Synced read-only from <code>ui/src/app.css</code> and <code>docs/design-system.md</code>. Every value below appears verbatim in those files. Rose on plum is the identity; light mode uses a darker accent because the anchor is only 1.97:1 on paper.</p>
+
+  <h2>Dark palette — default</h2>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#1a1218"></div><div class="meta"><b>--bg</b><span>#1a1218</span></div></div>
+    <div class="sw"><div class="chip" style="background:#20161e"></div><div class="meta"><b>--surface</b><span>#20161e</span></div></div>
+    <div class="sw"><div class="chip" style="background:#241822"></div><div class="meta"><b>--surface-2</b><span>#241822</span></div></div>
+    <div class="sw"><div class="chip" style="background:#342230"></div><div class="meta"><b>--surface-3</b><span>#342230</span></div></div>
+    <div class="sw"><div class="chip" style="background:#342230"></div><div class="meta"><b>--border</b><span>#342230</span></div></div>
+    <div class="sw"><div class="chip" style="background:#4d3146"></div><div class="meta"><b>--border-strong</b><span>#4d3146</span></div></div>
+    <div class="sw"><div class="chip" style="background:#F6EFF3"></div><div class="meta"><b>--text</b><span>#F6EFF3</span></div></div>
+    <div class="sw"><div class="chip" style="background:#A78E9B"></div><div class="meta"><b>--text-2</b><span>#A78E9B</span></div></div>
+    <div class="sw"><div class="chip" style="background:#76616B"></div><div class="meta"><b>--text-3</b><span>#76616B</span></div></div>
+    <div class="sw"><div class="chip" style="background:#F095C8"></div><div class="meta"><b>--accent</b><span>#F095C8</span></div></div>
+    <div class="sw"><div class="chip" style="background:#FFB1DD"></div><div class="meta"><b>--accent-hover</b><span>#FFB1DD</span></div></div>
+    <div class="sw"><div class="chip" style="background:#28121E"></div><div class="meta"><b>--accent-ink</b><span>#28121E</span></div></div>
+  </div>
+
+  <div class="cols" style="margin-top:18px">
+    <div>
+      <h2 style="margin-top:0">Status colours</h2>
+      <div class="swatches" style="grid-template-columns:repeat(2,1fr)">
+        <div class="sw"><div class="chip" style="background:#b4e7c7"></div><div class="meta"><b>--ok</b><span>#b4e7c7</span></div></div>
+        <div class="sw"><div class="chip" style="background:#e0c27a"></div><div class="meta"><b>--warning</b><span>#e0c27a</span></div></div>
+        <div class="sw"><div class="chip" style="background:#a9c7ee"></div><div class="meta"><b>--info</b><span>#a9c7ee</span></div></div>
+        <div class="sw"><div class="chip" style="background:#FF718F"></div><div class="meta"><b>--danger</b><span>#FF718F</span></div></div>
+      </div>
+    </div>
+    <div>
+      <h2 style="margin-top:0">Light palette — accents</h2>
+      <div class="swatches" style="grid-template-columns:repeat(2,1fr)">
+        <div class="sw"><div class="chip" style="background:#f8f5f7"></div><div class="meta"><b>--bg</b><span>#f8f5f7</span></div></div>
+        <div class="sw"><div class="chip" style="background:#C96AA2"></div><div class="meta"><b>--accent</b><span>#C96AA2</span></div></div>
+        <div class="sw"><div class="chip" style="background:#A8517E"></div><div class="meta"><b>--accent-text</b><span>#A8517E</span></div></div>
+        <div class="sw"><div class="chip" style="background:#17824f"></div><div class="meta"><b>--ok</b><span>#17824f</span></div></div>
+      </div>
+      <p class="note">Light accent is deliberately darker: <code>#F095C8</code> is 1.97:1 on paper, <code>#C96AA2</code> is 3.20:1.</p>
+    </div>
+  </div>
+
+  <h2>Type scale</h2>
+  <div class="type-row"><span class="label">title 1.6rem</span><span class="sample" style="font-size:1.6rem;letter-spacing:-0.02em">Overview</span></div>
+  <div class="type-row"><span class="label">heading 1.1rem</span><span class="sample" style="font-size:1.1rem">Recent sessions</span></div>
+  <div class="type-row"><span class="label">body 15px</span><span class="sample">Gentle Companion follows your sessions from the browser or the phone.</span></div>
+  <div class="type-row"><span class="label">secondary .9rem</span><span class="sample" style="font-size:.9rem;color:var(--text-2)">Automations run on your computer's permissions.</span></div>
+  <div class="type-row"><span class="label">meta .78rem</span><span class="sample" style="font-size:.78rem;color:var(--text-3)">Last seen 3 minutes ago</span></div>
+  <div class="type-row"><span class="label">mono</span><span class="sample" style="font-family:var(--mono);font-size:.85rem">gentle-companion --port 43721</span></div>
+
+  <div class="cols">
+    <div>
+      <h2>Radius</h2>
+      <div class="radii">
+        <div style="border-radius:8px">8</div>
+        <div style="border-radius:12px">12</div>
+        <div style="border-radius:16px">16</div>
+        <div style="border-radius:20px">20</div>
+        <div style="border-radius:22px">clay 22</div>
+      </div>
+    </div>
+    <div>
+      <h2>Clay shadows</h2>
+      <div class="shadows" style="grid-template-columns:repeat(2,1fr)">
+        <div style="box-shadow:var(--clay-raised)">raised</div>
+        <div style="box-shadow:var(--clay-soft)">soft</div>
+        <div style="box-shadow:var(--clay-pressed)">pressed</div>
+        <div style="background:var(--accent);color:var(--accent-ink);box-shadow:var(--clay-accent)">accent</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Components</h2>
+  <div class="components">
+    <div class="panel">
+      <h3>Buttons</h3>
+      <div class="row">
+        <button class="btn btn-primary">Open dashboard</button>
+        <button class="btn">Cancel</button>
+      </div>
+      <p class="note">Focus is a 2px accent ring with 2px offset, distinct from selection.</p>
+    </div>
+    <div class="panel">
+      <h3>Navigation</h3>
+      <div class="row" style="flex-direction:column">
+        <a class="navlink active" href="#"><span class="dot"></span>Overview</a>
+        <a class="navlink" href="#"><span class="dot" style="opacity:.4"></span>Sessions</a>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Status</h3>
+      <div class="row">
+        <span class="badge ok"><span class="dot"></span>Live</span>
+        <span class="badge warn"><span class="dot"></span>Working</span>
+        <span class="badge danger"><span class="dot"></span>Failed</span>
+      </div>
+      <p class="note">Status never by colour alone: each badge carries a word.</p>
+    </div>
+  </div>
+
+  <h2>Open items in this system</h2>
+  <p class="lead">Two visual questions are pending a decision and are shown as artboards in this canvas rather than resolved here.</p>
+  <div class="row">
+    <span class="badge info"><span class="dot"></span>Clay art tint: amber vs rose</span>
+    <span class="badge info"><span class="dot"></span>Icon stroke width: 2 / 2.5 / 3</span>
+  </div>
+</body>
+</html>

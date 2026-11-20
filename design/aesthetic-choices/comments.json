@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "comments": [
+    {
+      "id": "4balefkw",
+      "file": "01-clay-tint.html",
+      "selector": "body > div > section:nth-of-type(1) > div > div:nth-of-type(1) > span > img",
+      "excerpt": "Clay hourglass artwork, tinted",
+      "comment": "Este icono hay que cambiarlo, hay que poner uno de los iconos de gentlemanprogramming, alguno de los que hay con sombrero de copa y bigote",
+      "createdAt": "2026-11-20T18:08:36.845Z",
+      "status": "resolved",
+      "sentAt": "2026-11-20T18:08:43.126Z",
+      "resolvedAt": "2026-11-20T18:45:52.420Z",
+      "resolution": "Duplicate of dzl31vrg on the A1 column; the same gentleman-glyph replacement was applied there too."
+    },
+    {
+      "id": "dzl31vrg",
+      "file": "01-clay-tint.html",
+      "selector": "body > div > section:nth-of-type(2) > div > div:nth-of-type(1) > span > img",
+      "excerpt": "Clay hourglass artwork, tinted",
+      "comment": "Este icono hay que cambiarlo, hay que poner uno de los iconos de gentlemanprogramming, alguno de los que hay con sombrero de copa y bigote",
+      "createdAt": "2026-11-20T18:10:52.372Z",
+      "status": "resolved",
+      "sentAt": "2026-11-20T18:23:42.835Z",
+      "resolvedAt": "2026-11-20T18:45:02.891Z",
+      "resolution": "Replaced the clay hourglass with a gentleman glyph (top hat + moustache); marked B1 (2.0) as chosen; replaced the single session count with three traffic-light counts (working/waiting/finished), each with a distinct dot shape and AA contrast."
+    },
+    {
+      "id": "gnup69dw",
+      "file": "02-icon-weight.html",
+      "selector": "body > div > section:nth-of-type(1) > header > span",
+      "excerpt": "B1",
+      "comment": "Este",
+      "createdAt": "2026-11-20T18:14:45.775Z",
+      "status": "resolved",
+      "sentAt": "2026-11-20T18:23:42.835Z",
+      "resolvedAt": "2026-11-20T18:45:02.892Z",
+      "resolution": "Replaced the clay hourglass with a gentleman glyph (top hat + moustache); marked B1 (2.0) as chosen; replaced the single session count with three traffic-light counts (working/waiting/finished), each with a distinct dot shape and AA contrast."
+    },
+    {
+      "id": "x9say3ij",
+      "file": "02-icon-weight.html",
+      "selector": "body > div > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > nav > a:nth-of-type(2)",
+      "excerpt": "Sessions 2",
+      "comment": "aqui podrian ir las sesiones trabajando, en esperando y finalizadas, con el número y colores de semaforo",
+      "createdAt": "2026-11-20T18:18:09.420Z",
+      "status": "resolved",
+      "sentAt": "2026-11-20T18:23:42.835Z",
+      "resolvedAt": "2026-11-20T18:45:02.892Z",
+      "resolution": "Replaced the clay hourglass with a gentleman glyph (top hat + moustache); marked B1 (2.0) as chosen; replaced the single session count with three traffic-light counts (working/waiting/finished), each with a distinct dot shape and AA contrast."
+    },
+    {
+      "id": "5k4vwfjc",
+      "file": "02-icon-weight.html",
+      "selector": "body > div > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > nav > a:nth-of-type(2) > span:nth-of-type(3)",
+      "excerpt": "2",
+      "comment": "reemplazar por 3 iguales pero con fondo de color semáforo para sesiones trabajando, esperando y finalizadas",
+      "createdAt": "2026-11-20T18:20:23.316Z",
+      "status": "resolved",
+      "sentAt": "2026-11-20T18:23:42.835Z",
+      "resolvedAt": "2026-11-20T18:45:02.892Z",
+      "resolution": "Replaced the clay hourglass with a gentleman glyph (top hat + moustache); marked B1 (2.0) as chosen; replaced the single session count with three traffic-light counts (working/waiting/finished), each with a distinct dot shape and AA contrast."
+    },
+    {
+      "id": "weccppvq",
+      "file": "02-icon-weight.html",
+      "selector": "body > div > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > nav > a:nth-of-type(2) > span:nth-of-type(3) > span:nth-of-type(3)",
+      "excerpt": "5",
+      "comment": "rojo",
+      "createdAt": "2026-11-20T18:53:19.958Z",
+      "status": "resolved",
+      "sentAt": "2026-11-20T19:22:53.774Z",
+      "resolvedAt": "2026-11-20T23:17:52.568Z",
+      "resolution": "Replaced the stand-in glyph with your mascot art as transparent WEBP (alpha 0–255), sized per box; originals kept in assets/originals/; finished-count badge switched to danger red (5.39:1)."
+    },
+    {
+      "id": "8yyi8ghh",
+      "file": "01-clay-tint.html",
+      "selector": "body > div > section:nth-of-type(2) > div > div:nth-of-type(1) > span > svg",
+      "excerpt": "",
+      "comment": "fondo transparente",
+      "createdAt": "2026-11-20T19:16:34.251Z",
+      "status": "resolved",
+      "sentAt": "2026-11-20T19:22:53.774Z",
+      "resolvedAt": "2026-11-20T23:17:52.568Z",
+      "screenshot": ".screenshots/8yyi8ghh.webp",
+      "resolution": "Replaced the stand-in glyph with your mascot art as transparent WEBP (alpha 0–255), sized per box; originals kept in assets/originals/; finished-count badge switched to danger red (5.39:1)."
+    },
+    {
+      "id": "gw7pt3cc",
+      "file": "01-clay-tint.html",
+      "selector": "body > div > section:nth-of-type(2) > div > div:nth-of-type(2) > h3 > img",
+      "excerpt": "",
+      "comment": "convertir png - fondo transparente y ajustar. (conservar original)",
+      "createdAt": "2026-11-20T19:20:20.307Z",
+      "status": "resolved",
+      "sentAt": "2026-11-20T19:22:53.774Z",
+      "resolvedAt": "2026-11-20T23:17:52.568Z",
+      "screenshot": ".screenshots/gw7pt3cc.jpg",
+      "resolution": "Replaced the stand-in glyph with your mascot art as transparent WEBP (alpha 0–255), sized per box; originals kept in assets/originals/; finished-count badge switched to danger red (5.39:1)."
+    },
+    {
+      "id": "7xxd62vb",
+      "file": "01-clay-tint.html",
+      "selector": "body > div > section:nth-of-type(2) > div > div:nth-of-type(3) > span > img",
+      "excerpt": "",
+      "comment": "convertir a png, fondo trans y ajustar tamaño, (guardar original)",
+      "createdAt": "2026-11-20T19:22:24.439Z",
+      "status": "resolved",
+      "sentAt": "2026-11-20T19:22:53.774Z",
+      "resolvedAt": "2026-11-20T23:17:52.568Z",
+      "screenshot": ".screenshots/7xxd62vb.jpg",
+      "resolution": "Replaced the stand-in glyph with your mascot art as transparent WEBP (alpha 0–255), sized per box; originals kept in assets/originals/; finished-count badge switched to danger red (5.39:1)."
+    }
+  ]
+}
