@@ -217,6 +217,35 @@ El A2 cambia de dirección constantemente (ciclos de apagado, USB tether arriba/
 
 La celda del A2 está degradada (~2562/3010 mAh) y el teléfono **se apaga solo hacia el 60-70%** bajo carga. **Avisa a Ricardo siempre que baje del 80%.** Compruébalo con `dumpsys battery | grep -E "level|status"`. No tiene arreglo sin root (Ricardo no quiere rootear); mantenlo cargando.
 
+## Infraestructura e incidencias (2026-11-19/20)
+
+**Topología (actual)**: el A2 da 4G de dos formas — tether USB → router (`usb0` 192.168.42.130) Y AP WiFi → ricardoPC. ricardoHP está en la LAN del router (`192.168.2.20`, cable) **y** en el AP del A2 (`wlo1` 192.168.43.73). La WiFi del router está caída. El gateway del AP del A2 es **192.168.43.168**, no `.43.1`.
+
+**Trampa de red conocida**: el perfil NetworkManager `ricardoA2` lleva `ipv4.routes = 192.168.2.11/24 192.168.2.1`, que instala una ruta que manda `192.168.2.1` por `wlo1`, donde el router no responde → SSH y LuCI mueren con EHOSTUNREACH. Hay workaround con `SO_BINDTODEVICE` vía `socat` (`router-access.sh`). El arreglo real necesita sudo: `nmcli connection modify ricardoA2 ipv4.routes ''`.
+
+**Router (OpenWrt 24.10.6, HG556a)**: firewall endurecido el 2026-11-19 — wan input/forward en REJECT, borradas las reglas `wwwl` y `hp` (WAN→LAN), LAN intacta, internet vivo. Consecuencia asumida: el router ya no se administra desde la WiFi del A2 (su interfaz STA está en zona WAN), solo desde la LAN. `/www` es escribible → sirve HTML estático sin instalar nada. Sin `sftp-server`; `scp -O` funciona. Wake-on-LAN con `etherwake` en el router.
+
+**Suspender/despertar ricardoPC (verificado)**: `systemctl suspend --no-ask-password` (con `sudo -n` falla: no hay sudo sin contraseña). Magic packet → resume S3 ≈ **7 s**. llama-swap **recarga su modelo always-on al despertar**; Ricardo prefiere cargar Bonsai2 a mano para tenerlo caliente. A vigilar: `xhci_hcd … xHC error in resume, USBSTS 0x401` — si tras suspender muere un puerto USB, esa es la línea del journal.
+
+**PerroGuardian**: cuatro automations de Companion en el HP (`watchdog-router-health` */15, `watchdog-reachability` 7,37, `watchdog-agents` 3,18,33,48, `watchdog-relay-alerts` */10). El oráculo de sesiones vivas es `herdr pane list`, **no** `intercom` (no existe fuera de una sesión de agente). Solo detecta e informa: sin auto-remediación. Se mataron tres clases de falso positivo: stall en sesión idle (idle ≠ stalled), bucle en comandos que comparten prefijo (comparar argumentos completos, no 60 caracteres), y un lector que parseaba cero tool calls en silencio (pi los anida en `message.content[]`).
+
+## Lecciones de verificación (fallos repetidos que no conviene repetir)
+
+1. **Nunca medir un código de salida a través de un pipe.** `cmd | tail -1` informa del estado de `tail`, siempre 0. Coste: una acusación falsa contra un guard que funcionaba.
+2. **Un guard que solo comprueba presencia no protege.** La cobertura OKF se contaba pero no se validaba; las claves YAML duplicadas pasaban en silencio destruyendo dos de tres entradas `source:`.
+3. **Las etiquetas de la interfaz mienten; el jsonl de la sesión dice la verdad.** `PI_MODEL` e `intercom list` son fotos del arranque. Dos conclusiones equivocadas en un día.
+4. **Un chequeo que no puede fallar no verifica nada.** Una prueba inyectada sobre la clave equivocada no demostró nada; el mismo error casi condena a un guard correcto.
+5. **El silencio es el peor modo de fallo de un vigilante.** "Escaneando todo" y luego no escanear nada es indistinguible de "todo sano".
+
+## OKF por formato (la regla que sigue mordiendo)
+
+El encabezado es transparente al formato, pero su **forma no es elección libre**:
+- Markdown → frontmatter YAML entre fences `---`
+- HTML → `<!-- OKF-METADATA … -->` antes del `<!DOCTYPE>` (los comentarios HTML admiten `--`)
+- **SVG/XML → mismo comentario, pero el contenido NO puede llevar `--`**, así que sin fences. Meter fences YAML en un comentario SVG rompe el fichero, y ImageMagick falla **en silencio**, así que el PNG/ICO derivado parece correcto mientras el SVG está muerto.
+- JSON → `.meta.json` hermano
+- Python → bloque de comentarios `#` tras el shebang
+
 ## Registro
 
 - 2026-11-19: Pizarra creada por ORQ a petición de Ricardo, tras fallos del handover de intercom (`stop reason: length`) y confusión sobre quién reparte el trabajo. Los IDs de sesión antiguos se conservan como arqueología, marcados como ANTIGUA/cerrada.
@@ -225,6 +254,7 @@ La celda del A2 está degradada (~2562/3010 mAh) y el teléfono **se apaga solo 
 - 2026-11-19: Añadida la sección del PerroGuardian a petición de Ricardo, tras dos sesiones que quemaron horas en bucles que en la interfaz parecían vivas. La detección debe usar el jsonl de la sesión, nunca la etiqueta de la interfaz.
 - 2026-11-19: Añadida la sección de disciplina de herramientas — un `grep` sin acotar causó un bucle de agotamiento en IMGsMNG (827 KB de resultados, 4 compactaciones). Ahora el grep exige `limit` y `path` acotado.
 - 2026-11-19: Añadida la regla 6 a petición de Ricardo — las páginas web se abren en VENTANA NUEVA, nunca en pestaña nueva. **Ampliada tras un incidente**: un `xdg-open` lanzó Firefox (20+ ventanas, cientos de pestañas) y colapsó la GUI. Corregidos los manejadores MIME de http/https/text/html a `chromium-browser.desktop`; queda prohibido `xdg-open` pelado para páginas dirigidas a Ricardo.
+- 2026-11-20: Añadidas las secciones de Infraestructura e incidencias, Lecciones de verificación y OKF por formato, tras la ronda del 19-20 de noviembre (red, firewall, vigilante, suspender/despertar, dashboard de contabilidad).
 - 2026-11-19: IMGsMNG reubicado al árbol de trabajo correcto. Sesión nueva `01a1f448` en `~/Trabajo/IAI/gentle-companion-aesthetic` con el modelo local; la antigua `01a1eefd` (cwd gentle-shell) queda cerrada. Acceso a memoria preservado: Engram se ata al proyecto, no al cwd.
 - 2026-11-19: Creada esta copia en castellano (`team-roster_es-ES.md`) a petición de Ricardo: su lengua materna, mejor absorción de su esquema mental; la inglesa se queda para los agentes y evita traducciones reiteradas.
 - 2026-11-19/20: **Añadida la receta de orientación del A2** a petición de Ricardo: «apúntate en la pizarra y memoria las instrucciones para las diferentes orientaciones y así lo harás de una vez sin tener que chequear tanto a tientas». La sección recoge las tres capas independientes (rotación del teléfono, rotación de captura, geometría de ventana), las dos trampas que causaron las horas perdidas (el launcher MIUI fuerza vertical, la pantalla de bloqueo fuerza vertical), los comandos de verificación que dan la verdad (`screencap` + `xwininfo Map State`), y las reglas de supervivencia de scrcpy (`setsid`, instancia única, `--video-codec=h264` tras un apagón).

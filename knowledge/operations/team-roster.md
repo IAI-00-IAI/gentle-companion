@@ -214,6 +214,35 @@ The A2 changes address constantly (power cycles, USB tether up/down, WiFi AP). O
 
 The A2's cell is degraded (~2562/3010 mAh) and the phone **powers itself off around 60-70%** under load. **Warn Ricardo whenever the level drops below 80%.** Check with `dumpsys battery | grep -E "level|status"`. It cannot be fixed without root (Ricardo declines rooting); keep it charging.
 
+## Infrastructure & incidents (2026-11-19/20)
+
+**Network topology (current)**: A2 provides 4G two ways — USB tether → router (`usb0` 192.168.42.130) AND WiFi AP → ricardoPC. ricardoHP sits on the router's LAN (`192.168.2.20`, Ethernet) **and** on the A2's AP (`wlo1` 192.168.43.73). The router's own WiFi is DOWN. The A2's AP gateway is **192.168.43.168**, not `.43.1`.
+
+**Known network trap**: NetworkManager profile `ricardoA2` carries `ipv4.routes = 192.168.2.11/24 192.168.2.1`, which installs a route sending `192.168.2.1` via `wlo1` where the router does not answer → SSH/LuCI die with EHOSTUNREACH. Workaround in place: `SO_BINDTODEVICE` via `socat` (`router-access.sh`). Real fix needs sudo: `nmcli connection modify ricardoA2 ipv4.routes ''`.
+
+**Router (OpenWrt 24.10.6, HG556a)**: firewall hardened 2026-11-19 — wan input/forward REJECT, the `wwwl` and `hp` WAN→LAN rules deleted, LAN untouched, internet alive. Consequence accepted: the router is no longer administrable from the A2's WiFi (its STA interface is in the WAN zone), only from LAN. `/www` is writable → static HTML can be served with zero install. `sftp-server` absent; `scp -O` works. Wake-on-LAN via `etherwake` on the router.
+
+**Suspend/wake ricardoPC (verified)**: `systemctl suspend --no-ask-password` (plain `sudo -n` fails, no passwordless sudo). Magic packet → S3 resume ≈ **7 s**. llama-swap **reloads its always-on model on resume**; Ricardo prefers to load Bonsai2 by hand so it is warm when he needs it. Watch item: `xhci_hcd … xHC error in resume, USBSTS 0x401` — if a USB port dies after suspend, that is the journal line.
+
+**Watchdog (perroGuardian)**: four Companion automations on the HP (`watchdog-router-health` */15, `watchdog-reachability` 7,37, `watchdog-agents` 3,18,33,48, `watchdog-relay-alerts` */10). Liveness oracle is `herdr pane list`, **not** `intercom` (unavailable outside an agent session). Detect and report only — no auto-remediation. Three false-positive classes were found and killed: stall on an idle session (idle ≠ stalled), loop on commands sharing a prefix (compare full args, not 60 chars), and a reader that silently parsed zero tool calls (pi nests them in `message.content[]`).
+
+## Verification lessons (repeated failures worth not repeating)
+
+1. **Never measure an exit code through a pipe.** `cmd | tail -1` reports `tail`'s status, always 0. Cost: a false accusation against a working guard.
+2. **A guard that only checks presence does not guard.** OKF coverage was counted but not validated; duplicate YAML keys passed silently while destroying two of three `source:` entries.
+3. **UI labels lie; the session jsonl tells the truth.** `PI_MODEL` and `intercom list` are start-time snapshots. Two wrong conclusions in one day.
+4. **A check that cannot fail verifies nothing.** A test injected against the wrong key proved nothing; the same mistake nearly condemned a correct guard.
+5. **Silence is the worst failure mode for a watchdog.** "Scanning all" then scanning nothing looks identical to "all healthy".
+
+## OKF by format (the rule that keeps biting)
+
+The header is format-transparent, but its **shape is not free choice**:
+- Markdown → YAML frontmatter between `---` fences
+- HTML → `<!-- OKF-METADATA … -->` before `<!DOCTYPE>` (HTML comments allow `--`)
+- **SVG/XML → same comment, but the payload MUST NOT contain `--`**, so no fences. Putting YAML fences in an SVG comment breaks the file, and ImageMagick fails **silently**, so the derived PNG/ICO look fine while the SVG is dead.
+- JSON → sibling `.meta.json`
+- Python → `#` comment block after the shebang
+
 ## Log
 
 - 2026-11-19: Board created by ORQ at Ricardo's request, after handover-launch failures (stop reason: length) and identity confusion about who assigns work. Old session IDs kept for archaeology, marked OLD/closed.
@@ -222,6 +251,7 @@ The A2's cell is degraded (~2562/3010 mAh) and the phone **powers itself off aro
 - 2026-11-19: Watchdog / perroGuardian section added at Ricardo's request, after two sessions burned hours in loops that looked alive in the UI. Detection must use the session jsonl, never the UI label.
 - 2026-11-19: Tool discipline section added — unbounded `grep` caused an exhaustion loop in IMGsMNG (827 KB of tool results, 4 compactions). Grep now requires `limit` and scoped `path`.
 - 2026-11-19: Rule 6 added at Ricardo's request — web pages must open in a NEW WINDOW, never a new tab. **Extended after an incident**: an `xdg-open` launched Firefox (20+ windows, hundreds of tabs) and collapsed the GUI. MIME handlers for http/https/text/html corrected to `chromium-browser.desktop`; bare `xdg-open` is now forbidden for user-facing pages.
+- 2026-11-20: Added Infrastructure & incidents, Verification lessons and OKF-by-format sections after the 19-20 Nov round (network, firewall, watchdog, suspend/wake, accounting dashboard).
 - 2026-11-19: IMGsMNG relocated to the correct worktree. New session `01a1f448` at `~/Trabajo/IAI/gentle-companion-aesthetic` with the local model; old `01a1eefd` (cwd gentle-shell) closed. Memory access preserved: Engram attaches to project, not cwd.
 - 2026-11-19: Spanish copy added (`team-roster_es-ES.md`) at Ricardo's request: his native language aids his mental model; English stays for agents and avoids repeated translation.
 - 2026-11-19/20: **A2 orientation recipe added** at Ricardo's request ("apúntate en la pizarra y memoria las instrucciones para las diferentes orientaciones y así lo harás de una vez sin tener que chequear tanto a tientas"). His words. The section records the three independent layers (phone rotation, capture rotation, window geometry), the two traps that actually caused the hours lost (MIUI launcher forces portrait, lock screen forces portrait), the verification commands that give ground truth (`screencap` + `xwininfo Map State`), and the scrcpy survival rules (`setsid`, single instance, `--video-codec=h264` after a power-off).
