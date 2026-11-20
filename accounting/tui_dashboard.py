@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+
+# OKF-METADATA
+# ---
+# type: Python Module
+# title: "Dashboard TUI (rich)"
+# description: "Vista de terminal con ciclos, progresión de cuota y tokens por modelo, para revisión rápida sin navegador."
+# status: draft
+# generated: 2026-11-20T00:51:26+01:00
+# source:
+# - "accounting/data.py"
+# verified: 2026-11-20
+# stale_after: 2027-06-30
+# ---
+
 """TUI dashboard for the Vibe subscription accounting (rich-based).
 
 Run:  python3 accounting/tui_dashboard.py

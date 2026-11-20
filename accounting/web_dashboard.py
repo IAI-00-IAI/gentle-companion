@@ -1,4 +1,21 @@
 #!/usr/bin/env python3
+
+# OKF-METADATA
+# ---
+# type: Python Module
+# title: "Servidor del dashboard ContaMNG"
+# description: "Servidor HTTP stdlib en 127.0.0.1:8799: renderiza la página de cuota/coste/financiación, sirve las fichas, valida el token de acceso y cachea el render 60 s."
+# status: draft
+# generated: 2026-11-20T00:51:26+01:00
+# source:
+# - "accounting/data.py"
+# - "usage.db"
+# - "accounting/dashboard.token"
+# - "accounting/fichas/*.html"
+# verified: 2026-11-20
+# stale_after: 2027-06-30
+# ---
+
 """Web dashboard for the Vibe subscription accounting.
 
 Serves a self-contained plotly page on 127.0.0.1:8799.
@@ -35,6 +52,46 @@ EUR_PER_POINT = data.euro_per_quota_point()
 
 _render_cache = {"html": None, "ts": 0.0, "age_note": ""}
 _RENDER_TTL = 60.0  # seconds — reversible: set TTL to 0.0 to disable cache entirely
+
+
+
+
+def _iso_now() -> str:
+    from datetime import datetime
+    return datetime.now().astimezone().replace(microsecond=0).isoformat()
+
+
+def _date_today() -> str:
+    from datetime import date
+    return date.today().isoformat()
+
+def _es_numbers(html: str) -> str:
+    """REGLA #1: rendered figures use Spanish format (decimal comma, thousands dot).
+
+    Only numbers followed by a currency/percent/ratio unit are touched, so CSS
+    values and Plotly's numeric arrays stay intact. Numbers that already carry a
+    comma are left alone (idempotent)."""
+    import re as _re
+
+    def conv(m):
+        num, sp, unit = m.group(1), m.group(2), m.group(3)
+        if "," in num:
+            return m.group(0)                      # already Spanish
+        neg = num.startswith("-")
+        body = num.lstrip("-")
+        int_part, _, dec = body.partition(".")
+        # 3-digit group after a dot with no other dot = thousands separator already
+        if len(int_part) <= 3 and len(dec) == 3:
+            return m.group(0)                      # e.g. 255.000 → keep
+        digits, grouped = int_part, ""
+        while len(digits) > 3:
+            grouped = "." + digits[-3:] + grouped
+            digits = digits[:-3]
+        grouped = digits + grouped
+        out = ("-" if neg else "") + grouped + ("," + dec if dec else "")
+        return out + sp + unit
+
+    return _re.sub(r"(?<![\d.,])(-?\d+(?:\.\d+)?)(\s?)(€|%|pp|x)(?![\w])", conv, html)
 
 
 def render_html() -> str:
@@ -103,11 +160,13 @@ def _render_and_cache(now: float) -> str:
               f"proyección a reset: {proj_pct:.1f}%",
         xaxis_title="Día", yaxis_title="% del ciclo",
         template="plotly_dark", paper_bgcolor="#1b2740", plot_bgcolor="#16203a", height=380,
+        # Note sits INSIDE the plot area (bottom-left) — at y>1 it collided with the title.
         annotations=[dict(
-            text=f"1 punto de cuota = {EUR_PER_POINT:.4f} € de suscripción (18,14 € / 255 €)",
-            showarrow=False, xref="paper", yref="paper", x=0, y=1.12,
-            font=dict(size=11, color="#94a3b8"))],
-        margin=dict(t=90),
+            text=f"1 pp de ciclo = 2,55 € de presupuesto = {EUR_PER_POINT:.4f} € de suscripción",
+            showarrow=False, xref="paper", yref="paper", x=0.01, y=0.02,
+            xanchor="left", yanchor="bottom",
+            font=dict(size=10, color="#94a3b8"))],
+        margin=dict(t=90, b=60),
     )
 
     # 4. Suggested daily load to reach 100% at reset (table).
@@ -126,7 +185,9 @@ def _render_and_cache(now: float) -> str:
 <td style="padding:8px 12px">{plan['suggested_pts_day']:.2f} % cuota/día</td>
 <td style="padding:8px 12px">{plan['suggested_eur_day']:.2f} €/día</td></tr>
 </table>
-<p style="color:#94a3b8;margin:6px 0 0">DEDUCIDO (ritmo ∝ tokens, margen +0,25 pts/día anti-queda-corto) — se recalcula en cada refresh del caché.</p>
+<p style="color:#94a3b8;margin:6px 0 0">DEDUCIDO (ritmo ∝ tokens, margen +0,25 pp/día) — se recalcula en cada refresh del caché.</p>
+<p style="color:#94a3b8;margin:4px 0 0">Ciclo actual: <b>{plan['cycle_days']} días</b> (suscripción contratada el {plan['cycle_start']}, reset el {data.RESET_AT}) · día {plan['cycle_day']} de {plan['cycle_days']}.<br>
+<span style="color:#7dd3fc">Ojo con la proyección mensual:</span> el presupuesto de 255 € es POR CICLO. Este ciclo dura {plan['cycle_days']} días, pero los siguientes son meses naturales de {plan['steady_days']} días: a igualdad de presupuesto, el ritmo sostenible cae a {plan['steady_pts_day']:.2f} % cuota/día ({plan['steady_pts_day']*EUR_PER_POINT:.2f} € suscr./día) — menos de la mitad que el pace de este ciclo.</p>
 </div>"""
 
     # 2. Daily increment translated to subscription EUR.
@@ -155,44 +216,16 @@ def _render_and_cache(now: float) -> str:
     # hostnamectl — 2026-11-18). ricardoPC: provided by TelfMNG, corrected by
     # Ricardo (df /: 31%); not measured in place (192.168.2.11, ssh open, no
     # credentials authorized).
-    # Hardware inventory. The measured values are the default so a fresh clone renders
-    # the table; hardware.local.json, when present, overrides them with whatever is
-    # measured on the machine running this. The file is git-ignored because it is a
-    # local override, not because the values are secret.
-    HARDWARE_DEFAULT = [
-        {
-            "name": "💻 ricardo-HP-Xubuntu (laptop)",
-            "cpu": "Intel Core i3-6006U @ 2.00 GHz (Skylake, 2C/4T)",
-            "cpu_max": "2.000 MHz",
-            "ram": "12 GB (11 Gi usables)",
-            "gpu": "Intel HD Graphics 520 (integrada) + AMD Radeon R5 M330 (Sun XT) dedicada",
-            "vram": "R5 M330: 2048 MB dedicada (medida, glxinfo) · HD 520: sin VRAM propia, comparte RAM",
-            "so": "Ubuntu 24.04 LTS",
-            "kernel": "6.8.1-1015-realtime",
-            "chassis": "Laptop",
-            "discos": "/: 81 GB (90 % lleno) · /home: 369 GB (93 % lleno)",
-            "fuente": "Medido in situ (lscpu/free/lspci/lsblk/df/hostnamectl), 18-nov"
-        },
-        {
-            "name": "🖥️ ricardoPC (escritorio)",
-            "cpu": "AMD Athlon 200GE with Radeon Vega Graphics (2C/4T, Zen) @ 3.2 GHz — medido por SSH (lscpu)",
-            "cpu_max": "3.200 MHz",
-            "ram": "13 Gi total · ~8,4 Gi usados · ~5,2 Gi disponibles — medido por SSH (free -h)",
-            "gpu": "NVIDIA GeForce RTX 3060 Lite Hash Rate — VRAM 12.288 MiB (12 GB), medido por SSH con nvidia-smi · driver 615.71.09",
-            "vram": "RTX 3060 LHR: 12.288 MiB (12 GB) GDDR6 — MEDIDO por TelfMNG vía SSH con nvidia-smi (driver 615.71.09)",
-            "so": "Ubuntu 26.04 LTS",
-            "kernel": "7.2.10-zabbly+",
-            "chassis": "Desktop",
-            "discos": "/: 64 GB (31 % lleno) · /home: 679 GB (94 % lleno) · sda ST2000DM008 1,8T · sdb WDC WD2000FYYZ 1,8T · sdd WDC WD10EZEX 931,5G · sde TOSHIBA MK2575GSX 232,9G — medido por SSH (lsblk)",
-            "fuente": "MEDIDO IN SITU por TelfMNG vía SSH (18-nov-2026): lscpu, free -h, nvidia-smi, lsblk (driver NVIDIA 615.71.09)"
-        }
-    ]
+    # Hardware inventory lives in hardware.local.json, which is git-ignored: this file is
+    # published, and the inventory carries hostnames, disk usage and GPU details of
+    # Ricardo's machines. The published dashboard renders an empty inventory when the
+    # file is absent, which is what a reader of the repository sees.
     from pathlib import Path as _Path
     _hw_file = _Path(__file__).with_name("hardware.local.json")
     try:
         HARDWARE = json.loads(_hw_file.read_text())
     except (OSError, json.JSONDecodeError):
-        HARDWARE = HARDWARE_DEFAULT
+        HARDWARE = []
 
     # 5c. Full measured report for the HP laptop (this host), collapsing <details>.
     import subprocess
@@ -471,7 +504,7 @@ def _render_and_cache(now: float) -> str:
          "esfuerzo": "Bajo",
          "url": "uco.es/servicios/actualidad (Transfiere 2027)"},
         {"rank": 26, "name": "NLnet — calendario recurrente (dato clave)",
-         "slug": "nlnet-restack",
+         "slug": "nlnet-calendario",
          "importe": "igual que fila #1 (5k-50k/150k)",
          "plazo": "RECURRENTE: deadline el 3 de cada MES IMPAR (3-ene, 3-mar, 3-may 2027...)",
          "req": "igual — no es una única ventana anual",
@@ -480,7 +513,8 @@ def _render_and_cache(now: float) -> str:
          "url": "thegrantindex.com · grant-grants.com"},
     ]
     def _fund_row(h):
-        nombre = (f"<a href='/fichas/{h['slug']}.html' style='color:#7dd3fc;text-decoration:underline'><b>#{h['rank']}</b> {h['name']} →</a>")
+        _href = "/opcion1.html" if h['rank'] == 1 else f"/fichas/{h['rank']}-{h['slug']}.html"
+        nombre = (f"<a href='{_href}' style='color:#7dd3fc;text-decoration:underline'><b>#{h['rank']}</b> {h['name']} →</a>")
         return (f"<tr><td style='padding:10px 12px'>{nombre}</td>"
                 f"<td style='padding:10px 12px'>{h['importe']}</td>"
                 f"<td style='padding:10px 12px'>{h['plazo']}</td>"
@@ -512,7 +546,7 @@ def _render_and_cache(now: float) -> str:
 <div style="background:#1e293b;border-radius:8px;padding:10px"><b style="color:#7dd3fc">Consumo medio ciclo</b><br>{avg_pts:.2f} % cuota/día = {avg_pts*EUR_PER_POINT:.2f} € suscr./día<br><span style="color:#94a3b8">medido: {plan['current_pct']:.2f}% en {_cycle_day} días de {_cycle_days}</span></div>
 <div style="background:#1e293b;border-radius:8px;padding:10px"><b style="color:#7dd3fc">Ritmo reciente</b><br>{rec_pts:.2f} % cuota/día = {rec_pts*EUR_PER_POINT:.2f} € suscr./día<br><span style="color:#94a3b8">última medición día-anterior → hoy</span></div>
 <div style="background:#1e293b;border-radius:8px;padding:10px"><b style="color:#7dd3fc">Proyección a reset</b><br>quedan {days_left} días · falta {100-plan['current_pct']:.1f}% · pace requerido {plan['required_pts_day']:.2f} %/día<br><span style="color:#94a3b8">agotamiento al ritmo reciente: {drain_recent:.1f} meses (muy por delante del reset)</span></div>
-<div style="background:#1e293b;border-radius:8px;padding:10px"><b style="color:#7dd3fc">Economía de la suscripción</b><br>{EUR_PER_POINT:.4f} € suscr. por punto · 1 € cuota = {EUR_PER_POINT:.2f} € suscr.<br><span style="color:#94a3b8">fijo pagado: {eur_day_fixed:.2f} €/día · cuota consumida al ritmo reciente: {rec_pts*EUR_PER_POINT:.2f} €/día · ratio de aprovechamiento del plan: {(rec_pts*EUR_PER_POINT)/eur_day_fixed:.1f}x</span></div>
+<div style="background:#1e293b;border-radius:8px;padding:10px"><b style="color:#7dd3fc">Economía de la suscripción</b><br>1 pp de ciclo = 2,55 € de presupuesto incluido = {EUR_PER_POINT:.4f} € de lo que pagas (255 € / 18,14 €)<br><span style="color:#94a3b8">fijo pagado: {eur_day_fixed:.2f} €/día · cuota consumida al ritmo reciente: {rec_pts*EUR_PER_POINT:.2f} €/día · ratio de aprovechamiento del plan: {(rec_pts*EUR_PER_POINT)/eur_day_fixed:.1f}x</span></div>
 <div style="background:#1e293b;border-radius:8px;padding:10px"><b style="color:#7dd3fc">Tokens (medido proveedor)</b><br>hoy: {rec_tok:,} · medio/día ciclo: {int(avg_tok_day):,}<br><span style="color:#94a3b8">fuente: usage.db (prompt+completion del proveedor) — aprox 1 % cuota ≈ {int((rec_tok/ max(rec_pts,0.01))):,} tokens</span></div>
 <div style="background:#1e293b;border-radius:8px;padding:10px"><b style="color:#7dd3fc">Estado de la cuota</b><br>usado {plan['current_pct']:.2f}% ({used_eur:.2f} € de los {BUDGET:.0f} € incluidos) · libre {free_eur:.2f} €<br><span style="color:#94a3b8">pagado realmente por ese {plan['current_pct']:.2f}%: <b>0,00 € adicionales</b> — la suscripción ya pagada ({eur_day_fixed:.2f} €/día × {_cycle_day} días = {eur_day_fixed*_cycle_day:.2f} € devengados del mes) lo cubre todo; PAYG off ⇒ el 100% del ciclo no costaría ni 1 € más</span></div>
 </div>"""
@@ -528,9 +562,27 @@ def _render_and_cache(now: float) -> str:
         "hardware": HARDWARE,
     }, ensure_ascii=False)
 
-    return f"""<!DOCTYPE html>
+    html = f"""<!-- OKF-METADATA
+type: Dashboard Page
+title: "ContaMNG — dashboard de cuota, coste y financiación"
+description: "Página generada en cada petición: cuota viva del ciclo, series de consumo, inventario de hardware y mapa de financiación con 26 vías."
+status: to-confirm
+generated: {_iso_now()}
+source:
+  - "usage.db (tokens por día/modelo, registro del proveedor)"
+  - "read_quota() vivo sobre la API de suscripción"
+  - "journalctl --user -u mistral-gateway (serie de allowance)"
+  - "accounting/fichas/*.html (fichas de financiación)"
+verified: {_date_today()}
+stale_after: 2027-06-30
+-->
+<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
 <title>ContaMNG · Cuota Vibe</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.png">
+
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 <style>
  body{{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;margin:24px auto;max-width:1200px}}
@@ -583,7 +635,7 @@ Ubuntu 26.04 LTS · kernel 7.2.10-zabbly+</pre></div>
 </div></details>
 </div>
 </div>
-<h2 id="mapa" style="font-size:1.05rem;margin:28px 0 8px">🗺️ Mapa de financiación <a href='/opcion1.html' style='font-size:0.8rem;color:#7dd3fc;text-decoration:none'>(ficha ampliada opción #1)</a> (DATO con fuente · consultado 18-19-nov-2026 · ordenado por valor/esfuerzo — la decisión es de Ricardo)</h2>
+<h2 id="mapa" style="font-size:1.05rem;margin:28px 0 8px">🗺️ Mapa de financiación (DATO con fuente · consultado 18-19-nov-2026 · ordenado por valor/esfuerzo — la decisión es de Ricardo)</h2>
 <div class="panel" style="width:1200px;padding:6px 10px">
 <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
 <tr style="background:#1e293b"><th style="padding:10px 12px;text-align:left">Convocatoria</th><th style="padding:10px 12px;text-align:left">Cuantía</th><th style="padding:10px 12px;text-align:left">Plazo</th><th style="padding:10px 12px;text-align:left">Requisitos duros</th><th style="padding:10px 12px;text-align:left">Encaje y esfuerzo</th></tr>
@@ -602,15 +654,31 @@ Plotly.newPlot('f1', JSON.parse(f1), JSON.parse(f1).layout, cfg);
 Plotly.newPlot('f2', JSON.parse(f2), JSON.parse(f2).layout, cfg);
 Plotly.newPlot('f3', JSON.parse(f3), JSON.parse(f3).layout, cfg);
 Plotly.relayout('f4', {{width: 1200}});</script></body></html>"""
+    html = _es_numbers(html)
     _render_cache["html"] = html
     _render_cache["ts"] = now
     return html
 
 
 class Handler(BaseHTTPRequestHandler):
+    LOCAL_HOSTS = {"127.0.0.1:8799", "localhost:8799", "[::1]:8799"}
+
     def _authorized(self, path: str) -> bool:
-        """Token required on every route that carries inventory/cost/company data."""
+        """Token required on every route that carries inventory/cost/company data.
+
+        LOCAL BYPASS (Ricardo, 19-nov): a request skips the token ONLY when it is
+        both (a) from loopback and (b) addressed to a local Host header. The IP
+        check alone was a hole: tailcat terminates the tunnel on 127.0.0.1, so a
+        tunnel visitor also looks like loopback. Tunnel requests arrive with the
+        tailcat hostname in Host and therefore keep requiring the token.
+        Rollback = delete the local_bypass block below."""
         from urllib.parse import urlparse, parse_qs
+        local_bypass = (
+            self.client_address[0] in ("127.0.0.1", "::1")
+            and (self.headers.get("Host") or "").strip().lower() in self.LOCAL_HOSTS
+        )
+        if local_bypass:
+            return True
         q = parse_qs(urlparse(path).query)
         supplied = (q.get("token") or [None])[0]
         if not supplied:
@@ -632,7 +700,7 @@ class Handler(BaseHTTPRequestHandler):
         import time as _t
         from urllib.parse import urlparse
         path_only = urlparse(self.path).path
-        public = path_only in ("/favicon.ico",)  # no data
+        public = path_only in ("/favicon.ico", "/favicon.svg", "/favicon.png")  # no data
         if not public and not self._authorized(self.path):
             self._deny()
             LOG_LINE = f"{_t.strftime('%Y-%m-%dT%H:%M:%S')} failed auth from {self.client_address[0]} path={path_only}"
@@ -642,6 +710,24 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 pass
             return
+
+        if path_only in ("/favicon.ico", "/favicon.svg", "/favicon.png"):
+            _icons = {
+                "/favicon.ico": ("favicon.ico", "image/x-icon"),
+                "/favicon.svg": ("favicon_contamng.svg", "image/svg+xml"),
+                "/favicon.png": ("favicon_64.png", "image/png"),
+            }
+            fname, ctype = _icons[path_only]
+            f = Path(__file__).resolve().parent / "assets" / fname
+            if f.is_file():
+                body = f.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                self.wfile.write(body)
+                return
         if path_only.startswith("/fichas/"):
             f = (Path(__file__).resolve().parent / self.path.lstrip("/"))
             if f.is_file():

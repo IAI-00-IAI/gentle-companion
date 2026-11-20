@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+
+# OKF-METADATA
+# ---
+# type: Python Module
+# title: "Módulo de datos contables"
+# description: "Fuente única de los datos: series de allowance, plan de carga por ciclo, tokens por día desde usage.db y conversión cuota↔€ (REGLA #1)."
+# status: draft
+# generated: 2026-11-20T00:51:26+01:00
+# source:
+# - "usage.db"
+# - "journalctl mistral-gateway"
+# - "read_quota() de la API de suscripción"
+# verified: 2026-11-20
+# stale_after: 2027-06-30
+# ---
+
 """Shared data for the Vibe subscription accounting dashboard.
 
 Sources (measured, never invented):
@@ -19,7 +35,10 @@ USAGE_DB = BASE_DIR / "usage.db"
 
 SUBSCRIPTION_PRICE_EUR = 18.14   # fixed monthly price actually paid
 BUDGET_EUR = 255.0               # included usage budget per cycle
-RESET_AT = "2026-12-01"          # cycle reset (UTC)
+RESET_AT = "2026-12-01"          # cycle reset (UTC) — resets are 1st of month
+CYCLE_START = "2026-11-14"       # declared by Ricardo: subscription contracted 14-nov
+# Cycle 1 = 14-nov -> 30-nov (17 days). Following cycles are calendar months (1st -> end),
+# i.e. ~30-31 days. Same 255 EUR budget per cycle, so the pace differs between cycles.
 
 # Last "vibe allowance: N% used" reading seen per day in
 # journalctl --user -u mistral-gateway (gateway logs quota on each start).
@@ -32,8 +51,15 @@ ALLOWANCE_LOGGED: list[tuple[str, float]] = [
 
 
 def euro_per_quota_point() -> float:
-    """Subscription EUR equivalent of 1 allowance point (1% of budget)."""
-    return SUBSCRIPTION_PRICE_EUR / BUDGET_EUR
+    """Subscription EUR equivalent of ONE PERCENTAGE POINT of cycle quota.
+
+    Two different numbers get confused here, so both are spelled out:
+      - budget share: 1 pp of the cycle = 1% of 255 € = 2,55 € of included budget
+      - subscription equivalent: 2,55 € * (18,14 / 255) = 0,1814 € of what Ricardo pays
+    `pts` in load_plan() are percentage points (0-100), so the amount that matters
+    for "what does my subscription afford" is the subscription equivalent above.
+    """
+    return (SUBSCRIPTION_PRICE_EUR / BUDGET_EUR) * (BUDGET_EUR / 100)
 
 
 def gateway_module():
@@ -132,7 +158,15 @@ def load_plan() -> dict:
         if dpoint > 0 and dtok > 0:
             tok_per_point = dtok / dpoint
     margin = 0.25
+    cycle_start = date.fromisoformat(CYCLE_START)
+    cycle_days = (reset - cycle_start).days          # 17 for cycle 1
+    steady_days = (date(reset.year, reset.month, 1) - date(2026, 11, 1)).days  # 30 (nov)
     return {
+        "cycle_start": CYCLE_START,
+        "cycle_days": cycle_days,
+        "cycle_day": (today - cycle_start).days + 1,
+        "steady_days": steady_days,
+        "steady_pts_day": (100 - pct) / steady_days if steady_days else None,
         "current_pct": pct,
         "days_left": days_left,
         "required_pts_day": required,

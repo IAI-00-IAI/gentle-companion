@@ -1,31 +1,41 @@
-# Accounting dashboard (static snapshot)
+---
+type: Readme
+title: "ContaMNG — dashboard estático publicable"
+description: "Versión estática del dashboard de cuota, coste y financiación: HTML plano, gráficos como imágenes, sin JavaScript ni CDN. Datos reales del ciclo."
+tags: [publicación, estático, contabilidad]
+status: verified
+generated: 2026-11-20T02:00:00+01:00
+source:
+  - "accounting/ (árbol de trabajo de ContaMNG en mistral-gateway)"
+verified: 2026-11-20
+stale_after: 2026-12-01
+---
 
-A rendered copy of the project's cost and funding dashboard, published so the community
-can read it without running anything.
+# ContaMNG — dashboard estático
 
-Open `index.html`. It is self-contained except for Plotly, loaded from its CDN.
+Esta carpeta es la **versión publicable** del dashboard de contabilidad. Se puede abrir desde
+cualquier sitio (incluso con `file://`) o servir desde GitHub Pages bajo un subpath: todos los
+enlaces son relativos.
 
-## What this snapshot is
+## Qué contiene
 
-A point-in-time capture, not a live view. The quota figures, token counts and costs are
-frozen at the moment of capture; the funding map is as current as its last round.
+- `index.html` — dashboard: cuota del ciclo, economía de la suscripción, evolución y mapa.
+- `chart-1.png` / `chart-2.png` / `chart-3.png` — gráficos exportados como imagen (sin runtime).
+- `fichas/*.html` — las 26 vías de financiación, numeradas `<rank>-<slug>.html`.
+- `opcion1.html` — ficha ampliada del crédito fiscal I+D+i.
+- `favicon.svg` — icono del sitio.
 
-The live dashboard reads session transcripts, a local `usage.db` and the plan's quota
-endpoint, and needs an access token. None of that works without the author's own data, so
-this page is the version worth publishing: same layout, same numbers, no access.
+## Reglas que cumple
 
-## Updating it
+- **Cero JavaScript propio o ajeno**: ni `<script>`, ni CDN, ni Plotly en el navegador.
+- **Datos reales**, no maquetas: salen de `usage.db`, de la lectura viva del presupuesto del
+  plan y del histórico de arranques del gateway.
+- **Cifras en formato español**: coma decimal, punto de miles (Regla nº 1 del proyecto).
+- **Cabecera OKF** en todos los documentos, con su fuente y su fecha.
+- **Enlaces relativos**: funciona bajo un subpath sin reescribir nada.
 
-`accounting/web_dashboard.py` renders the page. Capture a new snapshot with:
+## Cómo se regenera
 
-```bash
-curl -s "http://127.0.0.1:8799/?token=$DASHBOARD_TOKEN" > docs/accounting/index.html
-```
-
-The token never appears in the rendered HTML — verified on the committed copy.
-
-## A note on the inventory
-
-The hardware table names the maintainer's own machines, with their measured CPU, GPU,
-memory and disk usage. It is published deliberately: it makes the cost figures auditable,
-and it is the kind of transparency this project asks of others.
+Desde el árbol de trabajo (`mistral-gateway/accounting`): se re-exportan los tres gráficos con
+`fig.write_image(...)` y se reescribe `index.html` con los datos del momento. Esta carpeta es
+**salida**, no fuente: no se edita a mano.
