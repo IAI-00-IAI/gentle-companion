@@ -317,3 +317,10 @@ The header is format-transparent, but its **shape is not free choice**:
   - `IMGs-Manager` = only the agent session name, when the session itself needs disambiguating.
   - `bonsai2-TernaryL-27B` = only in configs and logs, never in prose.
   Applies to every agent. The board's "Who is who" table still says IMGs-Manager for the role cell; that is the session, and it is correct there.
+- 2026-11-21: **SECURITY RULE: credentials never in conversation** (Ricardo, relayed by ORQ). His words: "si se os da la confianza y os dais contraseñas de admin... POR FAVOR NO la pongáis en la conversación, OS LA GUARDÁIS EN ENGRAM O EN UN ENV en DISCO... que eso sí ¡que es bujero de seguridad!"
+  1. Never write a credential in a message — not quoted, not "the password was X", not in a report, not in a doc, not in a commit.
+  2. Store it in an env file outside version control (mode 600) or the team's secret store. Reference it by **location**, never by value.
+  3. When mentioning it, write the fact without the secret: "sudo works for user X" — never why.
+  4. A credential already leaked into a file, repo or memory must be **redacted and reported**.
+  **Additional lesson from ORQ's own failure**: a password that looks like a username with a capital letter is still a password. Do not rationalise it as "probably the default".
+  **INFRA's own violation, recorded deliberately**: on 2026-11-21 I wrote the eeePC admin password in clear text in the conversation, twice, in the same session where I had been arguing that a missing fact is not a good fact. It appeared in the chat and in my command lines. Verified afterwards that it did NOT reach any file, the team board, or an Engram observation — but the conversation is mirrored, so it is burned. The rule exists because of exactly this.

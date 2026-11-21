@@ -4,12 +4,12 @@ type: Dashboard Page
 title: "CONTA — cuota, coste y financiación (vista estática)"
 description: "Versión estática publicable del dashboard: datos reales del ciclo, gráficos como imágenes, sin JavaScript ni CDN."
 status: verified
-generated: 2026-11-20T23:04:19+01:00
+generated: 2026-11-21T01:29:01+01:00
 source:
   - "usage.db (tokens por día y modelo, registrado del proveedor)"
   - "read_quota() sobre la API de suscripción"
   - "journalctl --user -u mistral-gateway (serie de allowance)"
-verified: 2026-11-20
+verified: 2026-11-21
 stale_after: 2026-12-01
 ---
 -->
@@ -42,13 +42,13 @@ stale_after: 2026-12-01
 PAYG desactivado · reset 2026-12-01 · <b>objetivo: aprovechar la cuota sin derrocharla y sin quedarse corto</b></p>
 
 <div class="kpi">
-<div><span class="lbl">Cuota usada</span><br>24,84 % = 63,34 € de 255 €<br><span class="sub">medido con read_quota()</span></div>
-<div><span class="lbl">Cuota libre</span><br>191,66 €<br><span class="sub">PAYG off: lo que sobre no se factura</span></div>
-<div><span class="lbl">Ritmo reciente</span><br>9,39 pp/día = 1,70 € suscr./día<br><span class="sub">última medición</span></div>
-<div><span class="lbl">Ritmo requerido</span><br>6,83 pp/día<br><span class="sub">para llegar al 100 % el reset</span></div>
-<div><span class="lbl">Agotamiento</span><br>8 días (0,3 meses) · se agota 3 días antes del reset<br><span class="sub">al ritmo reciente, en puntos de cuota</span></div>
+<div><span class="lbl">Cuota usada</span><br>27,46 % = 70,02 € de 255 €<br><span class="sub">medido con read_quota()</span></div>
+<div><span class="lbl">Cuota libre</span><br>184,98 €<br><span class="sub">PAYG off: lo que sobre no se factura</span></div>
+<div><span class="lbl">Ritmo reciente</span><br>12,01 pp/día = 2,18 € suscr./día<br><span class="sub">última medición</span></div>
+<div><span class="lbl">Ritmo requerido</span><br>7,25 pp/día<br><span class="sub">para llegar al 100 % el reset</span></div>
+<div><span class="lbl">Agotamiento</span><br>6 días (0,2 meses) · se agota 4 días antes del reset<br><span class="sub">al ritmo reciente, en puntos de cuota</span></div>
 <div><span class="lbl">Economía del plan</span><br>1 pp = 2,55 € de presupuesto = 0,1814 € de lo que pagas<br><span class="sub">fijo: 1,07 €/día en un ciclo de 17 días</span></div>
-<div><span class="lbl">Ciclo</span><br>día 7 de 17<br><span class="sub">contratada el 14-nov, reset el día 1</span></div>
+<div><span class="lbl">Ciclo</span><br>día 8 de 17<br><span class="sub">contratada el 14-nov, reset el día 1</span></div>
 </div>
 
 <h2 id="graficos">📈 Evolución</h2>
@@ -74,7 +74,7 @@ cuantía, plazo, requisitos duros, encaje y fuentes con fecha de consulta.</p>
 <p><a href="mapa_completo.html">Ver el mapa completo</a> · <a href="opcion1.html">Ficha ampliada: crédito fiscal I+D+i</a> · <a href="fichas/1-nlnet-restack.html">Ficha #1: NLnet / Restack</a></p>
 
 <hr style="border-color:#2d3f63;margin:24px 0 12px">
-<p class="muted">Generado el 2026-11-20 a las 23:04 · datos de
+<p class="muted">Generado el 2026-11-21 a las 01:29 · datos de
 <code>usage.db</code>, <code>read_quota()</code> y <code>journalctl</code> · cifras en formato
 español (coma decimal, punto de miles).</p>
 </body></html>
