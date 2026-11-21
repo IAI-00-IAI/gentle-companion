@@ -46,7 +46,7 @@ El valor de este puesto no es ejecutar: es **saber quién puede hacer qué** y n
 
 **⚠ Daemon companion — PROBLEMA ABIERTO**: **~7 procesos `tailcat serve`** en el puerto 43722 con **2 identidades** (`.pi` y `.gentle-shell`). Causa de que el WebSocket de Ricardo se caiga. Arreglo: consolidar estado en `.gentle-shell`.
 
-**eePC `.30`**: usuario `telfmng`, **sudo sin contraseña** (contraseña `TelfMNG` con mayúscula — costó horas asumir que estaba bloqueado). Pendiente `ssh-copy-id`.
+**eePC `.30`**: usuario `telfmng` con **sudo sin contraseña** — las credenciales están en Engram, nunca aquí. Costó horas asumir que sudo estaba bloqueado. Pendiente `ssh-copy-id` para el acceso por clave.
 
 ## Los doce pendientes
 
