@@ -229,6 +229,36 @@ La celda del A2 está degradada (~2562/3010 mAh) y el teléfono **se apaga solo 
 
 **PerroGuardian**: cuatro automations de Companion en el HP (`watchdog-router-health` */15, `watchdog-reachability` 7,37, `watchdog-agents` 3,18,33,48, `watchdog-relay-alerts` */10). El oráculo de sesiones vivas es `herdr pane list`, **no** `intercom` (no existe fuera de una sesión de agente). Solo detecta e informa: sin auto-remediación. Se mataron tres clases de falso positivo: stall en sesión idle (idle ≠ stalled), bucle en comandos que comparten prefijo (comparar argumentos completos, no 60 caracteres), y un lector que parseaba cero tool calls en silencio (pi los anida en `message.content[]`).
 
+## Canvas — defectos abiertos (2026-11-21)
+
+Dos defectos del canvas de diseño, reportados por Ricardo. Ninguno bloquea las decisiones estéticas, que ya están tomadas (A1 ámbar, B1 grosor 2.0).
+
+### C1 — Los controles reactivos de la primera fila no funcionan
+La primera línea de controles de la UI del canvas no responde. **Sin diagnosticar**: el código de los controles vive en el bundle construido (`~/.local/lib/node_modules/gentle-pi/assets/design-canvas/`) y no se localizó por nombre en el tiempo disponible. **Investigar antes de abrir issue.**
+
+Entorno para el issue, si se abre:
+```
+SO:        Ubuntu 24.04.5 LTS, kernel 6.8.1-1015-realtime, x86_64
+Navegador: Chromium 156.0.8078.79 (build de Linux Mint)
+Canvas:    http://127.0.0.1:40489/<token>/d/<slug>/   ·  HTTP 200
+Herdr:     0.9.5 (embebe motor Ghostty)
+Pantalla:  X11 (ozone-platform=x11)
+```
+
+### C2 — El canvas dentro de un iframe sale en blanco
+Incrustado a través de Companion, el chrome del canvas carga pero los artboards salen en blanco. La consola da error de autorización/blanco. En pestaña propia funciona.
+
+**Evidencia recogida:**
+- El canvas construye las URLs de los artboards como **ruta absoluta desde la raíz**: `base = "/<token>/"`, luego `files/<slug>/<file>`. Dentro del puente ese mismo contenido se sirve bajo `/bridge/<token>/…`, así que el segmento del token se pierde y la petición no acierta.
+- `server/src/bridge.rs:1521` lo dice explícitamente: **"WebSockets and workers are not supported."** El canvas usa service worker, así que incluso con la ruta corregida puede no renderizar.
+- El puente retiene `host`, `origin`, `referer` y `cookie` de las peticiones ascendentes, y solo reenvía un conjunto fijo de cabeceras de respuesta.
+
+**Dos arreglos posibles, ninguno trivial y ninguno solo nuestro:**
+1. El canvas acepta un `base` relativo, para que cualquier embedder pueda montarlo en un prefijo arbitrario. El más limpio, beneficia a cualquier embed, **pero el canvas es código de upstream**.
+2. El puente reescribe el prefijo al vuelo. Nuestro, pero convierte un "no es un proxy de propósito general" documentado en algo parecido a uno.
+
+**Bloqueante para el informe a Alan:** si el fallo es solo de ruta o de ruta **más** service worker. Eso decide si el arreglo 2 merece la pena intentarse. Prueba: servir un artboard desde una ruta que incluya el prefijo del puente y ver si renderiza sin su worker.
+
 ## Referencias a ficheros en la conversación (regla, 2026-11-20)
 
 Al mencionar un fichero en conversación, escribirlo como **ruta absoluta clicable con número de línea**, no como prosa.
@@ -295,6 +325,7 @@ El encabezado es transparente al formato, pero su **forma no es elección libre*
 - 2026-11-19: Añadida la sección del PerroGuardian a petición de Ricardo, tras dos sesiones que quemaron horas en bucles que en la interfaz parecían vivas. La detección debe usar el jsonl de la sesión, nunca la etiqueta de la interfaz.
 - 2026-11-19: Añadida la sección de disciplina de herramientas — un `grep` sin acotar causó un bucle de agotamiento en IMGsMNG (827 KB de resultados, 4 compactaciones). Ahora el grep exige `limit` y `path` acotado.
 - 2026-11-19: Añadida la regla 6 a petición de Ricardo — las páginas web se abren en VENTANA NUEVA, nunca en pestaña nueva. **Ampliada tras un incidente**: un `xdg-open` lanzó Firefox (20+ ventanas, cientos de pestañas) y colapsó la GUI. Corregidos los manejadores MIME de http/https/text/html a `chromium-browser.desktop`; queda prohibido `xdg-open` pelado para páginas dirigidas a Ricardo.
+- 2026-11-21: Añadida la sección de defectos del canvas (C1 controles de la primera fila, C2 iframe en blanco) con datos de entorno para un issue.
 - 2026-11-20: Añadida la regla de referencias a ficheros — rutas absolutas con número de línea en conversación, a petición de Ricardo.
 - 2026-11-20: Añadida la sección de la familia del «no encuentra y calla» — seis casos en un día de comprobaciones que parecen correctas mientras no encuentran nada. Añadida tras reportar KOS una cita héroe vacía renderizada con exit 0.
 - 2026-11-20: Añadidas las secciones de Infraestructura e incidencias, Lecciones de verificación y OKF por formato, tras la ronda del 19-20 de noviembre (red, firewall, vigilante, suspender/despertar, dashboard de contabilidad).

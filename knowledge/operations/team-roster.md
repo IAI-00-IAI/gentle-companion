@@ -247,6 +247,36 @@ The most expensive failure mode we hit all day is not being wrong — it is **lo
 - A regex that matches nothing is an error, not an empty result — the two must be distinguishable.
 - A rule that is only remembered gets forgotten: make it executable (`check-parity.py`, `check_okf.py`).
 
+## Canvas — open defects (2026-11-21)
+
+Two defects in the design canvas, both reported by Ricardo. Neither blocks the aesthetic decisions, which are already made (A1 amber, B1 stroke 2.0).
+
+### C1 — Top-row reactive controls do not work
+The first row of controls in the canvas UI does not respond. Not diagnosed: the control code lives in the built asset bundle (`~/.local/lib/node_modules/gentle-pi/assets/design-canvas/`) and was not located by name in the time available. **Investigate before filing.**
+
+Environment for the issue, if one is filed:
+```
+OS:        Ubuntu 24.04.5 LTS, kernel 6.8.1-1015-realtime, x86_64
+Browser:   Chromium 156.0.8078.79 (Linux Mint build)
+Canvas:    http://127.0.0.1:40489/<token>/d/<slug>/   ·  HTTP 200
+Herdr:     0.9.5 (embeds a Ghostty engine)
+Display:   X11 (ozone-platform=x11)
+```
+
+### C2 — Canvas inside an iframe renders blank
+Embedded through Companion, the canvas chrome loads but the artboards render blank. Console reports an authorisation/blank error. Works fine in its own tab.
+
+**Evidence gathered:**
+- The canvas builds artboard URLs as an **absolute path from root**: `base = "/<token>/"`, then `files/<slug>/<file>`. Inside the bridge the same content is served under `/bridge/<token>/…`, so the token segment is dropped and the request misses.
+- `server/src/bridge.rs:1521` states plainly: **"WebSockets and workers are not supported."** The canvas uses a service worker, so even a corrected path may not render.
+- The bridge withholds `host`, `origin`, `referer` and `cookie` from upstream requests, and only forwards a fixed set of response headers.
+
+**Two possible fixes, neither trivial and neither ours alone:**
+1. The canvas accepts a relative `base`, so any embedder can mount it at an arbitrary prefix. Cleanest, benefits every embed, **but the canvas is upstream's code**.
+2. The bridge rewrites the prefix on the fly. Ours to do, but it means turning a documented "not a general-purpose proxy" into something closer to one.
+
+**Blocking for the report to Alan:** whether the failure is path-only or path-plus-service-worker. That decides whether fix 2 is even worth attempting. A test: serve one artboard from a path that includes the bridge prefix and see if it renders without its worker.
+
 ## File references in conversation (rule, 2026-11-20)
 
 When you mention a file in conversation, write it as a **clickable absolute path with a line number**, not as prose.
@@ -296,6 +326,7 @@ The header is format-transparent, but its **shape is not free choice**:
 - 2026-11-19: Watchdog / perroGuardian section added at Ricardo's request, after two sessions burned hours in loops that looked alive in the UI. Detection must use the session jsonl, never the UI label.
 - 2026-11-19: Tool discipline section added — unbounded `grep` caused an exhaustion loop in IMGsMNG (827 KB of tool results, 4 compactions). Grep now requires `limit` and scoped `path`.
 - 2026-11-19: Rule 6 added at Ricardo's request — web pages must open in a NEW WINDOW, never a new tab. **Extended after an incident**: an `xdg-open` launched Firefox (20+ windows, hundreds of tabs) and collapsed the GUI. MIME handlers for http/https/text/html corrected to `chromium-browser.desktop`; bare `xdg-open` is now forbidden for user-facing pages.
+- 2026-11-21: Added the canvas defects section (C1 top-row controls, C2 iframe blank) with environment data for an issue.
 - 2026-11-20: Added the file-reference rule — absolute paths with line numbers in conversation, at Ricardo's request.
 - 2026-11-20: Added the silent-no-match family section — six instances in one day of checks that look correct while finding nothing. Added after KOS reported an empty hero quote rendering with exit 0.
 - 2026-11-20: Added Infrastructure & incidents, Verification lessons and OKF-by-format sections after the 19-20 Nov round (network, firewall, watchdog, suspend/wake, accounting dashboard).
