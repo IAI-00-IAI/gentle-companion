@@ -608,12 +608,12 @@
   }
 
   .swatch.dark {
-    background: #060407;
+    background: #1a1218;
     color: #FFB1DD;
   }
 
   .swatch.system {
-    background: linear-gradient(135deg, #f8f5f7 0 50%, #060407 50% 100%);
+    background: linear-gradient(135deg, #f8f5f7 0 50%, #1a1218 50% 100%);
     color: #F095C8;
   }
 

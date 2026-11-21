@@ -19,3 +19,7 @@ dist/
 
 # Local planning bundle (per-session handoffs and next-development plans)
 local/
+
+# Test-run artifacts: `server/tailcat` is a symlink into a throwaway /tmp dir that a
+# crashed integration run left behind. Never commit it.
+/server/tailcat

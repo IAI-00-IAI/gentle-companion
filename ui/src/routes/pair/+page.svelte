@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import jsQR from 'jsqr';
-  import logo from '../../assets/pi-companion.webp';
+  import logo from '../../assets/gentle-companion.webp';
   import Icon from '#lib/Icon.svelte';
   import { companion } from '#lib/companion.svelte.ts';
   import { errorMessage } from '#lib/toast.svelte.ts';

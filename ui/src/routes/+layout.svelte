@@ -159,6 +159,7 @@
     <aside class="sidebar scroll" aria-label={t('shell.nav.aria')}>
       <a class="brand" href="/">
         <img src={logo} alt="" width="36" height="36" />
+        <span class="brand-mark" aria-hidden="true">✿</span>
         <span>
           <strong>Gentle Companion</strong>
           <small>{companion.remote ? t('shell.brand.paired') : t('shell.brand.local')}</small>
@@ -168,7 +169,7 @@
       <nav class="nav" aria-label={t('shell.nav.aria')}>
         {#each visibleNav as item (item.href)}
           <a href={item.href} class:active={active(item.href)} aria-current={active(item.href) ? 'page' : undefined}>
-            <Icon name={item.icon} />
+            <Icon name={item.icon} strokeWidth={2.5} />
             <span>{item.label}</span>
             {#if item.href === '/sessions' && waiting}
               <span class="count" aria-label={t('shell.nav.waiting.aria', { count: waiting })}>{waiting}</span>
@@ -215,6 +216,7 @@
       <header class="topbar">
         <a class="brand" href="/">
           <img src={logo} alt="" width="30" height="30" />
+          <span class="brand-mark" aria-hidden="true">✿</span>
           <strong>Gentle Companion</strong>
         </a>
         <div class="topbar-actions">
@@ -275,7 +277,7 @@
         {#each mobileNav as item (item.href)}
           <a href={item.href} class:active={active(item.href)} aria-current={active(item.href) ? 'page' : undefined}>
             <span class="tab-icon">
-              <Icon name={item.icon} size={20} />
+              <Icon name={item.icon} size={20} strokeWidth={2.5} />
               {#if item.href === '/sessions' && waiting}<span class="pip" aria-hidden="true"></span>{/if}
             </span>
             <span>{item.label}</span>

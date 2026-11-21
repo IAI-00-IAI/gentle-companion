@@ -1,8 +1,12 @@
 // Cache only the public application shell. Tokens, API data and uploads stay online-only.
 // Refresh the cached HTML response as well as its bytes: older shells carried a
 // camera=() Permissions-Policy header that still blocks getUserMedia offline.
-const CACHE = 'pi-companion-shell-v7';
-const SHELL = ['/', '/manifest.webmanifest', '/favicon.png', '/apple-touch-icon.png', '/pwa-icon.svg', '/pwa-maskable.svg', '/pwa-192.png', '/pwa-512.png', '/pwa-maskable-512.png'];
+// Bump the version whenever SHELL changes: a cache whose contents change while its
+// name stays the same is a silent no-op, since cleanup only drops older names.
+// The `pi-companion-shell-` prefix must NOT change here: the cleanup filter below
+// relies on it, so renaming would orphan every existing cache instead of replacing it.
+const CACHE = 'pi-companion-shell-v8';
+const SHELL = ['/', '/manifest.webmanifest', '/favicon.png', '/apple-touch-icon.png', '/pwa-192.png', '/pwa-512.png', '/pwa-maskable-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));

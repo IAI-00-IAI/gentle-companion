@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" fill="none" role="img" aria-label="Gentle Companion π mark">
+  <!-- Gentle Companion π source mark: a π with an orbit and its little companion moon.
+       Editable source for gentle-companion.webp and icon sizes.
+       Pink "Gentleman" palette, line style coherent with ui/src/assets/morph/logo.svg:
+         π strokes  #F095C8  (accent)
+         orbit + moon #FFB1DD (accent-soft) -->
+  <path d="M74 104c10-14 26-20 48-20h132" stroke="#F095C8" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M136 88c0 72-12 128-48 160" stroke="#F095C8" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M210 88v116c0 30 12 44 36 44 10 0 20-3 30-9" stroke="#F095C8" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 214c34 40 154 30 228-50 26-28 32-52 18-66" stroke="#FFB1DD" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="276" cy="86" r="16" fill="#FFB1DD"/>
+</svg>

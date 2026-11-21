@@ -37,7 +37,7 @@ class Theme {
     const dark = this.preference === 'dark' || (this.preference === 'system' && Boolean(this.media?.matches));
     this.resolved = dark ? 'dark' : 'light';
     document.documentElement.dataset.theme = this.resolved;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#060407' : '#f8f5f7');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1a1218' : '#f8f5f7');
   }
 }
 
