@@ -1,3 +1,13 @@
+<!-- OKF-METADATA
+---
+type: Design Board
+title: Clay art tint — three variants
+description: "A1 amber is the chosen tint, CONFIRMED by the human in the canvas; A2 rose was not selected; A3 coral is HELD for expert review (explicitly not discarded). One hue-rotate value per column, hue measured on the real artwork rather than estimated."
+status: decided
+source: "gentle-companion-aesthetic/design/aesthetic-choices/01-clay-tint.html"
+generated: 2026-11-21
+---
+-->
 <!doctype html>
 <html lang="en">
 <head>
@@ -35,6 +45,11 @@
   .chip.status{background:var(--warning-soft);color:var(--warning);border-color:transparent}
   .chip.rose{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
   .chip.middle{background:rgb(240 149 200 / .08);color:var(--accent-hover);border-color:var(--accent-line)}
+  .chosen{font-family:var(--mono);font-size:.68rem;padding:3px 8px;border-radius:var(--radius-pill);
+    background:var(--ok-soft);color:var(--ok);margin-left:auto}
+  .variant-chosen{border-color:var(--accent-line);box-shadow:var(--clay-raised),0 0 0 1px var(--accent-line)}
+  .held{font-family:var(--mono);font-size:.68rem;padding:3px 8px;border-radius:var(--radius-pill);
+    background:var(--info-soft);color:var(--info);margin-left:auto}
   .angles{margin:0 0 8px;font-size:.76rem;color:var(--text-3)}
   .angles b{color:var(--text-2);font-family:var(--mono)}
   .tradeoff{color:var(--text-2);font-size:.84rem;margin:0 0 14px;min-height:4.4em}
@@ -50,8 +65,8 @@
   .section-head h3 img{height:24px;width:auto;display:block}
   .section-head .meta{font-size:.76rem;color:var(--text-3)}
   .empty{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border:1px dashed var(--border-strong);border-radius:var(--radius)}
-  .empty-icon{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:14px;background:var(--surface-3);box-shadow:var(--clay-pressed)}
-  .empty-icon img{height:30px;width:auto;display:block}
+  .empty-icon{display:grid;place-items:center;justify-items:center;width:44px;height:44px;flex:none;border-radius:14px;background:var(--surface-3);box-shadow:var(--clay-pressed)}
+  .empty-icon img{width:36px;height:auto;display:block;margin:0 auto}
   .empty p{margin:0;font-size:.8rem;color:var(--text-3)}
   .where{margin:14px 0 0;font-size:.76rem;color:var(--text-3);border-top:1px solid var(--border);padding-top:10px}
   .note{margin:22px 0 0;color:var(--text-2);font-size:.82rem;border-left:2px solid var(--accent-line);padding-left:12px}
@@ -63,10 +78,11 @@
   <p class="lead">Same markup, same greyscale artwork. The only difference between the three columns is one <code>hue-rotate</code> value in a shared filter, shown in all three places that filter reaches.</p>
   <p class="method">The measured hue under each variant was computed by modelling <code>sepia(0.55) saturate(1.65) hue-rotate(N)</code> on the real <code>bulb.webp</code> and averaging the tinted pixels — not estimated by eye. The rose accent sits at 326&deg;.</p>
   <div class="grid">
-      <section class="variant">
+      <section class="variant variant-chosen">
         <header>
           <span class="chip status">A1</span>
           <h2>Keep amber</h2>
+          <span class="chosen">&#10003; va bien</span>
         </header>
         <p class="angles"><code>hue-rotate(350deg)</code> &rarr; measured hue <b>32deg</b></p>
         <p class="tradeoff">Ships today. The help tile reads as a warm, separate cue. Bonsai2 called it the most off-brand object on the dashboard.</p>
@@ -127,6 +143,7 @@
         <header>
           <span class="chip middle">A3</span>
           <h2>Coral middle</h2>
+          <span class="held">&#9675; held for review</span>
         </header>
         <p class="angles"><code>hue-rotate(320deg)</code> &rarr; measured hue <b>11deg</b></p>
         <p class="tradeoff">Between the two: a warm coral that is neither amber nor rose. Hedges — and may end up reading as neither.</p>
