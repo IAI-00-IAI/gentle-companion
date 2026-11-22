@@ -51,10 +51,11 @@ la sesión entera**. Tras dos días de compactaciones seguidas, su capacidad de
 razonar sobre el trabajo se degrada. Protégela: dale imágenes y preguntas
 concretas, nada más.
 
-**PINTO no puede cargar más de 20 imágenes.** Se bloqueó una hora entera con
-`400: Total number of images exceeds the maximum allowed of 20`. Y aquí está la
-trampa: **`/reload` no lo libera** (recarga configuración, no transcripción);
+**PINTO no puede cargar más de 20 imágenes en total, limitación del proveedor.**
+Se bloqueó una hora entera con `400: Total number of images exceeds the maximum allowed of 20`.
+Y aquí está la trampa: **`/reload` no lo libera** (recarga configuración, no transcripción);
 hace falta `/compact` o sesión nueva. Si alguien te dice que reinicie, corrígelo.
+Debe delegar la vista en Bonsai2, que para eso está.
 
 **Y no, no basta con "tened cuidado".** Ayer lo incumplimos el propio coordinador
 dos veces: analicé capturas yo mismo en lugar de pasárselas a Bonsai2, y dejé a
@@ -125,7 +126,7 @@ Nueve reglas. Cada una costó tiempo real, y por eso están.
 
 1. **Imágenes → Bonsai2, siempre.** PINTO bloqueada una hora. ORQ incumpliéndolo dos veces.
 2. **Automations de Companion: acción `command`, nunca `prompt`.** Un `prompt`
-   arranca una sesión Pi por ejecución: **nueve sesiones en cuatro horas** para
+   arranca una sesión gentle-shell (o Pi) por ejecución: **nueve sesiones en cuatro horas** para
    entregar una línea de texto.
 3. **Nunca medir un exit code a través de un pipe.** `cmd | tail -1` devuelve el
    estado de `tail`, siempre 0. Nos hizo acusar a un guard que funcionaba. **Y
@@ -150,7 +151,8 @@ Nueve reglas. Cada una costó tiempo real, y por eso están.
 **las credenciales nunca se escriben en la conversación.** Se guardan en env
 fuera de control de versiones o en el almacén del equipo, y se referencian por
 ubicación (`env:`, `file:`, `vault:`), nunca por valor. Incluye el caso de "esto
-parece un usuario con mayúscula" — **sigue siendo una contraseña**. El
+parece un usuario con mayúscula" — **sigue siendo una contraseña**. Hay veces que
+la sesion tiene público y las conversaciones vistas. El
 coordinador anterior la escribió en un handoff y en una observación de Engram.
 Se redactó a tiempo; no llegó a push por suerte, no por proceso.
 
@@ -238,23 +240,31 @@ Un `git push` a secas habría publicado en el repositorio de un tercero.
 
 1. **Consolidar los ~7 tailcats.** Es lo que rompe la conexión de Companion de Ricardo hoy. Nada más importa hasta que esto esté.
 2. **Aplicar B1 (grosor 2.0)** en `+layout.svelte`: la decisión está tomada, el prop sigue pasando 2.5.
-3. **Canvas, defecto C2:** incrustado en Companion los artboards salen en blanco. Dos causas posibles sin confirmar (rutas absolutas desde raíz, y el puente no soporta service workers). Bloqueante antes de proponer arreglo: saber cuál de las dos es.
-4. **Canvas, defecto C1:** los controles de la primera fila no responden. Sin diagnosticar.
-5. **Informe a Alan** con propuesta y fix de C1/C2, tras actualizar el repo.
-6. **Engram Cloud** en ricardoPC.
-7. **Muestreador de cuota** (CONTA, host por decidir).
-8. **Pass 4 del corpus CDT** (KOS): la teoría se discutió 6.265 mensajes y nunca se escribió.
-9. **Traducción** de `automation-flow.ts` y `AskSheet.svelte`: hay una ventana de autorización donde el botón que ejecuta comandos peligrosos dice "Answer", no "Autorizar".
-10. **Traslado de `IAI` a `IAI-00-IAI`** con espejo en `/mnt/datos3`. Sin prisa, y en palabras de Ricardo: *"no vamos a matar a nadie ni a nada"*.
+3. **Revisar OKF aplicado**, el autor está omitido, y en algunos gráficos sin incrustar.
+4. **corregir fallas en el diseño:**  en Ajustes-permisos dispositivos-Notificaciones: en modo escritorio el indicador de estado "Permitido" salta de linea en es-ES, en en-EN si esta en linea, en modo movil correcto.
+	**checkbox de notificaciones activas muestra fallo*** igual que en otros elementos ya se corrigio: párrafo desborda su marco arcando sombra en modo claro. Traducir interruptor "steer" a es-ES. Añadir Selección de temas gráficos alineada con la de gentle-shell
+5. **Canvas, defecto C2:** incrustado en Companion los artboards salen en blanco. Dos causas posibles sin confirmar (rutas absolutas desde raíz, y el puente no soporta service workers). Bloqueante antes de proponer arreglo: saber cuál de las dos es.
+6. **Canvas, defecto C1:** los controles de la primera fila no responden. Sin diagnosticar.
+7. **Informe a Alan** con propuesta y fix de C1/C2, tras actualizar el repo.
+8. **Engram Cloud** en ricardoPC.
+9. **Muestreador de cuota** (CONTA, host por decidir).
+10. **Pass 4 del corpus CDT** (KOS): la teoría se discutió 6.265 mensajes y nunca se escribió.
+11. **Traducción** de `automation-flow.ts` y `AskSheet.svelte`: hay una ventana de autorización donde el botón que ejecuta comandos peligrosos dice "Answer", no "Autorizar".
+-  Tarea para **KOS**: al mapa navegable hay que añadirle los enlaces sino ¿donde está la navegación?
+12. **Traslado de `IAI` a `IAI-00-IAI`** con espejo en `/mnt/datos3`. Sin prisa, y en palabras de Ricardo: *"no vamos a matar a nadie ni a nada"*.
+13. **Completar y ampliar el informe financiero**, En_Mapa_ Financiació falta añadir las spec de eeePC y A2; a las fichas añadir navegación secuencial para ciclar, enlace a indice se mantien.
+14. **profundizar y desarrollar KOS-KSCL.** La tuberia semántica está prototipada, el Contexto Activo incrementa eficiencia.
+15. **Planificar oara soportar sesiones distribuidas multinodo**. La union hace la fuerza, la colaboración la inteligencia.
 
 ## 10. Lo que NO hacer
 
 Esto es lo que más cuesta aprender y lo que más se pierde en un traspaso.
 
+- **OKF es fundamental.** Guarda la evidencia y la cadena de verdad, la identificación de creador y origen no deben faltar.
 - **No analices una imagen.** No es una preferencia de reparto, es una restricción técnica y económica.
 - **No confíes en tu primera explicación de un síntoma.** Ayer, cuatro causas plausibles resultaron falsas al medirlas.
 - **No midas un exit code tras un pipe.** Y no lo hagas aunque acabases de escribir la regla.
-- **No borres nada que no hayas comprobado que es basura.** El symlink `server/tailcat` era basura; `icon-192.png` parecía basura y estaba sirviéndose con un test encima.
+- **No borres nada que no hayas comprobado que es basura.** El symlink `server/tailcat` era basura; `icon-192.png` parecía basura y estaba sirviéndose con un test encima. Todo se versiona y se almacena en historico, la limpia cuando este al límite
 - **No des por hecho que una rama con tests verdes está sana.** Clónala.
 - **No pegues una credencial en la conversación.** Ni "era solo la contraseña por defecto".
 - **No anuncies el cumplimiento de una regla sin comprobar su efecto.** KOS lo dijo mejor: *una regla cuyo efecto observable nadie comprobó, afirmada como satisfecha.*
@@ -281,3 +291,44 @@ que mañana no habrá que volver a aprender.
 
 Eso no es suerte. Es que **cada vez que uno se equivocó, otro lo vio.** Si
 mantienes esa propiedad, el resto se arregla.
+
+---
+
+## Anexo — Respuesta de Alan a #3402 (no está en Engram, solo aquí)
+
+El issue del umbral de compactación lo ha contestado Alan el mismo día. Resumen de lo que dijo, porque cambia el estado del pendiente:
+
+**Issue**: `Gentleman-Programming/gentle-shell#3402` — sigue **OPEN**, esperando nuestro resultado.
+
+**Lo que confirmó**: el gap es real y lo verificó en su código. La compactación dispara en
+`contextWindow - reserveTokens`, el gauge solo muestra la fracción de ventana, y nada en pantalla conecta los dos.
+
+**Lo que encontró él y nosotros no vimos** (más importante que lo que reportamos): **el aviso de contexto alto está fijo al 90 % de la ventana.** Con una reserva que pone la compactación al 60 %, la sesión compacta **sin haber avisado nunca**. Es decir, el aviso existía y era inalcanzable; el ORQ lo interpretó como "no hay aviso configurado". Su arreglo ata el aviso al umbral real.
+
+**Lo que nos corrigió**: `preparation.settings` **solo existe mientras se prepara una compactación**. Citarlo como fuente del umbral era falso. El gauge leerá merged settings + uso de contexto.
+
+**Alcance que planeó** (read-only, sin ajustes nuevos):
+1. Mostrar tokens restantes hasta la compactación en el gauge, resuelto por modelo activo, con estados deshabilitado y uso desconocido.
+2. Atar el aviso de contexto alto a ese umbral en vez del 90 % fijo.
+3. Desglose completo en la vista de uso, como follow-up.
+
+**Lo que ya hizo**: **#3445 está en `main`**. Pide que lo probemos en una sesión de Bonsai2 con un build que lo incluya, y que le digamos build, reserva activa y qué muestra el footer. Con ventana 1.048.576 y ~617.000 usados, espera `12k to compact` con reserva 419.430 y `222k to compact` con 209.715.
+
+**Lo que pide para el bucle de Bonsai2** (esto es lo único que falta enviarle): por cada compactación del bucle —
+- modelo y ventana
+- motivo (`threshold`, `overflow` o `manual`)
+- tokens estimados antes y después
+- tiempo hasta la siguiente
+
+**Sin contenido de conversación.** Él lo dice explícitamente, y encaja con que el repo sea público.
+
+**De dónde salen esos datos**, sin abrir sesión nueva: del jsonl de `01a1f448` en
+`~/.gentle-shell/agent/sessions/--home-ricardo-Trabajo-IAI-gentle-companion-aesthetic--/`.
+Los eventos `"type":"compaction"` llevan `tokensBefore` y `timestamp`; el `model_change` da la ventana. La sesión que sufrió el bucle ya está compactada/cerrada, pero el fichero conserva los eventos.
+
+**Y lo que él mismo separa** y conviene no confundir: este cambio **muestra** el umbral, no **evita** el bucle. #3317 y #2345 siguen siendo otra cosa, y él ya los mantiene aparte.
+
+**Política del entorno de gentle** (dicha por Ricardo): propuestas **atómicas** en issues separados; los maintainers hacen los PRs. Por tanto:
+- #3402 → solo devolver los datos pedidos. No adjuntar conversación.
+- Canvas C1/C2 → **issue aparte**, propuesta atómica. No mezclar.
+- Un fix nuestro, si lo hay → PR nuestro, no dentro del issue como "propuesta con fix".
