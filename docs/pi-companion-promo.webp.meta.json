@@ -1,0 +1,14 @@
+{
+  "okf": {
+    "type": "Image",
+    "title": "Gentle Companion walkthrough thumbnail",
+    "description": "Companion: rosa digital de conexion. Replaces the promo walkthrough thumbnail in both READMEs.",
+    "tags": ["image", "readme", "promo", "companion"],
+    "status": "active",
+    "author": "Ricardo",
+    "generated": "2026-11-23"
+  },
+  "source": "/home/ricardo/tmp/Compañero_ Rosa digital de conexion.jpg",
+  "derived": "1280x720 WebP q82, ratio preserved",
+  "note": "WebP has no container for arbitrary metadata chunks, so the OKF record lives in this sidecar. The previous file carried no OKF at all."
+}
