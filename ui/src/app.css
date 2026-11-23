@@ -96,6 +96,7 @@
   --radius-pill: 999px;
   --radius-bento: 20px;
   --sidebar: 244px;
+  --sidebar-collapsed: 68px;
   --tabbar: 64px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   font-family: var(--font);

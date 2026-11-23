@@ -39,6 +39,23 @@
   let insecureContext = $state(false);
   let httpsBannerDismissed = $state(false);
 
+  // Sidebar collapse is an explicit preference, never inferred from the viewport:
+  // the media queries below already own the responsive layouts.
+  const SIDEBAR_KEY = 'pi-companion-sidebar';
+  let sidebarCollapsed = $state(false);
+  let sidebarTrigger = $state<HTMLButtonElement | null>(null);
+  const sidebarExpanded = $derived(!sidebarCollapsed);
+  const sidebarTitle = $derived(sidebarExpanded ? t('shell.sidebar.collapse') : t('shell.sidebar.expand'));
+
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    try { localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? 'collapsed' : 'expanded'); } catch { /* storage blocked */ }
+    // The trigger keeps its node across states, but a hidden label must not drop focus
+    // onto <body>: restore it explicitly after the DOM updates.
+    const trigger = sidebarTrigger;
+    if (trigger) queueMicrotask(() => trigger.focus());
+  }
+
   function dismissHttpsBanner() { httpsBannerDismissed = true; }
 
   const connectionLabel = $derived({
@@ -99,6 +116,7 @@
     devicePermissions.init();
     companion.onSessionChange = (previous, next) => devicePermissions.sessionChanged(previous, next);
     try { notificationPromptDismissed = localStorage.getItem('pi-companion-notification-prompt') === 'dismissed'; } catch { /* storage blocked */ }
+    try { sidebarCollapsed = localStorage.getItem(SIDEBAR_KEY) === 'collapsed'; } catch { /* storage blocked: stays expanded */ }
     const stopConnectivity = companion.watchConnectivity();
     // The tunnel pairing QR's fragment (#tunnel=…&port=…) configures tunnel mode
     // before boot reads it (feature tailcat-client T3); then it is stripped from the
@@ -154,23 +172,42 @@
     <ConnectionNotice />{@render children()}
   </main>
 {:else}
-  <div class="shell" class:working={Boolean(workPhase)} data-work-phase={workPhase}>
+  <div class="shell" class:working={Boolean(workPhase)} class:sidebar-collapsed={sidebarCollapsed} data-work-phase={workPhase}>
     <span class="sr-only" role="status">{workPhase === 'thinking' ? t('shell.working.thinking') : workPhase === 'working' ? t('shell.working.working') : ''}</span>
     <aside class="sidebar scroll" aria-label={t('shell.nav.aria')}>
-      <a class="brand" href="/">
-        <img src={logo} alt="" width="36" height="36" />
-        <span class="brand-mark" aria-hidden="true">✿</span>
-        <span>
-          <strong>Gentle Companion</strong>
-          <small>{companion.remote ? t('shell.brand.paired') : t('shell.brand.local')}</small>
-        </span>
-      </a>
+      <div class="brand">
+        <a class="brand-home" href="/" title={t('shell.sidebar.home.title')} aria-label={t('shell.sidebar.home.title')}>
+          <img src={logo} alt="" width="36" height="36" />
+          <span class="brand-mark" aria-hidden="true">✿</span>
+        </a>
+        <button
+          class="brand-title"
+          type="button"
+          bind:this={sidebarTrigger}
+          aria-expanded={sidebarExpanded}
+          aria-controls="sidebar-nav"
+          aria-label={sidebarTitle}
+          title={sidebarTitle}
+          onclick={toggleSidebar}
+        >
+          <span class="brand-text">
+            <strong>Gentle Companion</strong>
+            <small>{companion.remote ? t('shell.brand.paired') : t('shell.brand.local')}</small>
+          </span>
+        </button>
+      </div>
 
-      <nav class="nav" aria-label={t('shell.nav.aria')}>
+      <nav class="nav" id="sidebar-nav" aria-label={t('shell.nav.aria')}>
         {#each visibleNav as item (item.href)}
-          <a href={item.href} class:active={active(item.href)} aria-current={active(item.href) ? 'page' : undefined}>
+          <a
+            href={item.href}
+            class:active={active(item.href)}
+            aria-current={active(item.href) ? 'page' : undefined}
+            aria-label={item.label}
+            title={item.label}
+          >
             <Icon name={item.icon} strokeWidth={2.5} />
-            <span>{item.label}</span>
+            <span class="nav-label">{item.label}</span>
             {#if item.href === '/sessions' && waiting}
               <span class="count" aria-label={t('shell.nav.waiting.aria', { count: waiting })}>{waiting}</span>
             {/if}
@@ -179,9 +216,9 @@
       </nav>
 
       <div class="sidebar-foot">
-        <button class="status status-trigger" aria-haspopup="dialog" aria-label={t('shell.connection.aria', { status: connectionLabel })} onclick={() => (aboutOpen = true)}>
+        <button class="status status-trigger" aria-haspopup="dialog" aria-label={t('shell.connection.aria', { status: connectionLabel })} title={connectionLabel} onclick={() => (aboutOpen = true)}>
           <span class="dot {companion.connection}" aria-hidden="true"></span>
-          <span>{connectionLabel}</span>
+          <span class="status-label">{connectionLabel}</span>
           {#if companion.version}<span class="subtle mono">v{companion.version}</span>{/if}
         </button>
         <div class="segmented theme-switch" role="radiogroup" aria-label={t('shell.theme.aria')}>
@@ -322,6 +359,7 @@
     height: 100dvh;
     display: grid;
     grid-template-columns: var(--sidebar) minmax(0, 1fr);
+    transition: grid-template-columns 220ms var(--ease);
   }
 
   .bare {
@@ -345,11 +383,47 @@
     text-decoration: none;
   }
 
+  /* The mark links home; the title block next to it toggles the sidebar. */
+  .brand-home {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 10px;
+  }
+
   .brand img {
     border-radius: 9px;
     flex: none;
   }
 
+  /* No visible button: the title text itself is the trigger. */
+  .brand-title {
+    display: block;
+    min-width: 0;
+    padding: 4px 6px;
+    margin: -4px 0;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms var(--ease), color 150ms var(--ease);
+  }
+
+  .brand-title:hover {
+    background: var(--surface-2);
+  }
+
+  .brand-title:hover strong {
+    color: var(--accent-text);
+  }
+
+  .brand-text,
   .brand span {
     display: grid;
     line-height: 1.2;
@@ -382,7 +456,6 @@
     text-decoration: none;
     transition: background-color 150ms var(--ease), color 150ms var(--ease);
   }
-
   .nav a:hover {
     background: var(--surface-2);
     color: var(--text);
@@ -740,6 +813,32 @@
     .status-trigger.compact { width: auto; min-height: 44px; padding: 0 10px; border-radius: 16px; background: var(--surface-2); box-shadow: var(--clay-soft); }
   }
   :global(:focus-visible) { outline: 3px solid var(--accent); outline-offset: 3px; }
+  /* Collapsed sidebar: the column narrows and only text labels hide, so the life
+   * indicator dot and the nav icons stay visible. Guarded to the desktop layout via
+   * the min-width query below, because under 900px the sidebar is hidden entirely and
+   * the tabbar owns navigation. */
+  @media (min-width: 901px) {
+    .shell.sidebar-collapsed { grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr); }
+    .shell.sidebar-collapsed .brand { flex-direction: column; gap: 8px; padding: 4px 0; }
+    .shell.sidebar-collapsed .brand-text,
+    .shell.sidebar-collapsed .nav-label,
+    .shell.sidebar-collapsed .status-label,
+    .shell.sidebar-collapsed .sidebar-foot .segmented,
+    .shell.sidebar-collapsed .legal-links { display: none; }
+    .shell.sidebar-collapsed .nav a,
+    .shell.sidebar-collapsed .status-trigger { justify-content: center; }
+    .shell.sidebar-collapsed .nav a { position: relative; }
+    .shell.sidebar-collapsed .count {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      margin: 0;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      font-size: 0.66rem;
+    }
+  }
   .shell.working .brand img { animation: clay-breathe 2.2s ease-in-out infinite; }
   .shell.working .topbar { position: relative; }
   .shell.working .topbar::after {
@@ -753,9 +852,16 @@
   .shell[data-work-phase='thinking'] .topbar::after { animation-duration: 3.2s; }
   @keyframes clay-breathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.72; transform: scale(1.04); } }
   @keyframes clay-sweep { from { opacity: 0.45; transform: scaleX(0.25); } to { opacity: 0.85; transform: scaleX(1); } }
+  /* The title block is the collapse trigger: a pointer-only affordance, so it must
+   * never show as a button. The logo and mark stay as the sidebar home link. */
+  .brand-title:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  @media (min-width: 901px) {
+    .shell.sidebar-collapsed .sidebar { padding-left: 8px; padding-right: 8px; }
+    .shell.sidebar-collapsed .brand-title { padding: 4px; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .shell.working .brand img, .shell.working .topbar::after, .shell.working :global(.dot.active) { animation: none; transform: none; }
-    .nav a, .status-trigger, .tabbar a { transition: none; }
+    .nav a, .status-trigger, .tabbar a, .shell, .brand-title { transition: none; }
     .nav a:active, .status-trigger:active, .tabbar a:active { transform: none; }
   }
 </style>
