@@ -23,3 +23,7 @@ local/
 # Test-run artifacts: `server/tailcat` is a symlink into a throwaway /tmp dir that a
 # crashed integration run left behind. Never commit it.
 /server/tailcat
+
+# Fuentes editables de GIMP: material de trabajo pesado, no artefactos del repo.
+# Documentadas en odd/assets/OKF-MANIFEST.md, que sí se versiona.
+*.xcf
