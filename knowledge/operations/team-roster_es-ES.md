@@ -341,3 +341,22 @@ El encabezado es transparente al formato, pero su **forma no es elección libre*
   Dos datos de geometría que costaron tiempo y conviene conservar:
   - `wmctrl -e` toma el origen del MARCO, pero `xwininfo` informa del CLIENTE. El desfase aquí es +5 en x y +29 en y (barra de título). Pidiendo 1366,21 a wmctrl el cliente acaba en 1371,50. Verificar siempre con `xwininfo | grep Absolute` y calcular desde ahí.
   - `wmctrl -lG` imprime prácticamente los mismos números del cliente; cuando el margen importa, la fuente de verdad es `xwininfo`.
+
+
+## ANOTACIONES RICARDO ToDo
+
+- GNRAL: en encabezados OKF falta autor IMPORTANTE!!
+- CONTA: En_Mapa_ Financiación: Hay que añadir las spec del eeePC y del A2 (igual que ya esta el PC y el HP), y a las fichas añadir flechas/enlaces de desplazamiento para que permitan cambiar de ficha sin tener que volver al indice (simple, secuencial +1/-1, + ultima<->primera)
+- KOS: al mapa navegable hay que añadirle los enlaces sino ¿donde está la navegación?
+  	- KSCL (profundizar y desarrollar ese camino, ahorraría muchos tokens en ctx, 
+PINTO: - Traducir interruptor "steer" a es-ES
+	- en Ajustes-permisos dispositivos-Notificaciones: el indicador de estado "Permitido" salta de linea, en version en-EN esta en linea
+         (sucede en modo escritorio, en movil no se aprecia).
+	- El checkbox de notificaciones activas muestra el mismo "remarco" que se corrigio para otros y que se aprecia en modo claro (sombra arriba y abajo)
+	- A los gráficos que se han subido al remoto NO se les ha añadido el formato OKF
+
+### .
+---
+
+
+
