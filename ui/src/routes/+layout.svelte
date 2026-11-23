@@ -897,7 +897,21 @@
   .brand-title:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
   @media (min-width: 901px) {
     .shell.sidebar-collapsed .sidebar { padding-left: 8px; padding-right: 8px; }
-    .shell.sidebar-collapsed .brand-title { padding: 4px; }
+    /* The trigger's only child hides when collapsed. Without a size of its own
+     * the button collapses to zero width and the sidebar cannot be reopened:
+     * the control would hide itself. Give it a real hit target. */
+    /* Two horizontal pressers do not fit 68px: they overlap instead of
+     * reflowing. Stack them so each stays individually clickable. */
+    .shell.sidebar-collapsed .cycle-controls { flex-direction: column; gap: 8px; }
+    .shell.sidebar-collapsed .cycle { min-width: 100%; }
+    .shell.sidebar-collapsed .brand-title {
+      padding: 4px; min-width: 40px; min-height: 40px;
+      display: grid; place-items: center;
+    }
+    .shell.sidebar-collapsed .brand-title::after {
+      content: '\203A'; /* › — points the way the panel will open */
+      font-size: 1.1rem; line-height: 1; color: var(--accent-text);
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .shell.working .brand img, .shell.working .topbar::after, .shell.working :global(.dot.active) { animation: none; transform: none; }
