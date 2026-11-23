@@ -930,9 +930,20 @@
     });
     queueRebuild();
 
-    const resizeObserver = new ResizeObserver(queueRebuild);
+    // Observe ONE element. Observing both host and its container fed back on
+    // itself: a rebuild resized the canvas, the observer fired, rebuild ran
+    // again. That is the intermittent 500ms stall, not a steady cost.
+    let lastW = 0, lastH = 0;
+    const onResize = () => {
+      if (!host) return;
+      const r = host.getBoundingClientRect();
+      if (Math.abs(r.width - lastW) < 0.5 && Math.abs(r.height - lastH) < 0.5) return;
+      lastW = r.width; lastH = r.height;
+      invalidateRect();
+      queueRebuild();
+    };
+    const resizeObserver = new ResizeObserver(onResize);
     resizeObserver.observe(host);
-    if (slot) resizeObserver.observe(slot);
 
     const themeObserver = new MutationObserver(() => {
       readTheme();
@@ -960,10 +971,16 @@
     // Mouse/pen use pointer events; touch also listens to passive touch events,
     // because pointer events are cancelled as soon as the page starts scrolling.
     const pointerTarget = host.parentElement ?? host;
+    // Reading layout on every pointer event forces a synchronous reflow each
+    // time the mouse moves, which is how a decorative background blocks the
+    // main thread. The rect only changes on resize/scroll, so cache it and
+    // invalidate where those actually happen.
+    let rectCache: DOMRect | null = null;
+    const invalidateRect = () => { rectCache = null; };
     const toLocal = (clientX: number, clientY: number) => {
       if (!host) return null;
-      const rect = host.getBoundingClientRect();
-      return { x: clientX - rect.left, y: clientY - rect.top };
+      if (!rectCache) rectCache = host.getBoundingClientRect();
+      return { x: clientX - rectCache.left, y: clientY - rectCache.top };
     };
     const track = (clientX: number, clientY: number) => {
       const p = toLocal(clientX, clientY);
