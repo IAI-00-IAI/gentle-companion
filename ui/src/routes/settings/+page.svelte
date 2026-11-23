@@ -9,7 +9,7 @@
   import { langStore, setLang, LOCALES, localeName, t } from '#lib/i18n.svelte.ts';
   import { errorMessage, toasts } from '#lib/toast.svelte.ts';
   import type { Settings, SettingsResponse, TailcatStatus } from '#lib/types.ts';
-  import { estimatedCost, providerSnapshots, reportedTime, snapshotStatus, usagePercent, weeklyConsumption } from '#lib/usage.ts';
+  import { estimatedCost, providerSnapshots, reportedTime, snapshotStatus, sourceLabel, usagePercent, weeklyConsumption } from '#lib/usage.ts';
 
   let tab = $state<'general' | 'usage'>('general');
   let usageNow = $state(Date.now());
@@ -253,7 +253,7 @@
         </div>
         <div class="fields">
           <label class="check-field"><input type="checkbox" bind:checked={draft.bridgeEnabled} aria-describedby="bridge-hint" /><span>{t('settings.bridge.label')}</span></label>
-          <span class="hint" id="bridge-hint">Files: only those inside the session's working directory or Companion's temp folder, never credential files. Servers: only <code>http://localhost</code> ports the agent mentioned, relayed through Companion in a sandboxed frame. Turning this off also ends open bridge links.</span>
+          <span class="hint" id="bridge-hint">{t('settings.bridge.hint')}</span>
         </div>
       </section>
 
@@ -370,7 +370,7 @@
             <tbody>
               {#each usage as snapshot (snapshot.provider.toLowerCase())}
                 <tr>
-                  <th scope="row"><strong>{snapshot.provider}</strong><span class="subtle">{snapshot.source || t('settings.usage.source.notreported')}</span></th>
+                  <th scope="row"><strong>{snapshot.provider}</strong><span class="subtle">{sourceLabel(snapshot.source)}</span></th>
                   <td><strong>{snapshot.weekly ? usagePercent(snapshot.weekly) : t('settings.usage.notreported')}</strong>{#if snapshot.weekly?.resetsAt}<span class="subtle">{t('settings.usage.resets', { time: reportedTime(snapshot.weekly.resetsAt) })}</span>{/if}</td>
                   <td><strong>{snapshot.fiveHour ? usagePercent(snapshot.fiveHour) : t('settings.usage.notreported')}</strong>{#if snapshot.fiveHour?.resetsAt}<span class="subtle">{t('settings.usage.resets', { time: reportedTime(snapshot.fiveHour.resetsAt) })}</span>{/if}</td>
                   <td>{snapshot.weeklyTokens === undefined ? '—' : snapshot.weeklyTokens.toLocaleString()}</td>
@@ -387,7 +387,7 @@
         <div class="usage-cards" class:primary={false} aria-label={t('settings.usage.caption')}>
           {#each usage as snapshot (snapshot.provider.toLowerCase())}
             <article class="usage-card">
-              <div class="usage-card-head"><strong>{snapshot.provider}</strong><span class="subtle">{snapshot.source || t('settings.usage.source.notreported')}</span></div>
+              <div class="usage-card-head"><strong>{snapshot.provider}</strong><span class="subtle">{sourceLabel(snapshot.source)}</span></div>
               <dl>
                 <div><dt>{t('settings.usage.col.weekly')}</dt><dd>{snapshot.weekly ? usagePercent(snapshot.weekly) : t('settings.usage.notreported')}{#if snapshot.weekly?.resetsAt}<small>{t('settings.usage.resets', { time: reportedTime(snapshot.weekly.resetsAt) })}</small>{/if}</dd></div>
                 <div><dt>{t('settings.usage.col.fivehour')}</dt><dd>{snapshot.fiveHour ? usagePercent(snapshot.fiveHour) : t('settings.usage.notreported')}{#if snapshot.fiveHour?.resetsAt}<small>{t('settings.usage.resets', { time: reportedTime(snapshot.fiveHour.resetsAt) })}</small>{/if}</dd></div>
