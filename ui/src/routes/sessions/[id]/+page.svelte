@@ -506,7 +506,7 @@ $effect(() => { $langStore; });
 {:else}
   <div class="detail" class:reviewing={tab === 'changes'}>
     <header class="head">
-      <a class="btn btn-ghost btn-icon" href="/sessions" aria-label="All sessions"><Icon name="back" /></a>
+      <a class="btn btn-ghost btn-icon" href="/sessions" aria-label={t('session.detail.all')}><Icon name="back" /></a>
       <h1 class="title">
         <button aria-expanded={infoOpen} aria-controls="session-info" aria-label={t('session.detail.info') + ': ' + sessionTitle(session) + '. ' + t('session.detail.status') + ': ' + statusLabel(session.status)} title={t('session.detail.info')} onclick={() => (infoOpen = !infoOpen)}>
           <span class="dot {session.status} session-dot" aria-hidden="true"></span>
@@ -520,7 +520,7 @@ $effect(() => { $langStore; });
         </button>
       {/if}
       <details class="session-menu" bind:this={menuEl}>
-        <summary class="btn btn-ghost btn-icon" aria-label="Session options" title="Session options"><Icon name="more" /></summary>
+        <summary class="btn btn-ghost btn-icon" aria-label={t('session.detail.options.aria')} title={t('session.detail.options.aria')}><Icon name="more" /></summary>
         <div class="menu-actions">
           {#if !readOnly}
             <button type="button" class="btn btn-ghost" onclick={() => selectTab('files')}><Icon name="folder" size={16} />{t('session.detail.files')}{#if files.length}<span class="badge count quiet">{files.length}</span>{/if}</button>
@@ -699,7 +699,7 @@ $effect(() => { $langStore; });
           </div>
         {:else if tab === 'files'}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard users must be able to scroll this region) -->
-          <div class="pane scroll" tabindex="0" role="region" aria-label="Session files">
+          <div class="pane scroll" tabindex="0" role="region" aria-label={t('session.detail.filespane.aria')}>
             <div
               class="tile sunken dropzone"
               class:dragging
@@ -730,9 +730,9 @@ $effect(() => { $langStore; });
                       <strong title={file.name}>{file.name}</strong>
                       <span class="chips"><span class="chip" aria-label={t('session.detail.source.aria')}>{t(file.source === 'agent' ? 'session.detail.source.agent' : file.source === 'user' ? 'session.detail.source.user' : 'session.detail.source.unknown')}</span><span class="chip">{formatBytes(file.size)}</span><span class="chip">{relativeTime(file.createdAt)}</span></span>
                     </div>
-                    <button class="btn" aria-label="Preview {file.name}" onclick={() => showPreview({ kind: 'file', sessionId: id, file })}><Icon name="file" size={16} />Preview</button>
-                    <button class="btn" aria-label="Download {file.name}" disabled={downloading.includes(file.id)} onclick={() => download(file)}><Icon name="download" size={16} />{downloading.includes(file.id) ? 'Downloading…' : 'Download'}</button>
-                    <button class="btn btn-ghost btn-icon" aria-label="Remove {file.name}" onclick={() => remove(file.id, file.name)}><Icon name="trash" size={16} /></button>
+                    <button class="btn" aria-label={t('session.detail.preview.aria', { name: file.name })} onclick={() => showPreview({ kind: 'file', sessionId: id, file })}><Icon name="file" size={16} />Preview</button>
+                    <button class="btn" aria-label={t('session.detail.download.aria', { name: file.name })} disabled={downloading.includes(file.id)} onclick={() => download(file)}><Icon name="download" size={16} />{downloading.includes(file.id) ? 'Downloading…' : 'Download'}</button>
+                    <button class="btn btn-ghost btn-icon" aria-label={t('session.detail.remove.aria', { name: file.name })} onclick={() => remove(file.id, file.name)}><Icon name="trash" size={16} /></button>
                   </li>
                 {/each}
               </ul>
@@ -741,12 +741,12 @@ $effect(() => { $langStore; });
         {:else if tab === 'changes'}
           <div class="changes">
             <div class="changes-bar">
-              <div class="segmented" role="group" aria-label="Which changes">
-                <button aria-pressed={!staged} disabled={ended} onclick={() => loadDiff(false)}>Unstaged</button>
-                <button aria-pressed={staged} disabled={ended} onclick={() => loadDiff(true)}>Staged</button>
+              <div class="segmented" role="group" aria-label={t('session.detail.changes.which')}>
+                <button aria-pressed={!staged} disabled={ended} onclick={() => loadDiff(false)}>{t('session.detail.changes.draft')}</button>
+                <button aria-pressed={staged} disabled={ended} onclick={() => loadDiff(true)}>{t('session.detail.changes.ready')}</button>
               </div>
               <details class="review-options">
-                <summary class="btn btn-ghost" aria-label="Review options and warnings"><Icon name="settings" size={16} /><span>Options</span>{#if diffFilter}<span class="filter-active" aria-label="File filter active"></span>{/if}</summary>
+                <summary class="btn btn-ghost" aria-label={t('session.detail.reviewoptions.aria')}><Icon name="settings" size={16} /><span>Options</span>{#if diffFilter}<span class="filter-active" aria-label={t('session.detail.filteractive.aria')}></span>{/if}</summary>
                 <div class="review-options-body">
                   <p class="scope-note">{diff?.scope === 'session' ? 'Files with recorded edits in this session. Patches show their current Git changes.' : 'This Pi extension returns repository-wide changes. Reload the extension to enable session-only files.'}</p>
                   <div class="worktree-bar">
@@ -772,13 +772,13 @@ $effect(() => { $langStore; });
                   {#each shownChangedFiles as file (file.id)}<option value={file.path}>{file.path}{file.isNew ? ' · New' : ''}{file.binary ? ' · Binary' : ''}</option>{/each}
                 </select>
                 <span class="diff-count">{selectedDiffIndex + 1} / {shownChangedFiles.length}</span>
-                <button class="btn btn-icon" aria-label="Previous changed file" disabled={selectedDiffIndex <= 0} onclick={() => (selectedDiffPath = shownChangedFiles[selectedDiffIndex - 1].path)}>↑</button>
-                <button class="btn btn-icon" aria-label="Next changed file" disabled={selectedDiffIndex >= shownChangedFiles.length - 1} onclick={() => (selectedDiffPath = shownChangedFiles[selectedDiffIndex + 1].path)}>↓</button>
+                <button class="btn btn-icon" aria-label={t('session.detail.changed.prev')} disabled={selectedDiffIndex <= 0} onclick={() => (selectedDiffPath = shownChangedFiles[selectedDiffIndex - 1].path)}>↑</button>
+                <button class="btn btn-icon" aria-label={t('session.detail.changed.next')} disabled={selectedDiffIndex >= shownChangedFiles.length - 1} onclick={() => (selectedDiffPath = shownChangedFiles[selectedDiffIndex + 1].path)}>↓</button>
               </nav>
             {/if}
             {#key `${diff?.worktree}:${staged}:${selectedDiffFile?.id}`}
             <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard users must be able to scroll this region) -->
-            <div class="diff scroll" tabindex="0" role="region" aria-label="Changed files">
+            <div class="diff scroll" tabindex="0" role="region" aria-label={t('session.detail.changenav')}>
               {#if !diff || diff.loading}
                 <p class="subtle none">{t(ended ? 'session.detail.ended.changes' : companion.connection !== 'online' ? 'session.detail.reconnect.changes' : 'session.detail.loading.changes')}</p>
               {:else if diff.error}<p class="subtle none">Changes unavailable. {diff.error}</p>
@@ -793,7 +793,7 @@ $effect(() => { $langStore; });
                       <span class="file-change-counts">{#if file.isNew}<span class="chip new-file">{t('session.detail.new')}</span>{/if}{#if file.binary}<span class="chip">{t('session.detail.binary')}</span>{:else if file.previewUnavailable}<span class="chip">{t('session.detail.nopreview')}</span>{:else}<span class="chip plus">+{file.additions}</span><span class="chip minus">−{file.deletions}</span>{/if}</span>
                     </summary>
                     <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard users must be able to scroll long patch lines) -->
-                    <div class="diff-code scroll-x" tabindex="0" role="region" aria-label="Patch for {file.path}">
+                    <div class="diff-code scroll-x" tabindex="0" role="region" aria-label={t('session.detail.patch.aria', { path: file.path })}>
                       <pre>{#each file.lines as line, index (index)}<span class={lineClass(line)}>{line || ' '}</span>{/each}</pre>
                     </div>
                   </details>
@@ -821,18 +821,18 @@ $effect(() => { $langStore; });
             <p class="ended"><span class="glyph">!</span>Session ended. History is read-only.</p>
           {:else}
             {#if attachments.length}
-              <ul class="selected-attachments" aria-label="Files attached to this message">
+              <ul class="selected-attachments" aria-label={t('session.detail.attachments.message.aria')}>
                 {#each attachments as attachment (attachment.key)}
                   <li class="attachment-card" class:invalid={attachment.status === 'error'}>
                     {#if attachment.preview && attachment.status !== 'error'}<img class="attachment-preview" src={attachment.preview} alt="" onerror={() => markPreviewUnavailable(attachment.key)} />{:else}<span class="attachment-icon"><Icon name={attachment.status === 'error' ? 'alert' : 'file'} size={20} /></span>{/if}
                     <div class="attachment-copy"><strong title={attachment.file.name}>{attachment.file.name}</strong><span>{formatBytes(attachment.file.size)} · {attachment.status === 'uploading' ? 'Uploading…' : attachment.status === 'ready' ? 'Ready' : 'Not attached'}</span>{#if attachment.error}<p class="attachment-error" role="alert">{attachment.error}</p>{/if}{#if attachment.previewUnavailable && attachment.status === 'ready'}<p class="attachment-preview-note">Preview unavailable. File is still attached.</p>{/if}</div>
-                    <button type="button" class="btn btn-ghost btn-icon attachment-remove" aria-label="Remove attachment: {attachment.file.name}" title="Remove from this message; uploaded files remain in Shared files" disabled={attachment.status === 'uploading'} onclick={() => detachAttachment(attachment.key)}><Icon name="close" size={14} /></button>
+                    <button type="button" class="btn btn-ghost btn-icon attachment-remove" aria-label={t('session.detail.removeattach.aria', { name: attachment.file.name })} title={t('session.detail.removeattach.title')} disabled={attachment.status === 'uploading'} onclick={() => detachAttachment(attachment.key)}><Icon name="close" size={14} /></button>
                   </li>
                 {/each}
               </ul>
             {/if}
             <div class="prompt-row">
-              {#if slashMatches.length}<div class="slash-picker" id="slash-suggestions" role="listbox" aria-label="Available slash commands">{#each slashMatches as command, index (command.name)}<div id={'slash-option-' + index} role="option" aria-selected={index === activeSlashIndex}><button type="button" tabindex="-1" onpointerdown={event => event.preventDefault()} onclick={() => chooseSlash(command.name)}><span class="slash-command"><Icon name={command.source === 'skill' ? 'brain' : command.source === 'prompt' ? 'file' : 'lightning'} size={16} /><strong>/{command.name}</strong><span class="slash-kind">{command.source === 'prompt' ? 'Template' : command.source === 'skill' ? 'Skill' : 'Command'}</span></span>{#if command.description}<small>{command.description}</small>{/if}</button></div>{/each}</div>{/if}
+              {#if slashMatches.length}<div class="slash-picker" id="slash-suggestions" role="listbox" aria-label={t('session.detail.slash.aria')}>{#each slashMatches as command, index (command.name)}<div id={'slash-option-' + index} role="option" aria-selected={index === activeSlashIndex}><button type="button" tabindex="-1" onpointerdown={event => event.preventDefault()} onclick={() => chooseSlash(command.name)}><span class="slash-command"><Icon name={command.source === 'skill' ? 'brain' : command.source === 'prompt' ? 'file' : 'lightning'} size={16} /><strong>/{command.name}</strong><span class="slash-kind">{command.source === 'prompt' ? 'Template' : command.source === 'skill' ? 'Skill' : 'Command'}</span></span>{#if command.description}<small>{command.description}</small>{/if}</button></div>{/each}</div>{/if}
               <label class="sr-only" for="prompt" aria-label={t('session.detail.message.aria')}>{t(mode === 'plan' ? 'session.detail.plan.request.aria' : 'session.detail.message.aria')}</label>
               <textarea
                 id="prompt"
@@ -847,9 +847,9 @@ $effect(() => { $langStore; });
                 placeholder={t(mode === 'plan' ? 'session.detail.plan.placeholder' : steer && session.status === 'active' ? 'session.detail.steer.placeholder' : 'session.detail.composer.placeholder')}></textarea>
             </div>
             <div class="composer-bar">
-              <div class="mode-switch segmented" role="group" aria-label="Message mode">
+              <div class="mode-switch segmented" role="group" aria-label={t('session.detail.mode.aria')}>
                 <button type="button" aria-pressed={mode === 'auto'} title="Send a normal prompt; does not change Pi permissions" onclick={() => (mode = 'auto')}>Auto</button>
-                <button type="button" aria-pressed={mode === 'plan'} title="Run /plan; leave the message empty to use the current conversation" onclick={() => (mode = 'plan')}><Icon name="plan" size={14} />Plan</button>
+                <button type="button" aria-pressed={mode === 'plan'} title={t('session.detail.plan.title')} onclick={() => (mode = 'plan')}><Icon name="plan" size={14} />Plan</button>
               </div>
               {#if session.status === 'active' && mode === 'auto'}
                 <label class="toggle" title="Send into the turn Pi is working on instead of queueing a new prompt">

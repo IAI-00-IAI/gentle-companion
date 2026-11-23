@@ -125,7 +125,7 @@ $effect(() => { $langStore; });
     <div class="hero-visual" bind:this={visual} aria-hidden="true"></div>
   </section>
 
-  <section class="stats" aria-label="At a glance">
+  <section class="stats" aria-label={t('stat.group.aria')}>
     {#each stats as stat (stat.label)}
       <a class="stat tile" href={stat.href}>
         <span class="stat-icon"><Icon name={stat.icon} /></span>

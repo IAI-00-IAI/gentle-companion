@@ -209,7 +209,7 @@ test('Changes refreshes on open, labels workspace and distinguishes new files', 
   assert.match(page, /file\.isNew\}<span class="chip new-file">\{t\('session\.detail\.new'\)\}/);
   assert.match(store, /inner\.requestId !== expected/);
   assert.match(page, /aria-label=\{t\('session\.detail\.changed\.aria'\)\}/);
-  assert.match(page, /aria-label="Next changed file"/);
+  assert.match(page, /aria-label=\{t\('session\.detail\.changed\.next'\)\}/);
   assert.match(page, /selectedDiffFile \? \[selectedDiffFile\] : \[\]/);
   assert.match(page, /splitChangedFiles\(diff\?\.text \?\? '', diff\?\.files\)/);
 });

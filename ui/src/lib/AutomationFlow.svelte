@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import Icon from './Icon.svelte';
+  import { t } from './i18n.svelte.ts';
   import { automationPhases, automationStepLabel, automationStepText, type AutomationPhase } from './automation-flow.ts';
   import type { Automation } from './types.ts';
 
@@ -27,7 +28,7 @@
   }
 </script>
 
-<div class="phase-cards" aria-label="Automation execution phases">
+<div class="phase-cards" aria-label={t('automation.flow.phases.aria')}>
   {#each phases as item, index (item.id)}
     <button type="button" class="phase-card" aria-haspopup="dialog" aria-controls="automation-flow-dialog" onclick={event => showPhase(item.id, event)}>
       <span class="phase-head"><span class="phase-number">{index + 1}</span><strong>{item.label}</strong><span class="phase-count">{item.steps.length} {item.steps.length === 1 ? 'step' : 'steps'}</span></span>
@@ -37,21 +38,21 @@
           {#each item.steps.slice(0, 4) as step, stepIndex}
             <span class="compact-step"><span class="step-number">{stepIndex + 1}</span><span class="step-copy"><span class="step-type">{step.type === 'command' ? 'Command' : 'Pi task'}</span><span class="step-label">{automationStepLabel(step)}</span></span></span>
           {/each}
-          {#if item.steps.length > 4}<span class="more-steps">+{item.steps.length - 4} more steps</span>{/if}
+          {#if item.steps.length > 4}<span class="more-steps">+{t('automation.flow.more.steps', { n: item.steps.length - 4 })}</span>{/if}
         </span>
-      {:else}<span class="phase-empty">No steps configured</span>{/if}
-      <span class="view-flow">View flowchart<Icon name="chevron" size={16} /></span>
+      {:else}<span class="phase-empty">{t('automation.flow.phase.empty')}</span>{/if}
+      <span class="view-flow">{t('automation.flow.view')}<Icon name="chevron" size={16} /></span>
     </button>
   {/each}
 </div>
 
 <dialog id="automation-flow-dialog" class="flow-dialog clay" bind:this={dialog} aria-labelledby="automation-flow-title" aria-describedby="automation-flow-description" onclose={closed} oncancel={event => { event.preventDefault(); close(); }} onclick={event => { if (event.target === dialog) close(); }}>
   <header class="flow-head">
-    <div><span class="eyebrow">EXECUTION FLOW</span><h2 id="automation-flow-title">{phase?.label ?? 'Automation flow'}</h2><p id="automation-flow-description">{phase?.note ?? 'Steps execute in the order shown.'} Scroll to explore every step.</p></div>
-    <button type="button" class="btn btn-ghost btn-icon" bind:this={closeButton} aria-label="Close flowchart" onclick={close}><Icon name="close" /></button>
+    <div><span class="eyebrow">{t('automation.flow.eyebrow')}</span><h2 id="automation-flow-title">{phase?.label ?? t('automation.flow.title')}</h2><p id="automation-flow-description">{phase?.note ?? t('automation.flow.note')} {t('automation.flow.scroll.hint')}</p></div>
+    <button type="button" class="btn btn-ghost btn-icon" bind:this={closeButton} aria-label={t('automation.flow.close.aria')} onclick={close}><Icon name="close" /></button>
   </header>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <div class="flow-scroll" role="region" aria-label="Scrollable execution flowchart" tabindex="0">
+  <div class="flow-scroll" role="region" aria-label={t('automation.flow.scroll.aria')} tabindex="0">
     {#if phase}
       <div class="flowchart" class:has-checks={phase.id === 'preconditions' && phase.steps.length > 0}>
         <div class="flow-terminal">Start {phase.label.toLowerCase()}</div>
@@ -63,17 +64,17 @@
                 <article class="flow-node">
                   <div class="node-head"><span class="step-number">{index + 1}</span><strong>{step.type === 'command' ? 'Run command' : 'Ask Pi to work'}</strong><span class="node-type">{step.type === 'command' ? 'Shell' : 'Pi'}</span></div>
                   <pre>{automationStepText(step)}</pre>
-                  <dl><div><dt>Directory</dt><dd><code>{step.cwd || (step.type === 'command' ? 'Daemon working directory' : 'Not specified')}</code></dd></div><div><dt>Timeout</dt><dd>{step.timeoutSeconds === undefined ? 'Default' : step.timeoutSeconds + ' seconds'}</dd></div></dl>
+                  <dl><div><dt>{t('automation.flow.step.directory')}</dt><dd><code>{step.cwd || (step.type === 'command' ? t('automation.flow.step.cwd.daemon') : t('automation.flow.step.cwd.none'))}</code></dd></div><div><dt>{t('automation.flow.step.timeout')}</dt><dd>{step.timeoutSeconds === undefined ? t('automation.flow.step.timeout.default') : t('automation.flow.step.timeout.seconds', { n: step.timeoutSeconds })}</dd></div></dl>
                 </article>
-                <div class="failure-path"><span class="branch-arrow" aria-hidden="true">→</span><span class="failure-note"><strong>If this {phase.id === 'preconditions' ? 'check' : 'step'} fails</strong>{#if phase.retry}<span>↻ {phase.retry}</span><strong>If retries fail</strong>{/if}<span>{phase.failure}</span></span></div>
+                <div class="failure-path"><span class="branch-arrow" aria-hidden="true">→</span><span class="failure-note"><strong>{phase.id === 'preconditions' ? t('automation.flow.if.check.fails') : t('automation.flow.if.step.fails')}</strong>{#if phase.retry}<span>↻ {phase.retry}</span><strong>{t('automation.flow.if.retries.fail')}</strong>{/if}<span>{phase.failure}</span></span></div>
               </div>
-              <div class="flow-connector"><span>{phase.id === 'preconditions' ? 'Pass' : phase.id === 'actions' ? 'Success' : 'Next'}</span><Icon name="chevron" size={18} /></div>
+              <div class="flow-connector"><span>{phase.id === 'preconditions' ? t('automation.flow.connector.pass') : phase.id === 'actions' ? t('automation.flow.connector.success') : t('automation.flow.connector.next')}</span><Icon name="chevron" size={18} /></div>
             </li>
           {/each}
         </ol>
-        {#if !phase.steps.length}<div class="flow-empty">No steps in this phase. Continue directly.</div><div class="flow-connector" aria-hidden="true"><Icon name="chevron" size={18} /></div>{/if}
+        {#if !phase.steps.length}<div class="flow-empty">{t('automation.flow.phase.empty.continue')}</div><div class="flow-connector" aria-hidden="true"><Icon name="chevron" size={18} /></div>{/if}
         <div class="flow-terminal finish">{phase.end}</div>
-        <p class="flow-cancellation">Cancellation stops all remaining steps, including finalizers.</p>
+        <p class="flow-cancellation">{t('automation.flow.cancellation')}</p>
       </div>
     {/if}
   </div>

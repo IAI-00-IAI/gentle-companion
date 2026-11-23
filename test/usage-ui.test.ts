@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { contextUsage, estimatedCost, providerSnapshots, reportedTime, retainUsageSnapshots, snapshotStatus, usagePercent, weeklyConsumption } from '../ui/src/lib/usage.ts';
+import { setLang } from '../ui/src/lib/i18n.svelte.ts';
+import { contextUsage, estimatedCost, providerSnapshots, reportedTime, retainUsageSnapshots, snapshotStatus, sourceLabel, usagePercent, weeklyConsumption } from '../ui/src/lib/usage.ts';
 import type { ProviderUsage, Session } from '../ui/src/lib/types.ts';
 
 const at = '2026-10-07T10:00:00.000Z';
@@ -213,6 +214,81 @@ test('timestamps and snapshot status disclose ended sessions, old data and unkno
   assert.equal(reportedTime(undefined), 'Unknown');
   assert.equal(reportedTime('bad'), 'Unknown');
   assert.notEqual(reportedTime(at), 'Unknown');
+});
+
+test('usage text is translated instead of leaking English into a Spanish screen', () => {
+  try {
+    setLang('es');
+    assert.equal(contextUsage(null), 'No disponible');
+    assert.equal(contextUsage({ percent: 60 }), '60%');
+    assert.equal(estimatedCost({ amount: Number.NaN }), 'No disponible');
+    assert.equal(reportedTime(undefined), 'Desconocido');
+    const snapshot = { provider: 'OpenAI', updatedAt: at, ended: false };
+    const now = Date.parse(at);
+    assert.equal(snapshotStatus(snapshot, now), 'Instantánea reciente');
+    assert.equal(snapshotStatus({ ...snapshot, ended: true }, now), 'Instantánea guardada · sesión cerrada');
+    assert.equal(snapshotStatus(snapshot, now + 15 * 60_000), 'Instantánea guardada · con más de 15 minutos');
+    assert.equal(snapshotStatus({ ...snapshot, updatedAt: 'bad' }, now), 'Hora de la instantánea desconocida');
+  } finally {
+    setLang('en');
+  }
+});
+
+test('token counts are whole catalog phrases, never translated fragments glued to a number', () => {
+  const counts = () => [contextUsage({ tokens: 100, window: 200 }), contextUsage({ tokens: 100 }), contextUsage({ window: 200 })];
+  for (const filled of counts()) assert.doesNotMatch(filled, /[{}]/, `unfilled placeholder in ${filled}`);
+  try {
+    setLang('es');
+    assert.equal(contextUsage({ tokens: 100, window: 200 }), '50% · 100 / 200 tokens');
+    assert.equal(contextUsage({ tokens: 100 }), '100 tokens');
+    assert.equal(contextUsage({ window: 200 }), 'ventana de 200 tokens');
+    for (const filled of counts()) assert.doesNotMatch(filled, /[{}]/, `unfilled placeholder in ${filled}`);
+  } finally {
+    setLang('en');
+  }
+});
+
+test('English usage text stays byte-identical after localisation', () => {
+  setLang('en');
+  assert.equal(contextUsage(null), 'Unavailable');
+  assert.equal(contextUsage({ tokens: 100, window: 200 }), '50% · 100 / 200 tokens');
+  assert.equal(contextUsage({ tokens: 100 }), '100 tokens');
+  assert.equal(contextUsage({ window: 200 }), '200 token window');
+  assert.equal(estimatedCost(null), 'Unavailable');
+  assert.equal(reportedTime('bad'), 'Unknown');
+  const snapshot = { provider: 'OpenAI', updatedAt: at, ended: false };
+  const now = Date.parse(at);
+  assert.equal(snapshotStatus(snapshot, now), 'Recent snapshot');
+  assert.equal(snapshotStatus({ ...snapshot, ended: true }, now), 'Saved snapshot · session closed');
+  assert.equal(snapshotStatus(snapshot, now + 15 * 60_000), 'Saved snapshot · older than 15 minutes');
+  assert.equal(snapshotStatus({ ...snapshot, updatedAt: 'bad' }, now), 'Snapshot time unknown');
+});
+
+test('estimated cost follows the interface locale instead of always using US conventions', () => {
+  try {
+    setLang('en');
+    assert.equal(estimatedCost({ amount: 1.25 }), '$1.25');
+    setLang('es');
+    const spanish = estimatedCost({ amount: 1.25 });
+    assert.match(spanish, /1,25/);
+    assert.doesNotMatch(spanish, /^\$/);
+  } finally {
+    setLang('en');
+  }
+});
+
+test('provider sources localise the built-in daemon label to Gentle Shell and pass extension labels through', () => {
+  try {
+    setLang('es');
+    assert.equal(sourceLabel('Pi session'), 'Sesión de Gentle Shell');
+    assert.equal(sourceLabel('quota plugin'), 'quota plugin');
+    assert.equal(sourceLabel(undefined), 'No informado');
+    assert.equal(sourceLabel('  '), 'No informado');
+  } finally {
+    setLang('en');
+  }
+  assert.equal(sourceLabel('Pi session'), 'Gentle Shell session');
+  assert.equal(sourceLabel(undefined), 'Not reported');
 });
 
 test('Settings usage tabs expose linked panels, keyboard support and a labeled scrollable table', () => {

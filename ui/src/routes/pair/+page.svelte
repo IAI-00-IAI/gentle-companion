@@ -206,10 +206,10 @@ $effect(() => { $langStore; });
         <section class="scanner" aria-label={t('pair.scanner.label')}>
           {#if scannerAvailable}
             {#if scanning}
-              <video bind:this={video} playsinline muted aria-label="Camera view for scanning the pairing QR code"></video>
+              <video bind:this={video} playsinline muted aria-label={t('pair.camera.view.aria')}></video>
               <button class="btn btn-ghost" type="button" onclick={stopCamera}>{t('pair.stopcamera')}</button>
             {:else if cameraPrompt}
-              <div class="camera-permission" role="group" aria-label="Camera permission">
+              <div class="camera-permission" role="group" aria-label={t('pair.camera.permission')}>
                 <Icon name="devices" size={24} />
                 <div>
                   <strong>{t('pair.camera.prompt')}</strong>
