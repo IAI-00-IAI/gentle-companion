@@ -31,6 +31,9 @@ Rama `feat/gentle-shell-aesthetic`. Suite: **390 pass, 0 fail**. Árbol sin camb
 | `5aa94b2` | Una tecla no puede convertirse en respuesta que no diste | 5 tests; cada guard probado reintroduciendo el defecto |
 | `ac6f1d1` | El trigger del colapso ya no se oculta a sí mismo | Build limpio; el comentario del código explica el mecanismo |
 | `5bde8c9` | Dos fuentes de reflow forzado eliminadas | **Sin medición**: ver §3 |
+| `db6e2aa` | Fondo congelado mientras el sidebar se mueve (opción C) | 3 tests, incluido uno que lee la relación entre dos constantes |
+| `70da60a` | Cola de un mensaje con Alt+flecha | 5 tests; doble envío y pérdida probados mordiendo |
+| `a9f55bf` | Este documento | — |
 
 ---
 
@@ -51,10 +54,27 @@ y `paint` recorriendo todas. En un 2K son **5,3M operaciones por reconstrucción
 
 **No lo he tocado** porque bajar la densidad cambia lo que se ve, y eso se acuerda antes.
 
-### 2.2 Cola de mensajes (punto 16, junto al 28)
-Retirar mensajes en espera. Comparte pregunta con el bug de concurrencia ya arreglado
-(*¿qué gana si usuario y sistema actúan a la vez?*), por eso van juntos y no por separado.
-Independiente del rendimiento: se puede hacer sin esperar a nada.
+### 2.2 Cola de mensajes (punto 16) — paso 1 hecho, PENDIENTE DE PRUEBA REAL
+
+**No era un arreglo: no existía.** El producto lo decía: `shell.connection.error.note` —
+*"Messages are not queued or sent while disconnected"*. Se construyó desde cero.
+
+Hecho (`70da60a`): un mensaje en espera mientras el agente responde, rechazo visible del
+segundo, Alt+flecha para recuperarlo, envío automático al terminar el turno, e indicador
+visible con Editar/Descartar.
+
+**Cuatro cosas que solo se pueden validar probándolo:**
+1. Escribir mientras responde → espera, no se envía
+2. Escribir otra vez → se rechaza con aviso, no sobrescribe
+3. Alt+flecha → vuelve al composer, editable
+4. Al terminar el turno → se envía solo
+
+**Riesgo no cubierto por los tests:** Alt+Izquierda es "atrás" en Firefox y en algunos
+gestores de ventanas de Linux. Hay `preventDefault()` antes de otra lógica, pero si navega
+en vez de recuperar, el gesto hay que cambiarlo (`Alt+↑` es la alternativa).
+
+Paso 2 (varios mensajes) queda para cuando se pida: obliga a decidir orden y qué pasa con
+el que está en vuelo.
 
 ### 2.3 Aviso del bridge, en inglés
 `src/git-changes.ts:124`, consumido por `src/bridge.ts:9`. Sigue hardcodeado.
@@ -98,11 +118,11 @@ saber si el panel *no cierra* o *no responde a clics*: son causas distintas.
 
 | # | Pregunta | Bloquea |
 |---|---|---|
-| 1 | Fondo: ¿congelar al replegar (sin cambio visual) o perder densidad en pantallas grandes (se nota)? | §2.1 |
+| 1 | ~~Fondo~~ **Decidido**: congelar ahora (hecho, `db6e2aa`). Reducir densidad **después de la mudanza**, cuando se vea en el 2K | §2.1 |
 | 2 | `Gentle-Shell` con guion, o `Gentle Shell` sin guion | §2.4 |
 | 3 | ¿El `src/` raíz entra en alcance de traducción? | §2.3 |
 | 4 | Variantes del logo: ¿dejarlas a resolución completa o reducirlas? | §2.6 |
-| 5 | Cola de mensajes: ¿ahora o en el siguiente lanzamiento? | §2.2 |
+| 5 | ~~Cola~~ **Hecho** el paso 1. Falta que Ricardo lo pruebe y diga si quiere varios mensajes | §2.2 |
 
 ---
 
