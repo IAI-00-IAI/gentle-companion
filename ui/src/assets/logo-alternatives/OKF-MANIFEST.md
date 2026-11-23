@@ -1,7 +1,7 @@
 ---
 type: Asset Manifest
 title: "OKF manifest — logo alternatives"
-description: "Layer 2: index of the logo variants kept from the transparency work. One is the shipped source, four are superseded automatic attempts retained on purpose."
+description: "Layer 2: index of the logo variants kept from the transparency work. One is the shipped source, four are superseded automatic attempts retained on purpose. Every stamped PNG carries three carriers: OKF iTXt, the author's XMP, and the full original EXIF."
 status: verified
 generated: 2026-11-23
 source:
@@ -16,11 +16,16 @@ Variants produced while making the rose logo transparent. **Nothing here is
 discarded**: Ricardo's instruction was that all of it is worth keeping, and a
 rejected attempt is evidence of why the accepted one was chosen.
 
+Metadata policy, also by Ricardo's instruction: **the EXIF is never removed.**
+Each stamped PNG carries the original 10-tag EXIF profile (including the
+`GPSAltitude: 0.0` tag GIMP writes, which holds no location), the author's
+XMP, and an OKF-METADATA iTXt. All three travel together.
+
 | File | Kind | Bytes | SHA-256 (16) | OKF carrier |
 |---|---|---|---|---|
-| `COMPARACION.png` | PNG | 388063 | `069a505368d28b1a` | none (contact sheet, no header) |
-| `gentle-logo.ricardo-mask.png` | PNG | 832500 | `4042cb49d41a77c1` | embedded (PNG iTXt) |
-| `logo-alt-A-suave.png` | PNG | 1133291 | `7f7c26d0f01239d1` | embedded (PNG iTXt) |
-| `logo-alt-B-medio.png` | PNG | 1133755 | `5a544db5c0033f40` | embedded (PNG iTXt) |
-| `logo-alt-C-firme.png` | PNG | 1125834 | `c3bffee63cf4828a` | embedded (PNG iTXt) |
-| `logo-alt-D-agresivo.png` | PNG | 1109501 | `8e2565cfc30cf45f` | embedded (PNG iTXt) |
+| `COMPARACION.png` | PNG | 388063 | `069a505368d28b1a` | none (contact sheet, reference only) |
+| `gentle-logo.ricardo-mask.png` | PNG | 840886 | `01b396beee84dffe` | embedded iTXt OKF + XMP + EXIF (10 tags) |
+| `logo-alt-A-suave.png` | PNG | 1138269 | `ae32b9b60f1b5351` | embedded iTXt OKF + XMP + EXIF (10 tags) |
+| `logo-alt-B-medio.png` | PNG | 1138823 | `e29cdf00c3e2895c` | embedded iTXt OKF + XMP + EXIF (10 tags) |
+| `logo-alt-C-firme.png` | PNG | 1130899 | `2564e721547cd25a` | embedded iTXt OKF + XMP + EXIF (10 tags) |
+| `logo-alt-D-agresivo.png` | PNG | 1114545 | `758c988238c0ccbb` | embedded iTXt OKF + XMP + EXIF (10 tags) |
