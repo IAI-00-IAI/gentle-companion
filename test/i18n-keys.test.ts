@@ -92,3 +92,49 @@ test('every key in the catalog still resolves (nobody emptied a value)', () => {
   }
   assert.deepEqual(broken, [], `catalog entries are missing or blank:\n  ${broken.join('\n  ')}`);
 });
+
+test('the two locales define exactly the same keys', () => {
+  // A key present in one locale and absent in the other is invisible to every
+  // other check here: the UI asks for it, `t()` finds the fallback, and the
+  // screen silently renders English inside a Spanish interface. The reverse —
+  // a typo that only exists in one locale — is the same defect wearing a hat:
+  // `running.empty.norrunning.body` (es) could never resolve, so that paragraph
+  // stayed English forever, and nothing failed.
+  //
+  // Reads the source rather than the runtime export, because `messages` is not
+  // exported and should not be exported just to satisfy a test.
+  const source = readFileSync(new URL('../ui/src/lib/i18n.svelte.ts', import.meta.url), 'utf8');
+
+  const blockFor = (lang: string): string => {
+    const start = source.search(new RegExp(`^  ${lang}: \\{`, 'm'));
+    assert.ok(start >= 0, `locale block "${lang}" not found`);
+    let depth = 0;
+    for (let i = start; i < source.length; i++) {
+      if (source[i] === '{') depth++;
+      else if (source[i] === '}') {
+        depth--;
+        if (depth === 0) return source.slice(start, i);
+      }
+    }
+    throw new Error(`locale block "${lang}" is not closed`);
+  };
+
+  // Both quote styles occur in this file; matching only one hides real keys.
+  const keysIn = (lang: string): Set<string> => {
+    const body = blockFor(lang);
+    return new Set([...body.matchAll(/['"]([a-zA-Z0-9_.-]+)['"]\s*:/g)].map((m) => m[1]));
+  };
+
+  const en = keysIn('en');
+  const es = keysIn('es');
+  const onlyEn = [...en].filter((k) => !es.has(k)).sort();
+  const onlyEs = [...es].filter((k) => !en.has(k)).sort();
+
+  assert.deepEqual(
+    { onlyEn, onlyEs },
+    { onlyEn: [], onlyEs: [] },
+    `locales are out of sync — only in en: ${onlyEn.join(', ') || 'none'}; ` +
+      `only in es: ${onlyEs.join(', ') || 'none'}`,
+  );
+  assert.ok(en.size > 900, `only ${en.size} keys parsed; the parse is probably broken`);
+});

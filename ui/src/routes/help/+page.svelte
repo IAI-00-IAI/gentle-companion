@@ -44,7 +44,7 @@ $effect(() => { $langStore; });
     </div>
   </header>
 
-  <section class="tile stepper" aria-label="Setup guide">
+  <section class="tile stepper" aria-label={t('help.setup.aria')}>
     <ol>
       {#each steps as step, index (step.title)}
         <li>
@@ -67,7 +67,7 @@ $effect(() => { $langStore; });
     </ol>
   </section>
 
-  <section class="bento" aria-label="Help topics">
+  <section class="bento" aria-label={t('help.topics.aria')}>
     <article class="tile">
       <span class="topic-icon"><Icon name="tool" /></span>
       <h2>{t('help.cmds.title')}</h2>
@@ -149,7 +149,7 @@ $effect(() => { $langStore; });
     </article>
   </section>
 
-  <footer class="help-footer" aria-label="Legal links">
+  <footer class="help-footer" aria-label={t('help.legal.aria')}>
     <a href="/privacy">{t('help.footer.privacy')}</a><span aria-hidden="true">·</span><a href="/terms">{t('help.footer.terms')}</a>
   </footer>
 </div>

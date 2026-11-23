@@ -14,7 +14,7 @@ $effect(() => { $langStore; });
     </div>
   </header>
 
-  <section class="bento" aria-label="Terms of use">
+  <section class="bento" aria-label={t('terms.eyebrow')}>
     <article class="tile">
       <h2>{t('terms.license.title')}</h2>
       <p>
