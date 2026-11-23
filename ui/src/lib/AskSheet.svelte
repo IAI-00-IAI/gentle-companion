@@ -29,7 +29,11 @@
   };
 
   // Open for every question we have not seen yet; keep "Later" for ones already shown.
-  const seen = new Set<string>();
+    // Long enough for keystrokes already in flight to land in their own field,
+  // short enough that a question still feels responsive.
+  const OPEN_DELAY_MS = 600;
+
+const seen = new Set<string>();
   $effect(() => {
     let fresh = false;
     for (const item of asks) {
@@ -43,11 +47,28 @@
     if (index >= asks.length) index = 0;
   });
 
+  // A question can arrive while the user is mid-sentence. Opening the sheet in
+  // the same frame steals focus and the next keystroke becomes an answer, so the
+  // open is deferred: anything already typed lands where the user was typing.
+  let settle = $state(false);
+
+  $effect(() => {
+    if (!open) { settle = false; return; }
+    const id = setTimeout(() => (settle = true), OPEN_DELAY_MS);
+    return () => clearTimeout(id);
+  });
+
   $effect(() => {
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
+    if (open && settle && !dialog.open) dialog.showModal();
+    else if ((!open || !settle) && dialog.open) dialog.close();
   });
+
+  // Until the sheet has settled, the form refuses to submit. A stray Enter that
+  // arrives in that window must not become an answer on the user's behalf.
+  function guarded(e: Event) {
+    if (!settle) { e.preventDefault(); return; }
+  }
 
   // New question → fresh form.
   let current = '';
@@ -76,11 +97,6 @@
   }
 
   const complete = $derived(Boolean(ask) && ask.questions.every((question) => answerFor(question).length > 0));
-  // One single-choice question without free text: a tap is the answer.
-  const instant = $derived(
-    Boolean(ask) && ask.questions.length === 1 && !ask.questions[0].multiSelect && !ask.questions[0].allowCustom && !freeText(ask.questions[0])
-  );
-
   function choose(question: AskQuestion, label: string) {
     if (label === OTHER) {
       const on = !otherOn[question.id];
@@ -95,7 +111,8 @@
     }
     picked = { ...picked, [question.id]: [label] };
     otherOn = { ...otherOn, [question.id]: false };
-    if (instant) submit();
+    // A single click no longer sends. "Instant" answer was one stray click away
+    // from acting on the user's behalf; the confirm button is now always the send.
   }
 
   function submit() {
@@ -138,7 +155,7 @@
       {/if}
     </div>
 
-    <form class="sheet-body scroll" id="ask-form" onsubmit={(event) => { event.preventDefault(); submit(); }}>
+    <form class="sheet-body scroll" id="ask-form" onsubmit={(event) => { event.preventDefault(); guarded(event); if (settle) submit(); }}>
       {#each ask.questions as question (question.id)}
         <fieldset class="question">
           <legend>
@@ -185,7 +202,7 @@
                 {#if otherOn[question.id]}
                   <label class="sr-only" for="other-{question.id}">Your own answer</label>
                   <!-- svelte-ignore a11y_autofocus -->
-                  <input id="other-{question.id}" class="input" autocomplete="off" autofocus placeholder="Your answer" bind:value={other[question.id]} />
+                  <input id="other-{question.id}" class="input" autocomplete="off" placeholder="Your answer" bind:value={other[question.id]} />
                 {/if}
               {/if}
             </div>
