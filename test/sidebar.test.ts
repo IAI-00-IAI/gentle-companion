@@ -105,3 +105,26 @@ test('new strings exist in both locales', () => {
   // No key is left behind in only one locale.
   assert.equal(en.match(/shell\.sidebar\./g)?.length, es.match(/shell\.sidebar\./g)?.length);
 });
+
+test('theme and language are cyclic single buttons that announce their value', () => {
+  const layout = readFileSync(new URL('../ui/src/routes/+layout.svelte', import.meta.url), 'utf8');
+  // Three-button segmented groups do not fit the collapsed column, so they are
+  // single rotating controls. Guard the shape, not the implementation detail.
+  assert.doesNotMatch(layout, /class="segmented theme-switch"/);
+  assert.doesNotMatch(layout, /class="segmented lang-switch"/);
+  assert.match(layout, /class="cycle theme-cycle"/);
+  assert.match(layout, /class="cycle lang-cycle"/);
+  // A silent cycle is an accessibility regression versus the radiogroup it
+  // replaced: every press must report the value it landed on.
+  assert.match(layout, /aria-live="polite"/);
+  assert.match(layout, /shell\.cycle\.theme\.announce/);
+  assert.match(layout, /shell\.cycle\.lang\.announce/);
+});
+
+test('collapsing does not hide the theme and language controls', () => {
+  const layout = readFileSync(new URL('../ui/src/routes/+layout.svelte', import.meta.url), 'utf8');
+  // Regression guard: an earlier version hid `.sidebar-foot .segmented` when
+  // collapsed, which inverted the point of making them cyclic.
+  assert.doesNotMatch(layout, /sidebar-collapsed[^{]*\.segmented[^{]*\{[^}]*display:\s*none/);
+  assert.match(layout, /sidebar-collapsed \.legal-links \{ display: none; \}/);
+});

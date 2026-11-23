@@ -72,6 +72,34 @@
     { value: 'dark', label: t('shell.theme.dark'), icon: 'moon' }
   ]);
 
+  // Cyclic controls replace the two segmented radiogroups: three buttons each
+  // do not fit in the 68px collapsed sidebar, and hiding them inverted what was
+  // asked for. One button that rotates fits, and keeps the control reachable.
+  let themeButton = $state<HTMLButtonElement | null>(null);
+  let langButton = $state<HTMLButtonElement | null>(null);
+  // A silent cycle is an accessibility regression versus the radiogroup it
+  // replaces, so every press announces the value it landed on.
+  let cycleAnnouncement = $state('');
+
+  const themeLabel = $derived(themes.find((option) => option.value === theme.preference)?.label ?? '');
+  const themeIcon = $derived(themes.find((option) => option.value === theme.preference)?.icon ?? 'monitor');
+
+  function cycleTheme() {
+    const index = themes.findIndex((option) => option.value === theme.preference);
+    const next = themes[(index + 1) % themes.length];
+    theme.set(next.value);
+    cycleAnnouncement = t('shell.cycle.theme.announce', { value: next.label });
+    themeButton?.focus();
+  }
+
+  function cycleLang() {
+    const index = LOCALES.indexOf($langStore);
+    const next = LOCALES[(index + 1) % LOCALES.length];
+    setLang(next);
+    cycleAnnouncement = t('shell.cycle.lang.announce', { value: localeName(next) });
+    langButton?.focus();
+  }
+
   function active(href: string) {
     return href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
   }
@@ -221,28 +249,25 @@
           <span class="status-label">{connectionLabel}</span>
           {#if companion.version}<span class="subtle mono">v{companion.version}</span>{/if}
         </button>
-        <div class="segmented theme-switch" role="radiogroup" aria-label={t('shell.theme.aria')}>
-          {#each themes as option (option.value)}
-            <button
-              role="radio"
-              aria-checked={theme.preference === option.value}
-              aria-label={option.label}
-              title={option.label}
-              onclick={() => theme.set(option.value)}><Icon name={option.icon} size={16} /></button>
-          {/each}
+        <div class="cycle-controls">
+          <button
+            class="cycle theme-cycle"
+            type="button"
+            aria-label={t('shell.cycle.theme.aria', { value: themeLabel })}
+            title={t('shell.cycle.theme.aria', { value: themeLabel })}
+            bind:this={themeButton}
+            onclick={cycleTheme}
+          ><Icon name={themeIcon} size={16} /></button>
+          <button
+            class="cycle lang-cycle"
+            type="button"
+            aria-label={t('shell.cycle.lang.aria', { value: localeName($langStore) })}
+            title={t('shell.cycle.lang.aria', { value: localeName($langStore) })}
+            bind:this={langButton}
+            onclick={cycleLang}
+          ><span class="cycle-lang">{($langStore || 'es').toUpperCase()}</span></button>
         </div>
-        <div class="segmented lang-switch" role="radiogroup" aria-label={t('lang.label')}>
-          {#each LOCALES as locale}
-            <button
-              role="radio"
-              aria-checked={$langStore === locale}
-              aria-label={localeName(locale)}
-              onclick={() => setLang(locale)}
-            >
-              {localeName(locale)}
-            </button>
-          {/each}
-        </div>
+        <span class="sr-only" aria-live="polite" aria-atomic="true">{cycleAnnouncement}</span>
         <nav class="legal-links" aria-label={t('shell.legal.aria')}>
           <a href="/privacy">{t('shell.legal.privacy')}</a><span aria-hidden="true">·</span><a href="/terms">{t('shell.legal.terms')}</a>
         </nav>
@@ -499,6 +524,22 @@
     color: var(--accent-text);
     text-decoration: underline;
   }
+  .cycle-controls { display: flex; gap: 6px; justify-content: center; }
+
+  .cycle {
+    display: grid; place-items: center; min-height: 36px; min-width: 36px;
+    padding: 0 8px; border-radius: 10px; cursor: pointer;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text-2); font: inherit;
+    transition: color 150ms var(--ease), border-color 150ms var(--ease), background-color 150ms var(--ease);
+  }
+  .cycle:hover { color: var(--accent-text); border-color: var(--border-strong); }
+  .cycle:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .cycle-lang {
+    font-family: var(--mono); font-size: .68rem; font-weight: 700; letter-spacing: .03em;
+  }
+
   .sidebar-foot {
     margin-top: auto;
     display: grid;
@@ -823,7 +864,6 @@
     .shell.sidebar-collapsed .brand-text,
     .shell.sidebar-collapsed .nav-label,
     .shell.sidebar-collapsed .status-label,
-    .shell.sidebar-collapsed .sidebar-foot .segmented,
     .shell.sidebar-collapsed .legal-links { display: none; }
     .shell.sidebar-collapsed .nav a,
     .shell.sidebar-collapsed .status-trigger { justify-content: center; }
