@@ -34,3 +34,6 @@ __pycache__/
 # Local usage database (measured quota data, not published)
 usage.db
 accounting/hardware.local.json
+
+# GIMP sources keep their editable history outside the repo.
+*.xcf
