@@ -460,6 +460,8 @@
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Longer than the 220ms sidebar transition so no rebuild lands mid-slide.
+    const REBUILD_SETTLE_MS = 260;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const lowPower = window.matchMedia('(max-width: 767px), (pointer: coarse)');
     const canAnimate = () => !reducedMotion.matches;
@@ -884,7 +886,24 @@
     };
 
     let resizeFrame = 0;
+    // A rebuild resizes the canvas, which is what the observer sees; running it
+    // mid-transition means every animation frame during the 220ms sidebar slide
+    // pays for a full grid reconstruction. Nobody is judging the background
+    // grain while it is moving, so wait for the size to settle and rebuild once.
+    // This also covers window drags and theme switches, which hit the same path.
+    let rebuildTimer = 0;
     const queueRebuild = () => {
+      cancelAnimationFrame(resizeFrame);
+      clearTimeout(rebuildTimer);
+      rebuildTimer = setTimeout(() => {
+        rebuildTimer = 0;
+        resizeFrame = requestAnimationFrame(rebuild);
+      }, REBUILD_SETTLE_MS);
+    };
+    const flushRebuild = () => {
+      if (!rebuildTimer) return;
+      clearTimeout(rebuildTimer);
+      rebuildTimer = 0;
       cancelAnimationFrame(resizeFrame);
       resizeFrame = requestAnimationFrame(rebuild);
     };
@@ -948,6 +967,9 @@
     const themeObserver = new MutationObserver(() => {
       readTheme();
       drawAmbientLayer();
+      // A theme switch is instant for the reader: a debounced rebuild would show
+      // the previous colour for a quarter second. Force it here.
+      flushRebuild();
       if (!canAnimate() || lowPower.matches) paint(0, false);
     });
     themeObserver.observe(document.documentElement, {
