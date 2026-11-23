@@ -46,7 +46,7 @@ test('automation detail opens native scrollable flowchart dialogs from compact p
   assert.match(component, /onclose=\{closed\}/);
   assert.match(component, /oncancel=/);
   assert.match(component, /opener\.focus\(\)/);
-  assert.match(component, /role="region" aria-label="Scrollable execution flowchart" tabindex="0"/);
+  assert.match(component, /role="region" aria-label=\{t\('automation\.flow\.scroll\.aria'\)\} tabindex="0"/);
   assert.match(component, /\.flow-scroll\s*\{[^}]*overflow: auto/s);
   assert.match(component, /min-height: 44px/);
   assert.match(component, /\{#each phase.steps as step, index\}/);
@@ -54,5 +54,6 @@ test('automation detail opens native scrollable flowchart dialogs from compact p
   assert.doesNotMatch(component, /\{@html|mermaid\.render/);
   assert.match(component, /\{phase.failure\}/);
   assert.match(component, /\{phase.retry\}/);
-  assert.match(component, /Cancellation stops all remaining steps, including finalizers/);
+  // The sentence now lives in the catalogue; assert the key is used, not the literal.
+  assert.match(component, /t\('automation\.flow\.cancellation'\)/);
 });

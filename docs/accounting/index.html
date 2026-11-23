@@ -1,0 +1,80 @@
+<!-- OKF-METADATA
+---
+type: Dashboard Page
+title: "CONTA — cuota, coste y financiación (vista estática)"
+description: "Versión estática publicable del dashboard: datos reales del ciclo, gráficos como imágenes, sin JavaScript ni CDN."
+status: verified
+generated: 2026-11-21T01:29:01+01:00
+source:
+  - "usage.db (tokens por día y modelo, registrado del proveedor)"
+  - "read_quota() sobre la API de suscripción"
+  - "journalctl --user -u mistral-gateway (serie de allowance)"
+verified: 2026-11-21
+stale_after: 2026-12-01
+---
+-->
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<title>CONTA · Cuota Vibe</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+ body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;margin:24px auto;max-width:1200px;line-height:1.5}
+ h1{font-size:1.35rem;margin:0 0 4px} h2{font-size:1.05rem;margin:28px 0 8px}
+ .panel{background:#1b2740;border:1px solid #2d3f63;border-radius:10px}
+ .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin:12px 0}
+ .kpi div{background:#1e293b;border-radius:8px;padding:10px}
+ .lbl{color:#7dd3fc;font-weight:600} .sub{color:#94a3b8;font-size:.9rem}
+ table{width:100%;border-collapse:collapse;font-size:.92rem}
+ th{background:#1e293b;padding:10px 12px;text-align:left}
+ td{padding:10px 12px}
+ a{color:#7dd3fc}
+ nav a{margin-right:16px;text-decoration:none}
+ img.chart{width:100%;height:auto;display:block;border-radius:10px}
+ .muted{color:#94a3b8}
+</style></head>
+<body>
+<nav class="panel" style="padding:8px 12px;margin-bottom:12px">
+<a href="#inventario">Inventario</a><a href="#mapa">Mapa de financiación</a><a href="#graficos">Gráficos</a>
+</nav>
+
+<h1>💰 CONTA · Suscripción Mistral Vibe</h1>
+<p class="muted">Plan Individual · 18,14 €/mes · presupuesto 255 € por ciclo ·
+PAYG desactivado · reset 2026-12-01 · <b>objetivo: aprovechar la cuota sin derrocharla y sin quedarse corto</b></p>
+
+<div class="kpi">
+<div><span class="lbl">Cuota usada</span><br>27,46 % = 70,02 € de 255 €<br><span class="sub">medido con read_quota()</span></div>
+<div><span class="lbl">Cuota libre</span><br>184,98 €<br><span class="sub">PAYG off: lo que sobre no se factura</span></div>
+<div><span class="lbl">Ritmo reciente</span><br>12,01 pp/día = 2,18 € suscr./día<br><span class="sub">última medición</span></div>
+<div><span class="lbl">Ritmo requerido</span><br>7,25 pp/día<br><span class="sub">para llegar al 100 % el reset</span></div>
+<div><span class="lbl">Agotamiento</span><br>6 días (0,2 meses) · se agota 4 días antes del reset<br><span class="sub">al ritmo reciente, en puntos de cuota</span></div>
+<div><span class="lbl">Economía del plan</span><br>1 pp = 2,55 € de presupuesto = 0,1814 € de lo que pagas<br><span class="sub">fijo: 1,07 €/día en un ciclo de 17 días</span></div>
+<div><span class="lbl">Ciclo</span><br>día 8 de 17<br><span class="sub">contratada el 14-nov, reset el día 1</span></div>
+</div>
+
+<h2 id="graficos">📈 Evolución</h2>
+<div class="panel" style="padding:10px"><img class="chart" src="chart-1.png" alt="Cuota Vibe usada por día, acumulado del ciclo"></div>
+<div class="panel" style="padding:10px;margin-top:12px"><img class="chart" src="chart-2.png" alt="Consumo diario en euros de suscripción"></div>
+<div class="panel" style="padding:10px;margin-top:12px"><img class="chart" src="chart-3.png" alt="Tokens medidos por día, desglosados"></div>
+<p class="muted">Gráficos exportados como imagen desde los datos reales. Sin JavaScript ni CDN:
+la página es un HTML plano que puedes abrir desde cualquier sitio.</p>
+
+<h2 id="inventario">🖥️ Inventario de equipos</h2>
+<div class="panel" style="padding:6px 10px">
+<table>
+<tr><th>Equipo</th><th>CPU</th><th>RAM</th><th>GPU / VRAM</th><th>Discos</th></tr>
+<tr><td><b>ricardo-HP-Xubuntu</b> (laptop)</td><td>Intel i3-6006U 2C/4T @ 2.0 GHz (Skylake)</td><td>12 GB (11 GiB usables)</td><td>Intel HD 520 + AMD Radeon R5 M330 (2.048 MB dedicados)</td><td>/ 81 GB (90 %) · /home 369 GB (93 %)</td></tr>
+<tr><td><b>ricardoPC</b> (escritorio)</td><td>AMD Athlon 200GE 2C/4T @ 3.2 GHz (Zen)</td><td>13 Gi</td><td>NVIDIA RTX 3060 — 12.288 MiB (medido con nvidia-smi)</td><td>/ 64 GB (31 %) · /home 679 GB (94 %) · 3 discos más</td></tr>
+</table>
+<p class="muted" style="padding:0 6px 6px">HP medido in situ (lscpu/free/lspci/lsblk/df). ricardoPC medido por INFRA vía SSH con nvidia-smi.</p>
+</div>
+
+<h2 id="mapa">🗺️ Mapa de financiación</h2>
+<p>26 vías identificadas, ordenadas por valor esperado frente a esfuerzo. Cada una con su ficha:
+cuantía, plazo, requisitos duros, encaje y fuentes con fecha de consulta.</p>
+<p><a href="mapa_completo.html">Ver el mapa completo</a> · <a href="opcion1.html">Ficha ampliada: crédito fiscal I+D+i</a> · <a href="fichas/1-nlnet-restack.html">Ficha #1: NLnet / Restack</a></p>
+
+<hr style="border-color:#2d3f63;margin:24px 0 12px">
+<p class="muted">Generado el 2026-11-21 a las 01:29 · datos de
+<code>usage.db</code>, <code>read_quota()</code> y <code>journalctl</code> · cifras en formato
+español (coma decimal, punto de miles).</p>
+</body></html>

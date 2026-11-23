@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<metadata id="okf">
+type: &quot;Icon Asset&quot;
+title: &quot;Favicon CONTA — rosa + barras de evolución&quot;
+description: &quot;Favicon del dashboard de contabilidad: rosa (linaje visual de la app) sobre barras doradas de evolución. Legible a 16 px.&quot;
+status: &quot;draft&quot;
+generated: &quot;2026-11-19T00:25:00+01:00&quot;
+source:
+  - &quot;Linaje visual: gentle-companion/ui/static/favicon.png (rosa carmesí)&quot;
+verified: &quot;2026-11-19&quot;
+stale_after: &quot;2027-06-30&quot;
+</metadata>
+
+  <title>CONTA — contabilidad y financiación</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#20304f"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="petal" x1="0.25" y1="0" x2="0.75" y2="1">
+      <stop offset="0%" stop-color="#ee5b8b"/>
+      <stop offset="60%" stop-color="#c72c52"/>
+      <stop offset="100%" stop-color="#8c1a35"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffdc9b"/>
+      <stop offset="100%" stop-color="#c99b34"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#34507f" stroke-width="1.4"/>
+
+  <!-- ROSA: 4 pétalos grandes, legible a 16px -->
+  <g transform="translate(32 23)">
+    <circle cx="0" cy="-7" r="7.5" fill="url(#petal)"/>
+    <circle cx="-7" cy="1" r="7.5" fill="url(#petal)"/>
+    <circle cx="7" cy="1" r="7.5" fill="url(#petal)"/>
+    <circle cx="0" cy="7" r="7.2" fill="url(#petal)"/>
+    <circle cx="0" cy="0" r="5.4" fill="#8c1a35"/>
+    <circle cx="0" cy="0" r="2.6" fill="#5e0f24"/>
+  </g>
+
+  <!-- BARRAS: 3 barras, contraste alto -->
+  <g>
+    <rect x="12" y="47" width="9"  height="9"  rx="2" fill="url(#gold)" opacity="0.8"/>
+    <rect x="27.5" y="42" width="9" height="14" rx="2" fill="url(#gold)"/>
+    <rect x="43" y="46" width="9"  height="10" rx="2" fill="url(#gold)" opacity="0.8"/>
+  </g>
+</svg>

@@ -22,3 +22,18 @@ local/
 
 # Build artefacts of the (out-of-tree) mobile core crate
 mobile-core/target/
+
+# Accounting dashboard: a live access token and the rejected-attempt log (client IPs)
+accounting/dashboard.token
+accounting/auth_fails.log
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Local usage database (measured quota data, not published)
+usage.db
+accounting/hardware.local.json
+
+# GIMP sources keep their editable history outside the repo.
+*.xcf

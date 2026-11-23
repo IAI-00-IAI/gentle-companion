@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { t } from './i18n.svelte.ts';
   import { companion } from './companion.svelte.ts';
   import { toasts } from './toast.svelte.ts';
   import type { AskAnswers, AskQuestion, AskRequest } from './types.ts';
@@ -130,10 +131,10 @@
         {#if ask.title}<strong id="ask-title">{ask.title}</strong>{:else}<strong id="ask-title" class="sr-only">Question from Pi</strong>{/if}
       </div>
       {#if asks.length > 1}
-        <div class="pager" role="group" aria-label="Questions waiting">
-          <button class="btn btn-ghost btn-icon" aria-label="Previous question" disabled={index === 0} onclick={() => (index -= 1)}><Icon name="back" size={16} /></button>
+        <div class="pager" role="group" aria-label={t('ask.pager.aria')}>
+          <button class="btn btn-ghost btn-icon" aria-label={t('ask.previous.aria')} disabled={index === 0} onclick={() => (index -= 1)}><Icon name="back" size={16} /></button>
           <span class="badge count" role="status">{index + 1}/{asks.length}</span>
-          <button class="btn btn-ghost btn-icon" aria-label="Next question" disabled={index >= asks.length - 1} onclick={() => (index += 1)}><Icon name="chevron" size={16} /></button>
+          <button class="btn btn-ghost btn-icon" aria-label={t('ask.next.aria')} disabled={index >= asks.length - 1} onclick={() => (index += 1)}><Icon name="chevron" size={16} /></button>
         </div>
       {/if}
     </div>
@@ -185,7 +186,7 @@
                 {#if otherOn[question.id]}
                   <label class="sr-only" for="other-{question.id}">Your own answer</label>
                   <!-- svelte-ignore a11y_autofocus -->
-                  <input id="other-{question.id}" class="input" autocomplete="off" autofocus placeholder="Your answer" bind:value={other[question.id]} />
+                  <input id="other-{question.id}" class="input" autocomplete="off" autofocus placeholder={t('ask.answer.placeholder')} bind:value={other[question.id]} />
                 {/if}
               {/if}
             </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { companion } from './companion.svelte.ts';
   import Icon from './Icon.svelte';
+  import { t, langStore } from './i18n.svelte.ts';
   import { terminalSpans, popupKey } from './terminal-popup.ts';
   import type { TerminalPopup } from './types.ts';
 
@@ -12,10 +13,13 @@
   let error = $state('');
   const popup = $derived(popups[popups.length - 1]);
   const connected = $derived(companion.connection === 'online' && Boolean(companion.session(sessionId)?.remoteEnabled));
-  const directionKeys = [
-    { label: '↑', name: 'Move up', data: '\x1b[A' }, { label: '↓', name: 'Move down', data: '\x1b[B' },
-    { label: '←', name: 'Move left', data: '\x1b[D' }, { label: '→', name: 'Move right', data: '\x1b[C' }
-  ];
+  const directionKeys = $derived.by(() => {
+    $langStore;
+    return [
+      { label: '↑', name: t('terminal.direction.up'), data: '\x1b[A' }, { label: '↓', name: t('terminal.direction.down'), data: '\x1b[B' },
+      { label: '←', name: t('terminal.direction.left'), data: '\x1b[D' }, { label: '→', name: t('terminal.direction.right'), data: '\x1b[C' }
+    ];
+  });
   const extraKeys = [
     { label: 'Tab', data: '\t' }, { label: 'Shift + Tab', data: '\x1b[Z' },
     { label: 'Space', data: ' ' }, { label: 'Backspace', data: '\x7f' },
@@ -62,7 +66,7 @@
         <span class="clay-well"><Icon name="sessions" size={22} /></span>
         <div><h2 id="terminal-popup-title">Pi popup</h2><span class="connection"><i class:offline={!connected}></i>{connected ? 'Connected to your terminal' : 'Waiting for connection'}</span></div>
       </div>
-      <button class="btn close" onclick={() => send('', true)} disabled={!connected} title="Send Escape to close the terminal popup"><Icon name="close" /> Close</button>
+      <button class="btn close" onclick={() => send('', true)} disabled={!connected} title={t('terminal.close.title')}><Icon name="close" /> Close</button>
     </header>
 
     <div class="popup-body">
@@ -70,16 +74,16 @@
       <div class="viewer clay">
         <div class="viewer-toolbar">
           <span class="viewer-label">Terminal view</span>
-          <div class="view-controls" role="group" aria-label="Terminal view controls">
-            <button class="btn" aria-label="Smaller terminal text" disabled={fontSize <= 10} onclick={() => fontSize--}>A−</button>
+          <div class="view-controls" role="group" aria-label={t('terminal.controls.aria')}>
+            <button class="btn" aria-label={t('terminal.font.smaller')} disabled={fontSize <= 10} onclick={() => fontSize--}>A−</button>
             <span class="zoom">{fontSize}px</span>
-            <button class="btn" aria-label="Larger terminal text" disabled={fontSize >= 22} onclick={() => fontSize++}>A+</button>
-            <button class="btn" aria-label="Scroll view up" onclick={() => scrollView(-1)} title="Scroll view up">↑</button>
-            <button class="btn" aria-label="Scroll view down" onclick={() => scrollView(1)} title="Scroll view down">↓</button>
+            <button class="btn" aria-label={t('terminal.font.larger')} disabled={fontSize >= 22} onclick={() => fontSize++}>A+</button>
+            <button class="btn" aria-label={t('terminal.scroll.up')} onclick={() => scrollView(-1)} title={t('terminal.scroll.up')}>↑</button>
+            <button class="btn" aria-label={t('terminal.scroll.down')} onclick={() => scrollView(1)} title={t('terminal.scroll.down')}>↓</button>
           </div>
         </div>
         <div class="screen" bind:this={screen} tabindex="0" role="textbox" aria-readonly="true" aria-multiline="true"
-          aria-label="Live terminal popup. Use arrow keys to interact, or Tab to reach the controls." style:--terminal-font-size={`${fontSize}px`}>
+          aria-label={t('terminal.screen.aria')} style:--terminal-font-size={`${fontSize}px`}>
           {#each popup?.lines ?? [] as line}
             <div class="line">{#each terminalSpans(line) as span}<span style:color={span.inverse ? (span.background ?? '#151515') : span.color} style:background-color={span.inverse ? (span.color ?? '#dddddd') : span.background} style:font-weight={span.bold ? '700' : undefined}>{span.text}</span>{/each}{#if !line} {' '}{/if}</div>
           {/each}
@@ -90,17 +94,17 @@
 
       <div class="interaction">
         <div class="control-row">
-          <div class="direction-keys" role="group" aria-label="Move terminal selection">
+          <div class="direction-keys" role="group" aria-label={t('terminal.directions.aria')}>
             {#each directionKeys as item}<button class="btn" disabled={!connected} aria-label={item.name} title={item.name} onclick={() => send(item.data)}>{item.label}</button>{/each}
           </div>
           <div class="action-keys">
-            <button class="btn" disabled={!connected} onclick={() => send('\x1b')} title="Send Escape to the popup">Back / Esc</button>
+            <button class="btn" disabled={!connected} onclick={() => send('\x1b')} title={t('terminal.escape.title')}>Back / Esc</button>
             <button class="btn btn-primary" disabled={!connected} onclick={() => send('\r')}><Icon name="check" /> Enter / select</button>
           </div>
         </div>
         <details>
           <summary>More terminal keys</summary>
-          <div class="extra-keys" role="group" aria-label="Additional terminal keys">
+          <div class="extra-keys" role="group" aria-label={t('terminal.keys.aria')}>
             {#each extraKeys as item}<button class="btn" disabled={!connected} onclick={() => send(item.data)}>{item.label}</button>{/each}
           </div>
         </details>
@@ -110,7 +114,7 @@
     <footer>
       <form onsubmit={(event) => { event.preventDefault(); if (text && send(text)) text = ''; }}>
         <label for="terminal-popup-text">Send text to Pi</label>
-        <div class="text-row"><input id="terminal-popup-text" class="input" placeholder="Search or type an answer…" bind:value={text} maxlength="4096" autocomplete="off" />
+        <div class="text-row"><input id="terminal-popup-text" class="input" placeholder={t('terminal.search.placeholder')} bind:value={text} maxlength="4096" autocomplete="off" />
           <button class="btn btn-primary" type="submit" disabled={!text || !connected}><Icon name="send" /> Send text</button></div>
       </form>
       {#if error}<p class="error" role="alert">{error}</p>{/if}

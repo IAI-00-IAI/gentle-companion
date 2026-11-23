@@ -15,7 +15,7 @@ $effect(() => { $langStore; });
     </div>
   </header>
 
-  <section class="bento" aria-label="Privacy details">
+  <section class="bento" aria-label={t('privacy.details.aria')}>
     <article class="tile">
       <span class="topic-icon"><Icon name="home" /></span>
       <span class="badge ok">{t('privacy.local.badge')}</span>

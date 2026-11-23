@@ -1,3 +1,4 @@
+import { getLang, t } from './i18n.svelte.ts';
 import type { ProviderUsage, Session, SessionTelemetry, UsageWindow } from './types.ts';
 
 const nonnegative = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
@@ -9,21 +10,27 @@ export function usagePercent(window: UsageWindow | undefined): string {
 }
 
 export function contextUsage(context: SessionTelemetry['context'] | null): string {
-  if (!context) return 'Unavailable';
+  if (!context) return t('usage.unavailable');
   const tokens = nonnegative(context.tokens) ? context.tokens : undefined;
   const window = nonnegative(context.window) && context.window > 0 ? context.window : undefined;
   const derivedPercent = tokens !== undefined && window ? tokens / window * 100 : undefined;
   const percent = nonnegative(context.percent) ? context.percent : nonnegative(derivedPercent) ? derivedPercent : undefined;
-  const counts = tokens !== undefined && window ? `${count(tokens)} / ${count(window)} tokens` : tokens !== undefined ? `${count(tokens)} tokens` : window ? `${count(window)} token window` : '';
+  // The count and its unit are one catalog entry: a translated fragment glued to
+  // a number cannot agree in gender or number in Spanish.
+  const counts = tokens !== undefined && window
+    ? t('usage.tokens.window', { tokens: count(tokens), window: count(window) })
+    : tokens !== undefined ? t('usage.tokens', { tokens: count(tokens) })
+    : window ? t('usage.window', { tokens: count(window) }) : '';
   const percentage = percent !== undefined ? `${Number(percent.toFixed(1))}%` : '';
-  return counts && percentage ? `${percentage} · ${counts}` : percentage || counts || 'Unavailable';
+  return counts && percentage ? `${percentage} · ${counts}` : percentage || counts || t('usage.unavailable');
 }
 
 export function estimatedCost(cost: SessionTelemetry['cost'] | null): string {
-  if (!cost || !nonnegative(cost.amount)) return 'Unavailable';
+  if (!cost || !nonnegative(cost.amount)) return t('usage.unavailable');
   const currency = cost.currency?.trim().toUpperCase() || 'USD';
   try {
-    return new Intl.NumberFormat('en-US', {
+    // Currency conventions follow the interface locale, resolved by the catalog.
+    return new Intl.NumberFormat(getLang(), {
       style: 'currency', currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: cost.amount > 0 && cost.amount < 0.01 ? 4 : 2
@@ -35,9 +42,20 @@ export function estimatedCost(cost: SessionTelemetry['cost'] | null): string {
 }
 
 export function reportedTime(value: string | undefined): string {
-  if (!value) return 'Unknown';
+  if (!value) return t('usage.unknown');
   const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toLocaleString() : 'Unknown';
+  return Number.isFinite(date.getTime()) ? date.toLocaleString() : t('usage.unknown');
+}
+
+/**
+ * Snapshot sources are usually an extension's own label and stay verbatim.
+ * The one built-in source the daemon writes (`src/telemetry.ts:186`) is prose, so
+ * it is shown from the catalog instead of leaking English into another locale.
+ */
+export function sourceLabel(source: string | undefined): string {
+  const trimmed = source?.trim();
+  if (!trimmed) return t('settings.usage.source.notreported');
+  return trimmed === 'Pi session' ? t('settings.usage.source.session') : trimmed;
 }
 
 export type UsageSnapshot = Pick<Session, 'id' | 'status' | 'remoteEnabled' | 'telemetry'>;
@@ -130,8 +148,8 @@ export function weeklyConsumption(sessions: UsageSnapshot[], cached: UsageSnapsh
 
 export function snapshotStatus(snapshot: ProviderSnapshot, now = Date.now()): string {
   const timestamp = Date.parse(snapshot.updatedAt);
-  if (!Number.isFinite(timestamp)) return 'Snapshot time unknown';
-  if (snapshot.ended) return 'Saved snapshot · session closed';
-  if (now - timestamp >= 15 * 60_000) return 'Saved snapshot · older than 15 minutes';
-  return 'Recent snapshot';
+  if (!Number.isFinite(timestamp)) return t('usage.snapshot.unknown.time');
+  if (snapshot.ended) return t('usage.snapshot.ended');
+  if (now - timestamp >= 15 * 60_000) return t('usage.snapshot.stale');
+  return t('usage.snapshot.recent');
 }
