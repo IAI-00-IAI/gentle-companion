@@ -2,7 +2,7 @@
 type: Asset Manifest
 title: "Fuentes editables de la rosa (GIMP)"
 description: "Los tres .xcf que Ricardo dejó el 2026-11-23 para no perderlos: son las ediciones de la rosa hechas con GIMP de las que salieron los PNG del logotipo. Falta documentar qué edición es cada uno."
-status: needs-review
+status: organized
 author: "Ricardo (_00_) — las ediciones"
 documented_by: "PINTO (session 01a1f971) — este índice, 2026-11-23"
 source: "gentle-companion-aesthetic/odd/assets/OKF-MANIFEST.md"
@@ -60,3 +60,19 @@ Y este manifiesto se actualizará con la ruta real en cuanto se muevan. Un manif
 `Compañero_ Rosa digital de conexion.xcf` lleva **un espacio en el nombre**. Cualquier script que
 itere sin comillas (`for f in $(ls)`) se queda con `Compañero_` y pierde 3,72 MB de los 4,5.
 Si se mueven, conviene renombrar a algo sin espacios: el contenido no depende del nombre.
+
+## Organización actual (2026-11-23)
+
+Decisión de Ricardo: *"los xcf los puedes mover a una carpeta de borradores y otra de
+descartados para layout e index-boards, así los sacamos, guardamos evidencia y podemos
+revisarlos"*.
+
+```
+odd/assets/
+  borradores/   los tres .xcf, con su OKF-MANIFEST.md    (fuera de git, manifiesto versionado)
+  descartados/  layout.json + index-boards.html          (fuera de git, manifiesto versionado)
+```
+
+Ambas carpetas están en `.gitignore` con excepción de sus manifiestos: **las fuentes no
+viajan con el repo, pero el rastro de que existen sí.** Ese era el punto — sacarlas sin
+perderlas.
