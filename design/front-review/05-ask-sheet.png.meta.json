@@ -1,0 +1,9 @@
+{
+  "type": "Design Asset",
+  "title": "Panel de preguntas — PREGUNTA REAL — captura real 0.7.1",
+  "description": "La pantalla que ayer no pude capturar. Hay una pregunta viva en la sesión KOS, y el diálogo está abierto de verdad (se verificó `dialog[open]` con clase `sheet ask-sheet`). Es la que arreglamos: `autofocus` robaba el foco y tu pulsación se enviaba como respuesta.",
+  "status": "active",
+  "author": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/design/front-review/05-ask-sheet.png",
+  "generated": "2026-11-24"
+}
