@@ -9,25 +9,33 @@ const i18n = readFileSync(new URL('../ui/src/lib/i18n.svelte.ts', import.meta.ur
 /** The slice of the sidebar that owns the brand block, nav and footer. */
 const sidebar = layout.slice(layout.indexOf('<aside class="sidebar'), layout.indexOf('</aside>'));
 
-test('the title block toggles the sidebar and the logo stays a separate home link', () => {
-  const brand = sidebar.slice(sidebar.indexOf('<div class="brand">'), sidebar.indexOf('</div>\n\n      <nav'));
+test('the whole brand is the collapse toggle, and the logo is inside it', () => {
+  // Ricardo: "A sin flor, mantener solo la del logo, y que sea el logo el botón
+  // de plegar/replegar el panel". The brand is now one button: logo and title
+  // read as a unit, so splitting them would make half of it a button and half a
+  // link. The route home is carried by `Overview` in the nav instead.
+  // `<button` sits on the line before `class="brand"`, so cut from the tag.
+  const start = sidebar.indexOf('<button', sidebar.indexOf('class="brand"') - 200);
+  const brand = sidebar.slice(start, sidebar.indexOf('</button>', start) + 9);
 
-  // The title block is a real button that reports the collapse state.
-  assert.match(brand, /<button\s[^>]*class="brand-title"[^>]*type="button"/s);
-  assert.match(brand, /aria-expanded=\{sidebarExpanded\}/);
-  assert.match(brand, /aria-controls="sidebar-nav"/);
-  assert.match(brand, /<strong>Gentle Companion<\/strong>/);
-  assert.match(brand, /onclick=\{toggleSidebar\}/);
-  // The button's accessible name states the action, not the state.
-  assert.match(brand, /aria-label=\{sidebarTitle\}/);
-  assert.match(layout, /sidebarExpanded \? t\('shell\.sidebar\.collapse'\) : t\('shell\.sidebar\.expand'\)/);
+  assert.match(brand, /<button\s[^>]*class="brand"/s, 'the brand is not a button');
+  assert.match(brand, /aria-expanded=\{sidebarExpanded\}/, 'missing aria-expanded');
+  assert.match(brand, /aria-controls="sidebar-nav"/, 'missing aria-controls');
+  assert.match(brand, /onclick=\{toggleSidebar\}/, 'does not toggle');
+  assert.match(brand, /aria-label=\{sidebarTitle\}/, 'accessible name lost');
+  assert.match(layout, /sidebarExpanded \? t\('shell\.sidebar\.(collapse|expand)'\)/);
 
-  // The logo plus mark stay a link to home, outside the button.
-  assert.match(brand, /<a class="brand-home" href="\/" title=\{t\('shell\.sidebar\.home\.title'\)\}/);
-  assert.match(brand, /<img src=\{logo\} alt="" width="36" height="36" \/>/);
-  assert.match(brand, /<span class="brand-mark" aria-hidden="true">✿<\/span>/);
-  assert.equal(brand.match(/<button/g)?.length, 1);
-  assert.equal(brand.match(/<a /g)?.length, 1);
+  // The logo lives INSIDE the toggle now, and nothing links home from the brand.
+  assert.match(brand, /<img src=\{logo\} alt="" width="36" height="36" \/>/, 'the logo left the toggle');
+  assert.doesNotMatch(brand, /<a /, 'an anchor returned inside the brand button');
+  assert.equal(brand.match(/<button/g)?.length, 1, 'more than one button in the brand');
+
+  // The ✿ is gone by decision; the rose logo is the only mark.
+  assert.doesNotMatch(layout, /brand-mark/, 'the flower mark came back');
+  assert.doesNotMatch(layout, /✿/, 'the flower glyph came back anywhere');
+
+  // Home is still reachable: the nav carries an entry for `/`.
+  assert.match(layout, /\{ href: '\/', label: t\('shell\.nav\.overview'\)/, 'nothing links home any more');
 
   // No visible toggler was added anywhere: the title is the only mechanism.
   assert.ok(!/class="[^"]*sidebar-toggle/.test(layout));

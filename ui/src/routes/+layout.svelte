@@ -203,27 +203,27 @@
   <div class="shell" class:working={Boolean(workPhase)} class:sidebar-collapsed={sidebarCollapsed} data-work-phase={workPhase}>
     <span class="sr-only" role="status">{workPhase === 'thinking' ? t('shell.working.thinking') : workPhase === 'working' ? t('shell.working.working') : ''}</span>
     <aside class="sidebar scroll" aria-label={t('shell.nav.aria')}>
-      <div class="brand">
-        <a class="brand-home" href="/" title={t('shell.sidebar.home.title')} aria-label={t('shell.sidebar.home.title')}>
-          <img src={logo} alt="" width="36" height="36" />
-          <span class="brand-mark" aria-hidden="true">✿</span>
-        </a>
-        <button
-          class="brand-title"
-          type="button"
-          bind:this={sidebarTrigger}
-          aria-expanded={sidebarExpanded}
-          aria-controls="sidebar-nav"
-          aria-label={sidebarTitle}
-          title={sidebarTitle}
-          onclick={toggleSidebar}
-        >
-          <span class="brand-text">
-            <strong>Gentle Companion</strong>
-            <small>{companion.remote ? t('shell.brand.paired') : t('shell.brand.local')}</small>
-          </span>
-        </button>
-      </div>
+      <!-- Ricardo: "A sin flor, mantener solo la del logo, y que sea el logo el
+           botón de plegar/replegar el panel". The whole brand is now the toggle:
+           logo and title read as one unit, so splitting them would make half of
+           it a button and half a link. The route home is not lost — `Overview`
+           in the nav carries it. -->
+      <button
+        class="brand"
+        type="button"
+        bind:this={sidebarTrigger}
+        aria-expanded={sidebarExpanded}
+        aria-controls="sidebar-nav"
+        aria-label={sidebarTitle}
+        title={sidebarTitle}
+        onclick={toggleSidebar}
+      >
+        <img src={logo} alt="" width="36" height="36" />
+        <span class="brand-text">
+          <strong>Gentle Companion</strong>
+          <small>{companion.remote ? t('shell.brand.paired') : t('shell.brand.local')}</small>
+        </span>
+      </button>
 
       <nav class="nav" id="sidebar-nav" aria-label={t('shell.nav.aria')}>
         {#each visibleNav as item (item.href)}
@@ -278,7 +278,6 @@
       <header class="topbar">
         <a class="brand" href="/">
           <img src={logo} alt="" width="30" height="30" />
-          <span class="brand-mark" aria-hidden="true">✿</span>
           <strong>Gentle Companion</strong>
         </a>
         <div class="topbar-actions">
@@ -400,36 +399,16 @@
     background: var(--bg-sunken);
   }
 
+  /* The brand is the collapse toggle. It looks like a plain brand block on
+   * purpose: the whole area is one control, and a visible button face would
+   * compete with the logo for attention. */
   .brand {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 4px 8px;
-    text-decoration: none;
-  }
-
-  /* The mark links home; the title block next to it toggles the sidebar. */
-  .brand-home {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: none;
-    color: inherit;
-    text-decoration: none;
-    border-radius: 10px;
-  }
-
-  .brand img {
-    border-radius: 9px;
-    flex: none;
-  }
-
-  /* No visible button: the title text itself is the trigger. */
-  .brand-title {
-    display: block;
+    width: 100%;
     min-width: 0;
-    padding: 4px 6px;
-    margin: -4px 0;
+    padding: 4px 8px;
     border: 0;
     border-radius: 10px;
     background: none;
@@ -440,17 +419,27 @@
     transition: background-color 150ms var(--ease), color 150ms var(--ease);
   }
 
-  .brand-title:hover {
+  .brand:hover {
     background: var(--surface-2);
   }
 
-  .brand-title:hover strong {
+  .brand:hover strong {
     color: var(--accent-text);
   }
 
-  .brand-text,
-  .brand span {
+  .brand:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  .brand img {
+    border-radius: 9px;
+    flex: none;
+  }
+
+  .brand-text {
     display: grid;
+    min-width: 0;
     line-height: 1.2;
   }
 
@@ -894,7 +883,6 @@
   @keyframes clay-sweep { from { opacity: 0.45; transform: scaleX(0.25); } to { opacity: 0.85; transform: scaleX(1); } }
   /* The title block is the collapse trigger: a pointer-only affordance, so it must
    * never show as a button. The logo and mark stay as the sidebar home link. */
-  .brand-title:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
   @media (min-width: 901px) {
     .shell.sidebar-collapsed .sidebar { padding-left: 8px; padding-right: 8px; }
     /* The trigger's only child hides when collapsed. Without a size of its own
@@ -904,18 +892,18 @@
      * reflowing. Stack them so each stays individually clickable. */
     .shell.sidebar-collapsed .cycle-controls { flex-direction: column; gap: 8px; }
     .shell.sidebar-collapsed .cycle { min-width: 100%; }
-    .shell.sidebar-collapsed .brand-title {
+    .shell.sidebar-collapsed .brand {
       padding: 4px; min-width: 40px; min-height: 40px;
       display: grid; place-items: center;
     }
-    .shell.sidebar-collapsed .brand-title::after {
+    .shell.sidebar-collapsed .brand::after {
       content: '\203A'; /* › — points the way the panel will open */
       font-size: 1.1rem; line-height: 1; color: var(--accent-text);
     }
   }
   @media (prefers-reduced-motion: reduce) {
     .shell.working .brand img, .shell.working .topbar::after, .shell.working :global(.dot.active) { animation: none; transform: none; }
-    .nav a, .status-trigger, .tabbar a, .shell, .brand-title { transition: none; }
+    .nav a, .status-trigger, .tabbar a, .shell, .brand { transition: none; }
     .nav a:active, .status-trigger:active, .tabbar a:active { transform: none; }
   }
 </style>
