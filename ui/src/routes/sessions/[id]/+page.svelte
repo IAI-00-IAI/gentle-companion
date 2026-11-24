@@ -413,10 +413,17 @@
     wasBusy = busy;
   });
 
-  /** Alt+ArrowLeft: take the queued message back into the composer. */
+  /**
+   * Alt+ArrowUp: take the queued message back into the composer.
+   *
+   * It was Alt+ArrowLeft, which is "back" in Firefox and several Linux window
+   * managers — Ricardo reported the arrows not working, and that is why: the
+   * browser consumed the gesture before it reached us. ArrowLeft also collides
+   * with moving the caret inside the textarea. ArrowUp does neither.
+   */
   function recallQueued(event: KeyboardEvent) {
     if (!queued) return false;
-    if (!event.altKey || event.key !== 'ArrowLeft') return false;
+    if (!event.altKey || event.key !== 'ArrowUp') return false;
     event.preventDefault();
     prompt = queued.text;
     queued = null;

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 
 /**
- * Message queue — step 1: one held message, recalled with Alt+ArrowLeft.
+ * Message queue — step 1: one held message, recalled with Alt+ArrowUp.
  *
  * Ricardo: "Yo pensaba como en la TUI, que si se escribe mientras respondéis se
  * queda en cola y si pulsas Alt+flecha lo recuperas y vuelve al cuadro de texto,
@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
  *
  * The properties that must hold, in Ricardo's words:
  *   - a message typed while the agent answers is HELD, not lost
- *   - Alt+ArrowLeft returns it to the composer, editable, "as if never sent"
+ *   - Alt+ArrowUp returns it to the composer, editable, "as if never sent"
  *   - it cannot be delivered twice, and cannot be silently dropped
  */
 
@@ -47,9 +47,12 @@ test('a second message cannot silently overwrite a held one', () => {
   );
 });
 
-test('Alt+ArrowLeft returns the held message to the composer', () => {
+test('Alt+ArrowUp returns the held message to the composer', () => {
+  // Was ArrowLeft, which is browser-back on Firefox and some Linux window
+  // managers, and collides with caret movement inside the textarea. Ricardo
+  // reported the arrows not working; the browser had eaten the gesture.
   assert.match(page, /function recallQueued\(/, 'no recall path');
-  assert.match(page, /event\.altKey[\s\S]{0,30}ArrowLeft/, 'wrong gesture');
+  assert.match(page, /event\.altKey[\s\S]{0,30}ArrowUp/, 'wrong gesture');
   assert.match(page, /prompt = queued\.text;\s*queued = null;/, 'recall does not restore and clear');
   // It must work from the window too: a user who clicked the activity list is
   // still looking at a queued message and expects the shortcut.

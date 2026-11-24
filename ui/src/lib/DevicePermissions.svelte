@@ -26,6 +26,14 @@
     else if (devicePermissions.cameraError) toasts.show(devicePermissions.cameraError, 'error');
   }
 
+  /**
+   * The browser owns a granted permission; a page cannot take it back. Saying so
+   * is more useful than a disabled button that looks broken.
+   */
+  function explainRevoke() {
+    toasts.show(t('permissions.notifications.revoke.hint'), 'info');
+  }
+
   async function testNotification() {
     const shown = await devicePermissions.notify(t('permissions.notifications.test'), t('permissions.notifications.test.description'), { tag: 'pi-companion-test' });
     if (!shown) toasts.show(t('permissions.notifications.test.fail'), 'error');
@@ -69,6 +77,12 @@ $effect(() => { $langStore; });
               <span class="primary">{t('permissions.notifications.toggle')}</span>
             </label>
             <button class="btn btn-ghost btn-sm" class:primary={false} type="button" onclick={testNotification}>{t('permissions.notifications.test')}</button>
+            <!-- Ricardo: "Si se desmarca el checkbox no hay método de fijar el
+                 estado... debería aparecer un botón para poder No permitir".
+                 He is right: the checkbox only silences alerts inside the app.
+                 A granted browser permission cannot be revoked from here, so the
+                 button states that plainly instead of pretending to revoke. -->
+            <button class="btn btn-ghost btn-sm revoke-hint" class:primary={false} type="button" onclick={explainRevoke}>{t('permissions.notifications.revoke')}</button>
           {/if}
         {:else if row.state === 'prompt' || row.state === 'denied' || row.state === 'unsupported'}
           <button class="btn btn-primary btn-sm" type="button" onclick={enableCamera} disabled={devicePermissions.cameraPending}>{devicePermissions.cameraPending ? t('permissions.camera.requesting') : row.state === 'prompt' ? t('permissions.camera.prompt.cta') : t('permissions.camera.retry.cta')}</button>
@@ -83,7 +97,11 @@ $effect(() => { $langStore; });
   .permissions li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius); background: var(--bg-sunken); }
   .permission-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--surface); color: var(--accent); }
   .permission-copy { min-width: 0; }
-  .permission-copy strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  /* In es-ES "Permitida" is longer than "Granted", and the whole badge wrapped
+   * to its own line while the eye still read it as part of the title. The badge
+   * must stay on one line; the TITLE is what gives way. */
+  .permission-copy strong { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; min-width: 0; }
+  .permission-copy strong > span.badge { flex: none; white-space: nowrap; }
   .permission-copy p { margin: 3px 0 0; }
   .permission-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
   .badge.granted { color: var(--ok); }

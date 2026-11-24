@@ -1,7 +1,7 @@
 {
   "type": "Design Asset",
-  "title": "Ajustes — captura real 0.7.1",
-  "description": "Captura de la app en ejecución, ventana 1400x900, versión 0.7.1. Aquí viven apariencia, idioma y el aviso del puente que estaba en inglés.",
+  "title": "Ajustes — permisos y badge — captura real",
+  "description": "Comentarios aplicados: el badge ya no salta de línea (nowrap + baseline), y se añadió la explicación de por qué el navegador no permite revocar desde aquí.",
   "status": "active",
   "author": "PINTO (agent, session 01a1f971)",
   "source": "gentle-companion-aesthetic/design/front-review/08-settings.png",

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "chosen": "01-sidebar-expanded.html",
+  "handoffs": {
+    "01-sidebar-expanded.html": {
+      "status": "in_progress",
+      "queued": false,
+      "sentAt": "2026-11-24T21:38:31.462Z",
+      "startedAt": "2026-11-24T21:39:11.556Z",
+      "implementedAt": null,
+      "feature": "odd/tasks/shell-aesthetic-align.md",
+      "note": "Code verified correct; capture blocked. The daemon serves nodes/0.6UVjxO00.js while the fixed build is 0.DdVq42Fb.js — so Ricardo's \"pliega pero no despliega\" is against the OLD build, not this code. Cannot regenerate the capture until the daemon is rebuilt (its assets are embedded, ~11 min). Nine of his comments are addressable now; that one is not."
+    }
+  }
+}
