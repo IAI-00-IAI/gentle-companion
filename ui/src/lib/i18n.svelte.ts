@@ -10,6 +10,7 @@ interface MessageSet {
 
 const messages: Record<Locale, MessageSet> = {
   en: {
+    'bridge.preview.open_browser': 'Open in browser',
     'locale.en': 'English',
     'locale.es': 'Spanish',
     'count': '{count} {label}',
@@ -919,6 +920,7 @@ const messages: Record<Locale, MessageSet> = {
     'shell.nav.waiting.aria': '{count} answers pending',
   },
   es: {
+    'bridge.preview.open_browser': 'Abrir en navegador',
     'locale.en': 'Inglés',
     'locale.es': 'Español',
     'count': '{count} {label}',
