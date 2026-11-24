@@ -1,10 +1,28 @@
 {
-  "title": "Front review — pantallas reales",
-  "brief": "Capturas de la app en ejecucion para que Ricardo marque sobre artefactos visuales. Cada board lleva marcadores numerados con el selector CSS de cada zona, para que el comentario caiga sobre el elemento correcto.",
+  "title": "Front review — pantallas reales para marcar",
+  "brief": "Capturas de la app en ejecución (0.7.1, ventana 1400x900) con marcadores numerados y el selector CSS de cada zona, para que Ricardo señale sobre artefactos visuales en vez de escribir una lista. Cada board incluye la prueba de que muestra lo que su título promete: el ancho real de la columna del sidebar, medido antes de capturar.",
   "artboards": [
-    "01-sidebar-expanded.html",
-    "02-sidebar-collapsed.html",
-    "06-home.html"
+    {
+      "file": "01-sidebar-expanded.html",
+      "title": "Panel desplegado — 234 px",
+      "tradeoff": "El estado por defecto. Sirve para juzgar si el bloque del título se lee como algo pulsable: si no lo parece, el repliegue es un secreto.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "02-sidebar-collapsed.html",
+      "title": "Panel replegado — 58 px",
+      "tradeoff": "Los iconos y el indicador de vida sobreviven; el texto desaparece. El ancho medido (58 px) es menor que el token declarado (68 px), y eso puede importar si la columna se ve estrecha.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "06-home.html",
+      "title": "Portada — fondo de puntos y rosa",
+      "tradeoff": "El campo de puntos cuesta 648 ms por frame en un 2K antes de congelarlo durante transiciones. Si el grano se ve mal, la densidad se ajusta; si se ve bien, no se toca.",
+      "width": 1400,
+      "height": 900
+    }
   ],
   "feature": "front-review"
 }
