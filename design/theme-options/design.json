@@ -1,0 +1,14 @@
+{
+  "title": "Temas con nombre",
+  "brief": "Tres temas candidatos con acento y superficies propias, no solo un cambio de boton. Cada uno medido y conforme a AA. Sin aplicar: se elige en el canvas.",
+  "artboards": [
+    {
+      "file": "01-themes.html",
+      "title": "Tres propuestas: Gentle, Sexy, Abuela",
+      "tradeoff": "Gentle es calido y cercano pero cambia todo el sistema. Sexy es el mas alejado del actual y el mas intenso. Abuela es calmo y el mas distintivo por color.",
+      "width": 1440,
+      "height": 900
+    }
+  ],
+  "feature": "theme-options"
+}
