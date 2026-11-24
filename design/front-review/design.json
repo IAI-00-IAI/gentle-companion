@@ -1,0 +1,10 @@
+{
+  "title": "Front review — pantallas reales",
+  "brief": "Capturas de la app en ejecucion para que Ricardo marque sobre artefactos visuales. Cada board lleva marcadores numerados con el selector CSS de cada zona, para que el comentario caiga sobre el elemento correcto.",
+  "artboards": [
+    "01-sidebar-expanded.html",
+    "02-sidebar-collapsed.html",
+    "06-home.html"
+  ],
+  "feature": "front-review"
+}

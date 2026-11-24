@@ -1,0 +1,9 @@
+{
+  "type": "Design Asset",
+  "title": "Panel desplegado — captura real 0.7.1",
+  "description": "Captura de la app en ejecución (ventana 1400x900, version 0.7.1). ¿Está bien el estado por defecto? La columna mide 234 px.",
+  "status": "active",
+  "author": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/design/front-review/01-sidebar-expanded.png",
+  "generated": "2026-11-24"
+}

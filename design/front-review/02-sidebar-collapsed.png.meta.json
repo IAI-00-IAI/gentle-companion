@@ -1,0 +1,9 @@
+{
+  "type": "Design Asset",
+  "title": "Panel replegado — captura real 0.7.1",
+  "description": "Captura de la app en ejecución (ventana 1400x900, version 0.7.1). ¿Sirve el repliegue? Columna 58 px; iconos y vida visibles.",
+  "status": "active",
+  "author": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/design/front-review/02-sidebar-collapsed.png",
+  "generated": "2026-11-24"
+}
