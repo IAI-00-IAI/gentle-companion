@@ -891,7 +891,7 @@
     // pays for a full grid reconstruction. Nobody is judging the background
     // grain while it is moving, so wait for the size to settle and rebuild once.
     // This also covers window drags and theme switches, which hit the same path.
-    let rebuildTimer = 0;
+    let rebuildTimer: ReturnType<typeof setTimeout> | 0 = 0;
     const queueRebuild = () => {
       cancelAnimationFrame(resizeFrame);
       clearTimeout(rebuildTimer);

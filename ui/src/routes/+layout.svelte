@@ -585,12 +585,6 @@
     background: var(--surface);
   }
 
-  .lang-switch button[aria-checked='true'] {
-    background: var(--accent-soft);
-    color: var(--accent-text);
-    border-color: var(--accent-line);
-    box-shadow: var(--clay-pressed);
-  }
 
   .main-col {
     min-width: 0;
