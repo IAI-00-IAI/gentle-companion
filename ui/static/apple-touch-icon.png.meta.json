@@ -1,11 +1,13 @@
 {
   "type": "Design Asset",
   "title": "Apple touch icon",
-  "description": "Transparent (Ricardo, 2026-11-25). WARNING: iOS composites transparency on BLACK, so the dark petals lose roughly a tenth of their ink. Keep for the transparent request; regenerate with an opaque field if iOS appearance matters.",
+  "description": "Transparent, with the rose enlarged to fill the area (Ricardo, 2026-11-25). He chose transparency knowingly: 'prefiero que no se vea el recuadro que implica ponerle otro fondo' — a visible box is worse than a slightly dimmer icon. MEASURED: iOS composites on black and loses only 1% of mean ink luminance (0.140 -> 0.138), because 33% of the frame is ink and 70% of that ink is already dark with the rose neon carrying the light. The earlier estimate of ~10% loss was too pessimistic. If it reads dim on device, the agreed remedy is raising the rose LUMINOSITY in this asset alone, not adding a background.",
   "status": "active",
   "author": "Ricardo (_00_) — transparency pass 2026-11-25",
   "documented_by": "PINTO (agent, session 01a1f971)",
   "source": "gentle-companion-aesthetic/ui/static/apple-touch-icon.png",
   "generated": "2026-11-25",
-  "opaquePercent": 29.6
+  "opaquePercent": 29.6,
+  "decision": "transparent, no background; brighten ink if needed",
+  "iosCompositeLossPercent": 1
 }
