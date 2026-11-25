@@ -195,3 +195,41 @@ propuesta **`Automatizada · solo respuestas`**.
 **Riesgo si se aplica sin mirar:** `TerminalPopup` y `AskSheet` son los dos componentes cuya
 redacción quedó pendiente de tu revisión. Meter las claves sin que las leas repetiría lo de la
 lista anterior: traducir primero y corregir después.
+
+---
+
+## G. Preguntas del agente y de seguridad — sin traducir
+
+Anotado por Ricardo: *"las preguntas del agente/seguridad hay que traducirlas"*.
+
+**Dónde está:** `ui/src/lib/AskSheet.svelte:23-29`, el `sourceLabel` que titula el panel
+cuando el agente pide algo. Son cinco literales, ninguno pasa por `t()`:
+
+| Origen | Inglés actual | Propuesta castellano | Cuándo aparece |
+|---|---|---|---|
+| `companion` | Pi is asking | Gentle Shell está preguntando | Pregunta de Companion |
+| `tool` | Pi is asking | Gentle Shell está preguntando | Pregunta de una herramienta |
+| `select` | Choose an option | Elige una opción | Selección genérica |
+| **`confirm`** | **Confirm** | **Confirmar** | **Confirmaciones — incluidas las de seguridad** |
+| `input` | Pi needs input | Gentle Shell necesita tu respuesta | Entrada libre |
+
+### Por qué importa más que las otras
+
+`confirm` es la etiqueta que ve el usuario cuando el agente le pide **autorizar algo**. Hoy
+dice solo `"Confirm"`, sin traducir y sin decir qué se confirma. Si esa pregunta es de
+seguridad —conceder acceso, aprobar una acción— el usuario decide en un idioma que no es el
+suyo y sobre una palabra que no explica el alcance.
+
+**Hay una decisión de producto detrás, no solo de idioma:** una confirmación de seguridad
+debería decir *qué* autoriza, no solo "Confirmar". El texto genérico vale para una acción
+cualquiera; para un permiso, el usuario necesita saber qué concede antes de aceptar.
+
+### Lo que falta para aplicarlo
+
+1. Confirmar que `confirm` solo se usa para preguntas del agente, o también para permisos.
+2. Decidir si las etiquetas genéricas valen para confirmaciones de seguridad, o si esas
+   necesitan un texto propio que nombre lo que se autoriza.
+3. Añadir las cinco claves a `en` y `es` y sustituir el `Record` literal.
+
+Nada aplicado. Va con el bloque §F (los doce "Pi" incrustados), que comparte el mismo
+problema: texto de interfaz que nunca pasó por el catálogo.
