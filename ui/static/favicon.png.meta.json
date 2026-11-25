@@ -1,0 +1,11 @@
+{
+  "type": "Design Asset",
+  "title": "Favicon",
+  "description": "Transparent, rose enlarged to fill the area (Ricardo, 2026-11-25). Browsers composite favicons over their own tab background, so transparency is correct here.",
+  "status": "active",
+  "author": "Ricardo (_00_) — transparency pass 2026-11-25",
+  "documented_by": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/ui/static/favicon.png",
+  "generated": "2026-11-25",
+  "opaquePercent": 27.5
+}

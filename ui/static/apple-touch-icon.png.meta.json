@@ -1,0 +1,11 @@
+{
+  "type": "Design Asset",
+  "title": "Apple touch icon",
+  "description": "Transparent (Ricardo, 2026-11-25). WARNING: iOS composites transparency on BLACK, so the dark petals lose roughly a tenth of their ink. Keep for the transparent request; regenerate with an opaque field if iOS appearance matters.",
+  "status": "active",
+  "author": "Ricardo (_00_) — transparency pass 2026-11-25",
+  "documented_by": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/ui/static/apple-touch-icon.png",
+  "generated": "2026-11-25",
+  "opaquePercent": 29.6
+}

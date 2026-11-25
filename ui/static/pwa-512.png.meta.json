@@ -1,0 +1,11 @@
+{
+  "type": "Design Asset",
+  "title": "PWA icon 512",
+  "description": "Opaque, unchanged by the 2026-11-25 transparency pass.",
+  "status": "active",
+  "author": "Ricardo (_00_) — transparency pass 2026-11-25",
+  "documented_by": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/ui/static/pwa-512.png",
+  "generated": "2026-11-25",
+  "opaquePercent": 100.0
+}
