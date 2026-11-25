@@ -913,7 +913,11 @@
       padding: 0;
       display: grid; place-items: center;
     }
-    .shell.sidebar-collapsed .status-trigger .dot { margin: 0; }
+    /* Ricardo: "botón 'en línea' indicador centrado y plegado desaparece
+     * versión". The version string is hidden when collapsed, and the dot sits
+     * dead centre rather than left-aligned in a wider box. */
+    .shell.sidebar-collapsed .status-trigger .dot { margin: 0 auto; }
+    .shell.sidebar-collapsed .status-trigger .subtle { display: none; }
     /* Keep the pip-ish round frame the image shows for the status specifically. */
     .shell.sidebar-collapsed .status-trigger { border-radius: 999px; }
     .shell.sidebar-collapsed .brand {

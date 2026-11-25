@@ -1,6 +1,12 @@
 <script lang="ts">
   import { onMount, type Component } from 'svelte';
-  import gentleLogo from '../assets/gentle-logo.png';
+  // The hero uses the OPAQUE asset on purpose. The dot field renders ink
+  // directly when the image has no alpha: the black field scores 0 and is simply
+  // not painted, while the rose keeps full weight (mean luminance 0.194 vs 0.045
+  // through the alpha branch). That is the "big, marked, almost no stem" look
+  // Ricardo asked to restore. The sidebar keeps the transparent file, where an
+  // opaque field would show as a black box.
+  import gentleLogo from '../assets/gentle-logo-hero.png';
   import heroShell from '../assets/hero-shell.png';
   import heroChanges from '../assets/hero-changes.png';
   import bulbClay from '../assets/clay/bulb.webp';
