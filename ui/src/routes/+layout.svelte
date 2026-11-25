@@ -244,11 +244,6 @@
       </nav>
 
       <div class="sidebar-foot">
-        <button class="status status-trigger" aria-haspopup="dialog" aria-label={t('shell.connection.aria', { status: connectionLabel })} title={connectionLabel} onclick={() => (aboutOpen = true)}>
-          <span class="dot {companion.connection}" aria-hidden="true"></span>
-          <span class="status-label">{connectionLabel}</span>
-          {#if companion.version}<span class="subtle mono">v{companion.version}</span>{/if}
-        </button>
         <div class="cycle-controls">
           <button
             class="cycle theme-cycle"
@@ -267,6 +262,11 @@
             onclick={cycleLang}
           ><span class="cycle-lang">{($langStore || 'es').toUpperCase()}</span></button>
         </div>
+        <button class="status status-trigger" aria-haspopup="dialog" aria-label={t('shell.connection.aria', { status: connectionLabel })} title={connectionLabel} onclick={() => (aboutOpen = true)}>
+          <span class="dot {companion.connection}" aria-hidden="true"></span>
+          <span class="status-label">{connectionLabel}</span>
+          {#if companion.version}<span class="subtle mono">v{companion.version}</span>{/if}
+        </button>
         <span class="sr-only" aria-live="polite" aria-atomic="true">{cycleAnnouncement}</span>
         <nav class="legal-links" aria-label={t('shell.legal.aria')}>
           <a href="/privacy">{t('shell.legal.privacy')}</a><span aria-hidden="true">·</span><a href="/terms">{t('shell.legal.terms')}</a>
@@ -888,10 +888,34 @@
     /* The trigger's only child hides when collapsed. Without a size of its own
      * the button collapses to zero width and the sidebar cannot be reopened:
      * the control would hide itself. Give it a real hit target. */
-    /* Two horizontal pressers do not fit 68px: they overlap instead of
-     * reflowing. Stack them so each stays individually clickable. */
-    .shell.sidebar-collapsed .cycle-controls { flex-direction: column; gap: 8px; }
-    .shell.sidebar-collapsed .cycle { min-width: 100%; }
+    /* Ricardo, with a reference image: the bottom controls read badly when
+     * collapsed. His image shows three equal SQUARES stacked and centred — theme,
+     * language, then the life indicator — not full-width bars of different
+     * widths. The order in the markup was also life-first; it now matches. */
+    .shell.sidebar-collapsed .sidebar-foot {
+      align-items: center;
+      gap: 8px;
+    }
+    .shell.sidebar-collapsed .cycle-controls {
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .shell.sidebar-collapsed .cycle {
+      width: 42px; min-width: 42px; height: 42px; min-height: 42px;
+      padding: 0; border-radius: 12px;
+    }
+    /* The life indicator becomes a square matching the two pressers, with the
+     * dot alone inside it. Its label is already hidden here. */
+    .shell.sidebar-collapsed .status-trigger {
+      width: 42px; min-width: 42px; height: 42px;
+      border-radius: 12px;
+      padding: 0;
+      display: grid; place-items: center;
+    }
+    .shell.sidebar-collapsed .status-trigger .dot { margin: 0; }
+    /* Keep the pip-ish round frame the image shows for the status specifically. */
+    .shell.sidebar-collapsed .status-trigger { border-radius: 999px; }
     .shell.sidebar-collapsed .brand {
       padding: 4px; min-width: 40px; min-height: 40px;
       display: grid; place-items: center;
