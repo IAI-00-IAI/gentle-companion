@@ -4,7 +4,7 @@ title: "CONTA — dashboard estático publicable"
 description: "Versión estática del dashboard de cuota, coste y financiación: HTML plano, gráficos como imágenes, sin JavaScript ni CDN. Datos reales del ciclo."
 tags: [publicación, estático, contabilidad]
 status: verified
-generated: 2026-11-20T02:00:00+01:00
+generated: { by: process:conta-session-01a1f030, at: 2026-11-20T02:00:00+01:00 }
 source:
   - "accounting/ (árbol de trabajo de CONTA en mistral-gateway)"
 verified: 2026-11-20
