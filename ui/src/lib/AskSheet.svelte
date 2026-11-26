@@ -214,9 +214,7 @@ const seen = new Set<string>();
     <div class="sheet-foot">
       <button type="button" class="btn" onclick={later}>Later</button>
       <button type="button" class="btn btn-ghost" onclick={skip}>Skip</button>
-      {#if !instant}
-        <button type="submit" form="ask-form" class="btn btn-primary" disabled={!complete}><Icon name="send" size={16} />Answer</button>
-      {/if}
+      <button type="submit" form="ask-form" class="btn btn-primary" disabled={!complete}><Icon name="send" size={16} />Answer</button>
     </div>
   {/if}
 </dialog>
