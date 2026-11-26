@@ -94,7 +94,10 @@ $effect(() => { $langStore; });
 
 <style>
   .permissions { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
-  .permissions li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius); background: var(--bg-sunken); }
+  /* Was `--bg-sunken` (#000000): a pure black block against the plum surfaces,
+   * which Ricardo read as a hole with misaligned text. Every other card in the
+   * system sits on surface-2, so this follows them. */
+  .permissions li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 12px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); }
   .permission-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--surface); color: var(--accent); }
   .permission-copy { min-width: 0; }
   /* In es-ES "Permitida" is longer than "Granted", and the whole badge wrapped

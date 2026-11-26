@@ -793,6 +793,17 @@ button.chip:hover {
   align-content: start;
 }
 
+/* Ricardo: "la distancia superior de las secciones resumen, sesiones y
+ * automatizaciones es diferente de la de dispositivos y ajustes, fijar a la de
+ * menor distancia". Measured before touching anything: 52px on Overview against
+ * 93px on Sessions/Automations and 73px on Devices/Settings. The shared padding
+ * was already identical, so the difference came from the first child's own top
+ * margin stacking on top of the grid gap. The grid now owns the top spacing and
+ * the first child contributes none. */
+.page > :first-child {
+  margin-top: 0;
+}
+
 .page-head {
   display: flex;
   align-items: flex-end;
