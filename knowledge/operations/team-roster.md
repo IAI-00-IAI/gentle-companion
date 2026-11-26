@@ -24,14 +24,88 @@ generated: 2026-11-19
 > **Spanish copy**: `team-roster_es-ES.md`, for Ricardo's consultation. If the two ever disagree, **this English file wins**.
 > Update this file whenever a session is born, renamed, or closed.
 
+## Session health — read this before assigning work
+
+> **Why this section is first.** On 2026-11-23 a session was found degraded rather than
+> healthy: five days old, two compactions, working at 48% of its window with summaries
+> stacked on top. Nobody knew until it was asked directly. The previous signal was
+> Ricardo noticing by eye. A health board exists so that the first surprise is not the
+> one that costs a task.
+>
+> **Updated** by `watchdog-health` two or three times a day while work is in progress,
+> and **backed up daily**. Ad-hoc entries are welcome when a session changes state
+> between updates; mark them with the time.
+
+### How to read it
+
+| Column | Means | Watch for |
+|---|---|---|
+| `ctx %` | Share of the model's window in use | See the per-model ceiling below; 40% is normal on 1M and an emergency on 139k |
+| `to compact` | Tokens left before compaction fires (`window − reserve − used`) | Under ~50k, the next large file read can trigger it |
+| `compactions` | Lifetime count, with the last one dated | One is fine. Two means summaries are stacked |
+| `age` | Time since the session started | A session older than ~2 days carries its history everywhere |
+| `healthy?` | Our judgement, with the reason | "Unknown" is a legitimate answer and must appear as such |
+
+### Per-model ceilings — the number is not comparable across models
+
+| Model | Window | Reserve | Compaction at | 40% means |
+|---|---|---|---|---|
+| `deepseek-v4-1-flash-1017` | 1,048,576 | 209,715 | 838,861 (80%) | fine |
+| `bonsai2-TernaryL-27B` (local) | ~139,000 | — | much earlier | **near the edge** |
+| `zai-glm-5-3-flash` | — | — | — | **do not use**; corrupted a session on 2026-11-20 |
+
+A board that reports a bare percentage invites a wrong decision. Always read it with
+the model beside it.
+
+### Board
+
+<!-- health-board:begin -->
+<!-- health-board:end -->
+| ORQ | `01a1f3db` | deepseek 1M | see `watchdog-health` | — | — | — | — |
+| CONTA | `01a1f030` | deepseek 1M | 4% (fresh run) | 793k | 2 (2026-11-23 16:14) | 5d | **degraded**, see below |
+| PINTO | `01a1f971` | deepseek 1M | — | — | — | — | — |
+| BONSAI2 | `01a1f448` | bonsai2 local 139k | — | — | — | — | — |
+| KOS | `01a1f8b3` | deepseek 1M | — | — | — | — | — |
+
+> Rows are filled by `watchdog-health` from the jsonl, not typed by hand. A row left
+> with `—` means the watchdog has not run since the session appeared; it does not mean
+> the session is healthy.
+
+### Known case — CONTA, 2026-11-23
+
+| Reading | Value |
+|---|---|
+| Session | `01a1f030-002e-7491-9a64-25c83692081c` |
+| Transcript | 11 MB, 3,599 events |
+| Started | 2026-11-18 19:44 |
+| Compactions | 2026-11-20 00:55 (`tokensBefore` 631,471) · 2026-11-23 16:14 (508,252) |
+| Events per day | 18:759 · 19:1,197 · 20:1,174 · 21:290 · 22:116 · 23:63 |
+| Verdict | Not abandoned — born heavy and worked hard on days 19-20, then nearly idle for three days. The second compaction came from one day's work, four minutes before it delivered a corrected report. |
+
+The lesson is not that CONTA was unhealthy. It is that **a session can be degraded while
+reporting healthy, and the only thing that revealed it was asking**.
+
+### Contract
+
+- `watchdog-health` reads the jsonl — the authoritative source. UI labels have lied
+  twice (2026-11-19).
+- Per-model windows are read from `models.json`, never assumed.
+- **When the reader cannot read a session, it reports `UNVERIFIED`**, never `OK`. A
+  silence that looks like health is worse than a false alarm.
+- Backups land in `~/.local/share/gentle-watchdog/health-backups/` with a date in the
+  name; the board says when the last one was taken.
+
 ## Who is who
 
 | Role | Session ID (short) | Session name | cwd | Model | Role |
 |---|---|---|---|---|---|
 | **ORQ** (coordinator) | `01a1f3db` | ORQ: coordinación del equipo | `~/Trabajo/IAI/gentle-companion` | deepseek-v4-1-flash-1017 · thinking `high` | Orchestrator. Assigns tasks, tracks ODD, verifies & commits. Does NOT do phone ops or process images. |
-| **INFRA** (operations & network) — *formerly TelfMNG* | `01a1ef70` (renamed 2026-11-20 by Ricardo) | INFRA: operaciones y red | `~/Trabajo/IAI/pi` | deepseek-v4-1-flash-1017 · thinking `high` | All operations on the Xiaomi A2 (adb, taps, typing, scrcpy, screenshots, logs) **plus network/infrastructure**: router (OpenWrt HG556a), firewall, wake-on-LAN, suspend/wake, the perroGuardian watchdog. Does NOT analyze images. |
+| **INFRA** (operations & network) — *formerly TelfMNG* | `01a2093d` (renamed 2026-11-20 by Ricardo) | INFRA: operaciones y red | `~/Trabajo/IAI/pi` | deepseek-v4-1-flash-1017 · thinking `high` | All operations on the Xiaomi A2 (adb, taps, typing, scrcpy, screenshots, logs) **plus network/infrastructure**: router (OpenWrt HG556a), firewall, wake-on-LAN, suspend/wake, the perroGuardian watchdog. Does NOT analyze images. |
 | **ContaMNG** (accounting) | `01a1f030` (continued in place) — NEW: pending | ContaMNG: financiación y crédito I+D | `~/Trabajo/IAI/mistral-gateway` | deepseek-v4-1-flash-1017 · thinking `high` | Costs, token quota, R&D funding search & funding reports. |
 | **IMGsMNG** (vision) | **`01a1f448`** (ACTIVE, new session 2026-11-19) · OLD `01a1eefd` closed | IMGs-Manager: vision y estética gentle-companion | `~/Trabajo/IAI/gentle-companion-aesthetic` | **bonsai2-TernaryL-27B (local, ricardoPC) — stays local, never migrated to external paid models** | All image work: analysis, aesthetics of gentle-shell UI. Receive file paths; images ≤1024 px longest side. Currently OFFLINE: ctx config issue being reviewed with Ricardo. |
+
+| **LABY** (laboratory) | `01a20385` | LABY: Laboratorio | `~/Trabajo/IAI/Lab` | deepseek-v4-1-flash-1017 | Laboratory and experimentation. **Unassigned as of 2026-11-23**: Ricardo has not yet equipped the Lab with materials, so there is no experiment, subject or goal. LABY asked to be logged as *unassigned* rather than as a lab with a program, and is right: a title is not a mandate. **Caveat before assigning file-writing work**: `~/Trabajo/IAI/Lab` is not its own repository — `git rev-parse --show-toplevel` resolves to `/home/ricardo`, so anything committed there acts on the home repo. Initialising a repo inside `Lab` is Ricardo's decision, not ours. |
+| **SOFY** (software & storage) | `01a20924` | SOFY: Gestor del software y almacenamiento | `~/` (home, deliberately) | deepseek-v4-1-flash-1017 | Software and storage management: versions, dependencies, what is installed and where, disk capacity and what can be freed. Placed in `$HOME` on purpose — Ricardo wanted a pyenv startup problem looked at, which he believes he has since solved himself. Owns the storage side of the ricardoPC migration. |
 
 ## Who orders whom (authority & routing)
 
@@ -342,7 +416,7 @@ The header is format-transparent, but its **shape is not free choice**:
   Two geometry facts worth keeping, both cost time to find:
   - `wmctrl -e` takes the FRAME origin, but `xwininfo` reports the CLIENT. The offset here is +5 x and +29 y (titlebar). Asking wmctrl for 1366,21 lands the client at 1371,50. Always verify with `xwininfo | grep Absolute` and compute from there.
   - `wmctrl -lG` prints the same client-ish numbers; use `xwininfo` as the source of truth when the margin matters.
-- 2026-11-21: **TelfMNG renamed to INFRA: operaciones y red** by Ricardo. The role is no longer phone-only: it now covers operations **and network/infrastructure** — the A2 (adb, scrcpy), the OpenWrt HG556a router (firewall, WoL, etherwake), suspend/wake of the PCs, and the perroGuardian watchdog. Alias updated via `orchestrator_session_id`; session ID unchanged (`01a1ef70`). Board's "Who is who" and routing lines updated to the new name; historical Log entries keep "TelfMNG" on purpose, since that is who did the work at the time.
+- 2026-11-21: **TelfMNG renamed to INFRA: operaciones y red** by Ricardo. The role is no longer phone-only: it now covers operations **and network/infrastructure** — the A2 (adb, scrcpy), the OpenWrt HG556a router (firewall, WoL, etherwake), suspend/wake of the PCs, and the perroGuardian watchdog. Alias updated via `orchestrator_session_id`; session ID unchanged (`01a2093d`). Board's "Who is who" and routing lines updated to the new name; historical Log entries keep "TelfMNG" on purpose, since that is who did the work at the time.
 - 2026-11-20: **NOMENCLATURE RULE from Ricardo: it is Bonsai2.** His words: "acostúmbrate a llamarla Bonsai2, así los nuevos no se confundirán". Until now the same thing was written four ways — `IMGs-Manager`, `IMGsMNG`, "the local model", and `bonsai2-TernaryL-27B` — and new agents read them as different things.
   - **Bonsai2** = the model and the vision role. Use this in prose.
   - `IMGs-Manager` = only the agent session name, when the session itself needs disambiguating.

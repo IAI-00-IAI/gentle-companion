@@ -26,14 +26,88 @@ generated: 2026-11-19
 > **Nota**: existe la versión inglesa en `team-roster.md`, que es la que consultan los agentes.
 > Esta copia en castellano es para Ricardo. Si hay discrepancia entre ambas, **manda la inglesa**.
 
+## Salud de las sesiones — leer antes de repartir trabajo
+
+> **Por qué esta sección va primero.** El 2026-11-23 se encontró una sesión degradada
+> y no sana: cinco días de vida, dos compactaciones, trabajando al 48 % de su ventana
+> con resúmenes apilados encima. Nadie lo sabía hasta que se le preguntó directamente.
+> La señal anterior era que Ricardo lo notaba a ojo. Esta pizarra existe para que la
+> primera sorpresa no sea la que cueste una tarea.
+>
+> **Actualizada** por `watchdog-health` dos o tres veces al día mientras haya faena, y
+> **con copia de respaldo diaria**. Se admiten entradas puntuales cuando una sesión
+> cambie de estado entre actualizaciones; se marcan con la hora.
+
+### Cómo se lee
+
+| Columna | Qué significa | A qué prestar atención |
+|---|---|---|
+| `ctx %` | Parte de la ventana del modelo en uso | Ojo al techo por modelo: 40 % es normal en 1M y una emergencia en 139k |
+| `to compact` | Tokens que quedan antes de que dispare la compactación | Por debajo de ~50k, la siguiente lectura grande puede dispararla |
+| `compactaciones` | Total, con la fecha de la última | Una es normal. Dos significa resúmenes apilados |
+| `edad` | Tiempo desde que arrancó la sesión | Una sesión de más de ~2 días arrastra su historia a todas partes |
+| `¿sana?` | Nuestro juicio, con el motivo | «Desconocido» es una respuesta legítima y debe aparecer como tal |
+
+### Techos por modelo — el número no es comparable entre modelos
+
+| Modelo | Ventana | Reserva | Compacta en | 40 % significa |
+|---|---|---|---|---|
+| `deepseek-v4-1-flash-1017` | 1.048.576 | 209.715 | 838.861 (80 %) | normal |
+| `bonsai2-TernaryL-27B` (local) | ~139.000 | — | mucho antes | **al límite** |
+| `zai-glm-5-3-flash` | — | — | — | **no usar**; corrompió una sesión el 2026-11-20 |
+
+Una pizarra que informa un porcentaje desnudo invita a una decisión equivocada. Se lee
+siempre con el modelo al lado.
+
+### Pizarra
+
+| Rol | Sesión | Modelo | ctx % | to compact | compactaciones (última) | edad | ¿sana? |
+|---|---|---|---|---|---|---|---|
+| ORQ | `01a1f3db` | deepseek 1M | lo pone `watchdog-health` | — | — | — | — |
+| CONTA | `01a1f030` | deepseek 1M | 4 % (arranque nuevo) | 793k | 2 (2026-11-23 16:14) | 5d | **degradada**, ver abajo |
+| PINTO | `01a1f971` | deepseek 1M | — | — | — | — | — |
+| BONSAI2 | `01a1f448` | bonsai2 local 139k | — | — | — | — | — |
+| KOS | `01a1f8b3` | deepseek 1M | — | — | — | — | — |
+
+> Las filas las rellena `watchdog-health` desde el jsonl, no se escriben a mano. Una fila
+> con `—` significa que el vigilante no ha corrido desde que apareció esa sesión; **no**
+> significa que esté sana.
+
+### Caso conocido — CONTA, 2026-11-23
+
+| Lectura | Valor |
+|---|---|
+| Sesión | `01a1f030-002e-7491-9a64-25c83692081c` |
+| Transcript | 11 MB, 3.599 eventos |
+| Arrancó | 2026-11-18 19:44 |
+| Compactaciones | 2026-11-20 00:55 (`tokensBefore` 631.471) · 2026-11-23 16:14 (508.252) |
+| Eventos por día | 18:759 · 19:1.197 · 20:1.174 · 21:290 · 22:116 · 23:63 |
+| Veredicto | No estaba abandonada: nació cargada, trabajó duro los días 19 y 20 y estuvo casi parada tres días. La segunda compactación vino de una sola jornada de trabajo, cuatro minutos antes de entregar un informe corregido. |
+
+La lección no es que CONTA estuviera mal. Es que **una sesión puede estar degradada
+mientras informa que está sana, y lo único que lo reveló fue preguntar**.
+
+### Contrato
+
+- `watchdog-health` lee el jsonl, que es la fuente autoritativa. Las etiquetas de la UI
+  han mentido dos veces (2026-11-19).
+- Las ventanas por modelo se leen de `models.json`, nunca se suponen.
+- **Cuando el lector no puede leer una sesión, informa `UNVERIFIED`**, nunca `OK`. Un
+  silencio que parece salud es peor que una falsa alarma.
+- Los respaldos van a `~/.local/share/gentle-watchdog/health-backups/` con la fecha en
+  el nombre; la pizarra dice cuándo se tomó el último.
+
 ## Quién es quién
 
 | Rol | ID de sesión (corto) | Nombre de sesión | cwd | Modelo | Función |
 |---|---|---|---|---|---|
 | **ORQ** (coordinador) | `01a1f3db` | ORQ: coordinación del equipo | `~/Trabajo/IAI/gentle-companion` | deepseek-v4-1-flash-1017 · thinking `high` | Orquestador. Reparte tareas, lleva ODD, verifica y hace commits. NO hace operaciones de teléfono ni procesa imágenes. |
-| **TelfMNG** (teléfono) | `01a1ef70` (ANTIGUA, cerrada) — NUEVA: pendiente | TelfMNG: operaciones sobre el Xiaomi A2 | `~/Trabajo/IAI/pi` | deepseek-v4-1-flash-1017 · thinking `high` | Todas las operaciones sobre el Xiaomi A2: adb, pulsaciones, texto, scrcpy, capturas, logs. NO analiza imágenes. |
+| **TelfMNG** (teléfono) | `01a2093d` (ANTIGUA, cerrada) — NUEVA: pendiente | TelfMNG: operaciones sobre el Xiaomi A2 | `~/Trabajo/IAI/pi` | deepseek-v4-1-flash-1017 · thinking `high` | Todas las operaciones sobre el Xiaomi A2: adb, pulsaciones, texto, scrcpy, capturas, logs. NO analiza imágenes. |
 | **ContaMNG** (contabilidad) | `01a1f030` (continuada in situ) — NUEVA: pendiente | ContaMNG: financiación y crédito I+D | `~/Trabajo/IAI/mistral-gateway` | deepseek-v4-1-flash-1017 · thinking `high` | Costes, cuota de tokens, búsqueda de financiación e informes de financiación. |
 | **IMGsMNG** (visión) | **`01a1f448`** (ACTIVA, sesión nueva del 2026-11-19) · ANTIGUA `01a1eefd` cerrada | IMGs-Manager: vision y estética gentle-companion | `~/Trabajo/IAI/gentle-companion-aesthetic` | **bonsai2-TernaryL-27B (local, ricardoPC) — se queda local, nunca se migra a modelos externos de pago** | Todo el trabajo de imagen: análisis y estética de la UI de gentle-shell. Reciben rutas de fichero; imágenes ≤1024 px de lado mayor. Estado de ctx **sin verificar** (la marca OFFLINE venía de memoria, no de un fallo observado). |
+
+| **LABY** (laboratorio) | `01a20385` | LABY: Laboratorio | `~/Trabajo/IAI/Lab` | deepseek-v4-1-flash-1017 | Laboratorio y experimentación. **Sin asignar a 2026-11-23**: Ricardo todavía no ha equipado el Lab con materiales, así que no hay experimento, tema ni objetivo. LABY pidió figurar como *sin asignar* y no como un laboratorio con programa, y tiene razón: un título no es un mandato. **Aviso antes de asignarle trabajo que escriba ficheros**: `~/Trabajo/IAI/Lab` no es su propio repositorio — `git rev-parse --show-toplevel` resuelve a `/home/ricardo`, así que cualquier commit ahí actúa sobre el repo de todo el home. Inicializar un repo dentro de `Lab` es decisión de Ricardo, no nuestra. |
+| **SOFY** (software y almacenamiento) | `01a20924` | SOFY: Gestor del software y almacenamiento | `~/` (home, a propósito) | deepseek-v4-1-flash-1017 | Gestión de software y almacenamiento: versiones, dependencias, qué hay instalado y dónde, capacidad de disco y qué se puede liberar. Está en `$HOME` a propósito — Ricardo quería que mirase un problema de arranque con pyenv, que cree haber resuelto ya él mismo. Lleva la parte de almacenamiento de la mudanza a ricardoPC. |
 
 ## Quién ordena a quién (autoridad y enrutado)
 
