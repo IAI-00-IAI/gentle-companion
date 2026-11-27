@@ -49,8 +49,8 @@
 $effect(() => { $langStore; });
 </script>
 <svelte:head><title>{t('automations.page.title')} · Gentle Companion</title></svelte:head>
+<PullToRefresh onrefresh={load} />
 <div class="page automation-workspace">
-  <PullToRefresh onrefresh={load} />
   <header class="automation-hero"><div class="hero-copy"><img class="clay-icon" src={clayIcon} alt="" /><div><span class="eyebrow">{t('automations.eyebrow')}</span><h1>{t('automations.page.title')}</h1><p class="subtle">{t('automations.subtitle')}</p></div></div>{#if canEdit}<button class="btn btn-primary" aria-expanded={creating} onclick={() => creating = !creating}><Icon name="plus" />{creating ? t('automations.close') : t('automations.create')}</button>{/if}</header>
   {#if creating && canEdit}<AutomationEditor busy={saving} onsave={create} oncancel={() => creating = false} />{/if}
   {#if error}<div class="bento-card automation-empty" role="alert"><Icon name="alert" /><p>{error}</p><button class="btn" onclick={() => void load().catch(() => {})}>{t('automations.tryagain')}</button></div>

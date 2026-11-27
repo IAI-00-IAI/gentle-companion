@@ -100,8 +100,8 @@ $effect(() => { $langStore; });
 
 <svelte:head><title>Overview · Gentle Companion</title></svelte:head>
 
+<PullToRefresh onrefresh={refreshOverview} />
 <div class="page">
-  <PullToRefresh onrefresh={refreshOverview} />
   <section class="hero card">
     {#if DotField}
       <DotField

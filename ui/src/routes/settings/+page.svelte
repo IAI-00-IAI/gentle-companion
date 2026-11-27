@@ -145,7 +145,7 @@
 
 <svelte:head><title>{t('settings.hero.title')} · Gentle Companion</title></svelte:head>
 
-<div class="page narrow automation-workspace">
+<div class="page automation-workspace">
   <PageHero icon={clayIcon} eyebrow={t('settings.hero.eyebrow')} title={t('settings.hero.title')} subtitle={t('settings.hero.subtitle')} />
 
   <div class="settings-tabs" role="tablist" aria-label={t('settings.tabs.label')}>
@@ -425,10 +425,6 @@
     height: 18px;
     accent-color: var(--accent);
     box-shadow: none;
-  }
-
-  .narrow {
-    width: min(920px, 100%);
   }
 
   .stack {

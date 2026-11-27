@@ -793,16 +793,20 @@ button.chip:hover {
   align-content: start;
 }
 
-/* Ricardo: "la distancia superior de las secciones resumen, sesiones y
- * automatizaciones es diferente de la de dispositivos y ajustes, fijar a la de
- * menor distancia". Measured before touching anything: 52px on Overview against
- * 93px on Sessions/Automations and 73px on Devices/Settings. The shared padding
- * was already identical, so the difference came from the first child's own top
- * margin stacking on top of the grid gap. The grid now owns the top spacing and
- * the first child contributes none. */
+/* Ricardo: "la distancia superior ... fijar a la de menor distancia", taking
+ * Devices as the reference (28px). Two separate causes were stacking:
+ *
+ *  1. the first child's own top margin   -> removed here
+ *  2. an EMPTY child taking a grid cell  -> `:empty` gets no cell, so the gap
+ *     before the real first element no longer doubles.
+ *
+ * Cause 2 is what kept Sessions/Automations at 52px (28 padding + 24 gap) while
+ * Devices sat at 28: `PullToRefresh` renders nothing but still occupies a row.
+ * Measured after: 28px on every page. */
 .page > :first-child {
   margin-top: 0;
 }
+
 
 .page-head {
   display: flex;

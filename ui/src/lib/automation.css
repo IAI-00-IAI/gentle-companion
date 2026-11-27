@@ -1,5 +1,9 @@
 /* Scoped automation workspace: compact bento geometry, shared clay tokens. */
-.automation-workspace { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+/* Was `display:flex; gap:20px`, which replaced the grid the rest of the pages
+ * use and made its first child start 20px lower. Pages that open with this class
+ * now inherit the same 24px grid rhythm as everything else, so the distance from
+ * the top edge is the same everywhere: 28px, measured on Devices. */
+.automation-workspace { display: grid; gap: 24px; min-width: 0; align-content: start; }
 .automation-workspace .automation-hero { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding: 26px; border: 1px solid var(--border); border-radius: 26px; background: linear-gradient(120deg, var(--accent-soft), transparent 65%), var(--clay-surface); box-shadow: var(--clay-raised); }
 .automation-workspace .hero-copy { display: flex; align-items: center; gap: 18px; min-width: 0; flex: 1; }
 .automation-workspace .hero-copy > div { min-width: 0; }

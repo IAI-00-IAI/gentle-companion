@@ -43,8 +43,8 @@ $effect(() => { $langStore; });
 
 <svelte:head><title>{t('sessions.title')} · Gentle Companion</title></svelte:head>
 
+<PullToRefresh onrefresh={() => companion.refresh()} />
 <div class="page automation-workspace">
-  <PullToRefresh onrefresh={() => companion.refresh()} />
   <PageHero icon={clayIcon} eyebrow={t('sessions.eyebrow')} title={t('sessions.title')} subtitle={t('sessions.subtitle')} />
 
   <div class="toolbar clay">
