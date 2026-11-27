@@ -605,11 +605,12 @@
    * `stable` reserves the gutter always, so the centring box never changes with
    * scroll length. `both-edges` reserves it on the leading side too: with the
    * gutter on one side only, `.page` (width: 100% of the scrollable area)
-   * hugged the left edge and left 21px dead on the right. Measured after:
-   * 21px of margin on each side, so panels inside sit on a symmetric column.
+   * hugged the left edge and left 21px dead on the right. Measured after
+   * `both-edges`: 254..1270, exactly 10px of margin on each side.
    *
-   * The banner keeps its own 16px inset; it is deliberately left out of this,
-   * since Ricardo asked for a border computed without it. */
+   * The banners are inside this box too (see the `.banner` rule below), so all
+   * of them share one centring context and no rule needs a hardcoded scrollbar
+   * width. */
   .content {
     flex: 1;
     min-height: 0;
