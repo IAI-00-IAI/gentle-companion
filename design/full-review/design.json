@@ -1,0 +1,84 @@
+{
+  "title": "Revisión completa — todas las páginas",
+  "brief": "Las 11 rutas de la app, ventana 1440x1000, capturadas del build que sirve :9911 (CSS 0.BR8Xzb2x.css). Cada tablero declara su build para que no se confunda con otro. Origen del espaciado desigual: las páginas que abren con .automation-hero llevan padding interno de 26px; las que abren con .refresh-control no tienen ninguno.",
+  "artboards": [
+    {
+      "file": "01-overview.html",
+      "title": "Portada",
+      "tradeoff": "Ruta /. cabecera sin padding propio.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "02-sessions.html",
+      "title": "Sesiones",
+      "tradeoff": "Ruta /sessions. cabecera sin padding propio.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "03-session-detail.html",
+      "title": "Detalle de sesión",
+      "tradeoff": "Ruta /sessions/01a1f971-4770-7474-98fb-41d01a3fc661. padding-top 48px en la cabecera.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "04-automations.html",
+      "title": "Automatizaciones",
+      "tradeoff": "Ruta /automations. cabecera sin padding propio.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "05-automation-detail.html",
+      "title": "Automatización (no existe)",
+      "tradeoff": "Ruta /automations/nonexistent. cabecera sin padding propio.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "06-devices.html",
+      "title": "Dispositivos",
+      "tradeoff": "Ruta /devices. padding-top 26px en la cabecera.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "07-settings.html",
+      "title": "Ajustes",
+      "tradeoff": "Ruta /settings. padding-top 26px en la cabecera.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "08-help.html",
+      "title": "Ayuda",
+      "tradeoff": "Ruta /help. cabecera sin padding propio.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "09-privacy.html",
+      "title": "Privacidad",
+      "tradeoff": "Ruta /privacy. cabecera sin padding propio.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "10-terms.html",
+      "title": "Términos",
+      "tradeoff": "Ruta /terms. cabecera sin padding propio.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "11-pair.html",
+      "title": "Emparejamiento",
+      "tradeoff": "Ruta /pair. cabecera sin padding propio.",
+      "width": 1440,
+      "height": 1000
+    }
+  ],
+  "feature": "odd/tasks/shell-aesthetic-align.md"
+}
