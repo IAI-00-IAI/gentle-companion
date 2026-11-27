@@ -1,0 +1,53 @@
+{
+  "arrangement": "grid",
+  "positions": {
+    "system": {
+      "x": 0,
+      "y": 0
+    },
+    "01-overview.html": {
+      "x": 1520,
+      "y": 0
+    },
+    "02-sessions.html": {
+      "x": 3040,
+      "y": 0
+    },
+    "03-session-detail.html": {
+      "x": 4560,
+      "y": 0
+    },
+    "04-automations.html": {
+      "x": 0,
+      "y": 1352
+    },
+    "05-automation-detail.html": {
+      "x": 1520,
+      "y": 1352
+    },
+    "06-devices.html": {
+      "x": 3040,
+      "y": 1352
+    },
+    "07-settings.html": {
+      "x": 4560,
+      "y": 1352
+    },
+    "08-help.html": {
+      "x": 0,
+      "y": 2483
+    },
+    "09-privacy.html": {
+      "x": 1520,
+      "y": 2483
+    },
+    "10-terms.html": {
+      "x": 3040,
+      "y": 2483
+    },
+    "11-pair.html": {
+      "x": 4560,
+      "y": 2483
+    }
+  }
+}

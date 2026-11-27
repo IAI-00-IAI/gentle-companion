@@ -1,81 +1,81 @@
 {
   "title": "Revisión completa — todas las páginas",
-  "brief": "Las 11 rutas de la app, ventana 1440x1000, capturadas del build que sirve :9911 (CSS 0.BR8Xzb2x.css). Cada tablero declara su build para que no se confunda con otro. Origen del espaciado desigual: las páginas que abren con .automation-hero llevan padding interno de 26px; las que abren con .refresh-control no tienen ninguno.",
+  "brief": "Once capturas reales del build 0.Dvw9KP2f.css, ventana 1440x1000. Medido: 28px de espaciado superior y 1180px de ancho en las once. Incluye tema oscuro y panel replegado. NO capturadas por falta de datos: automation/[id] real, runs/[runId], session/[id] con historial, estados desconectado y error — el daemon de pruebas esta vacio.",
   "artboards": [
     {
       "file": "01-overview.html",
       "title": "Portada",
-      "tradeoff": "Ruta /. cabecera sin padding propio.",
+      "tradeoff": "Ruta /. 28px arriba, 1180px ancho. Tema light.",
       "width": 1440,
       "height": 1000
     },
     {
       "file": "02-sessions.html",
       "title": "Sesiones",
-      "tradeoff": "Ruta /sessions. cabecera sin padding propio.",
+      "tradeoff": "Ruta /sessions. 28px arriba, 1180px ancho. Tema light.",
       "width": 1440,
       "height": 1000
     },
     {
-      "file": "03-session-detail.html",
-      "title": "Detalle de sesión",
-      "tradeoff": "Ruta /sessions/01a1f971-4770-7474-98fb-41d01a3fc661. padding-top 48px en la cabecera.",
-      "width": 1440,
-      "height": 1000
-    },
-    {
-      "file": "04-automations.html",
+      "file": "03-automations.html",
       "title": "Automatizaciones",
-      "tradeoff": "Ruta /automations. cabecera sin padding propio.",
+      "tradeoff": "Ruta /automations. 28px arriba, 1180px ancho. Tema light.",
       "width": 1440,
       "height": 1000
     },
     {
-      "file": "05-automation-detail.html",
-      "title": "Automatización (no existe)",
-      "tradeoff": "Ruta /automations/nonexistent. cabecera sin padding propio.",
-      "width": 1440,
-      "height": 1000
-    },
-    {
-      "file": "06-devices.html",
+      "file": "04-devices.html",
       "title": "Dispositivos",
-      "tradeoff": "Ruta /devices. padding-top 26px en la cabecera.",
+      "tradeoff": "Ruta /devices. 28px arriba, 1180px ancho. Tema light.",
       "width": 1440,
       "height": 1000
     },
     {
-      "file": "07-settings.html",
+      "file": "05-settings.html",
       "title": "Ajustes",
-      "tradeoff": "Ruta /settings. padding-top 26px en la cabecera.",
+      "tradeoff": "Ruta /settings. 28px arriba, 1180px ancho. Tema light.",
       "width": 1440,
       "height": 1000
     },
     {
-      "file": "08-help.html",
+      "file": "06-help.html",
       "title": "Ayuda",
-      "tradeoff": "Ruta /help. cabecera sin padding propio.",
+      "tradeoff": "Ruta /help. 28px arriba, 1180px ancho. Tema light.",
       "width": 1440,
       "height": 1000
     },
     {
-      "file": "09-privacy.html",
+      "file": "07-privacy.html",
       "title": "Privacidad",
-      "tradeoff": "Ruta /privacy. cabecera sin padding propio.",
+      "tradeoff": "Ruta /privacy. 28px arriba, 1180px ancho. Tema light.",
       "width": 1440,
       "height": 1000
     },
     {
-      "file": "10-terms.html",
+      "file": "08-terms.html",
       "title": "Términos",
-      "tradeoff": "Ruta /terms. cabecera sin padding propio.",
+      "tradeoff": "Ruta /terms. 28px arriba, 1180px ancho. Tema light.",
       "width": 1440,
       "height": 1000
     },
     {
-      "file": "11-pair.html",
+      "file": "09-pair.html",
       "title": "Emparejamiento",
-      "tradeoff": "Ruta /pair. cabecera sin padding propio.",
+      "tradeoff": "Ruta /pair. 28px arriba, 1180px ancho. Tema light.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "10-settings-dark.html",
+      "title": "Ajustes — tema oscuro",
+      "tradeoff": "Ruta /settings. 28px arriba, 1180px ancho. Tema dark.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "11-sidebar-collapsed.html",
+      "title": "Ajustes — panel replegado",
+      "tradeoff": "Ruta /settings. 28px arriba, 1180px ancho. Tema dark, panel replegado.",
       "width": 1440,
       "height": 1000
     }

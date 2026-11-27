@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "comments": [
+    {
+      "id": "b04ac2ez",
+      "file": "01-overview.html",
+      "selector": "body > div > img",
+      "excerpt": "Portada",
+      "comment": "el ancho del borde tiene que estar todos alineados, no tengas en cuenta está imagen, aquí aparece un mensaje para activar la notificación, calcular el borde sin ese mensaje.\ntomar como referencia el que tiene Dispositivos/Devices",
+      "createdAt": "2026-11-27T04:39:59.056Z",
+      "status": "open",
+      "sentAt": "2026-11-27T04:47:04.204Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "aefvieso",
+      "file": "04-automations.html",
+      "selector": "body > div > img",
+      "excerpt": "Automatizaciones",
+      "comment": "Ajustar el borde, como he comentado para la sección resumen",
+      "createdAt": "2026-11-27T04:42:50.499Z",
+      "status": "open",
+      "sentAt": "2026-11-27T04:47:04.204Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "4sixt90e",
+      "file": "05-automation-detail.html",
+      "selector": "body > div > img",
+      "excerpt": "Automatización (no existe)",
+      "comment": "Ajustar el borde, como he comentado para la sección resumen",
+      "createdAt": "2026-11-27T04:42:51.043Z",
+      "status": "open",
+      "sentAt": "2026-11-27T04:47:04.204Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "ho64ihx5",
+      "file": "07-settings.html",
+      "selector": "body > div > img",
+      "excerpt": "Ajustes",
+      "comment": "El panel /los paneles de Ajustes/Settings deberían tener el mismo ancho que los del resto de secciones, los de settings se quedan fijos y no expanden hacia los bordes",
+      "createdAt": "2026-11-27T04:45:08.026Z",
+      "status": "open",
+      "sentAt": "2026-11-27T04:47:04.204Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "kqapjq9w",
+      "file": "07-settings.html",
+      "selector": "body > div > img",
+      "excerpt": "Ajustes",
+      "comment": "lo tendría que ver con tema oscuro",
+      "createdAt": "2026-11-27T04:46:03.762Z",
+      "status": "open",
+      "sentAt": "2026-11-27T04:47:04.204Z",
+      "resolvedAt": null
+    }
+  ]
+}
