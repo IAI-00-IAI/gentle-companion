@@ -78,3 +78,31 @@ token source and nothing invented needs importing.
 texto del logo". Read literally, the TEXT keeps the link home and the LOGO becomes the toggle. An
 earlier message of mine stated the reverse and was wrong. He will confirm when his canvas review
 finishes, so the structure is not changed yet.
+
+## T10 — Border alignment (canvas comment 01-overview)
+
+**Spec**: S6 plus Ricardo's canvas comment: "el ancho del borde tiene que estar
+todos alineados... calcular el borde sin ese mensaje", and his follow-up
+decision: "todos los banners de notificaciones de este tipo deben tener el
+mismo, quizás lo más fácil que el margen esté alineado con el de la page y que
+quede unificado".
+
+**Cause (measured, 1440px, six pages)**: `main.content` scrolls, so its 21px
+scrollbar sat inside the content box. `.page` uses `margin: 0 auto`, so it
+centred on the scrollable width (1015px) not the box (1036px): left flush at
+244, right 21px short at 1259. All six pages scroll, so all six were crooked.
+
+**Fix**: `scrollbar-gutter: stable both-edges` on `.content` (`stable` alone
+leaves the leading edge flush). The four banners moved INSIDE `main.content`
+with `max-width: calc(min(1180px,100%) - 64px)` mirroring the page's inline
+padding; a separate query covers the 16px mobile indent.
+
+**Measured after**, with the final binary on `/`, `/automations`, `/settings`:
+banner and first panel both 297..1227; `.page` margins 21/21.
+
+**Caught by an existing test**: `sidebar.test.ts` failed because the banner rule
+sat between `@media (max-width: 900px) {` and `.shell`. Moved to its own query.
+
+**Commit**: d2a8e1b. **Tests**: `test/page-gutter.test.ts` (RED observed without
+the fix, GREEN with it); 401 pass; svelte-check 0/0.
+
