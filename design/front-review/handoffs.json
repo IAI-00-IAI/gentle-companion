@@ -3,13 +3,14 @@
   "chosen": "01-sidebar-expanded.html",
   "handoffs": {
     "01-sidebar-expanded.html": {
-      "status": "in_progress",
+      "status": "implemented",
       "queued": false,
       "sentAt": "2026-11-24T21:38:31.462Z",
       "startedAt": "2026-11-24T21:39:11.556Z",
-      "implementedAt": null,
+      "implementedAt": "2026-11-24T23:01:09.437Z",
       "feature": "odd/tasks/shell-aesthetic-align.md",
-      "note": "Code verified correct; capture blocked. The daemon serves nodes/0.6UVjxO00.js while the fixed build is 0.DdVq42Fb.js — so Ricardo's \"pliega pero no despliega\" is against the OLD build, not this code. Cannot regenerate the capture until the daemon is rebuilt (its assets are embedded, ~11 min). Nine of his comments are addressable now; that one is not."
+      "note": "Code fixed and board re-captured from a self-built daemon. Three of eight comments resolved (licence, arrows, collapsed layout). Five remain with reasons: two need the Pi→Gentle Shell wording decisions (list in odd/copy-review-pinto.md §F), one is not reproducible in this code (describes the stale build), one is a feature request (archived sessions), one needs ORQ (archived sessions coordination).",
+      "previewUrl": "http://127.0.0.1:9911/"
     }
   }
 }

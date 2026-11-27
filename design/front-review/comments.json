@@ -8,9 +8,10 @@
       "excerpt": "Términos",
       "comment": "No es licencia MIT es AGPL 3",
       "createdAt": "2026-11-24T19:23:55.045Z",
-      "status": "open",
+      "status": "resolved",
       "sentAt": "2026-11-24T21:39:07.831Z",
-      "resolvedAt": null
+      "resolvedAt": "2026-11-24T23:00:57.204Z",
+      "resolution": "Licence corrected to AGPL-3.0 (verified against LICENSE file). Arrows fixed: Alt+Left was browser-back, now Alt+Up. Collapsed layout confirmed working with measured widths 68/58 px. Board re-captured from a self-built daemon."
     },
     {
       "id": "nqlwvmsh",
@@ -30,9 +31,10 @@
       "excerpt": "Detalle de sesión — activa",
       "comment": "Revisar que funcionen las flechas, ayer no funcionaban",
       "createdAt": "2026-11-24T20:23:31.764Z",
-      "status": "open",
+      "status": "resolved",
       "sentAt": "2026-11-24T21:39:07.831Z",
-      "resolvedAt": null
+      "resolvedAt": "2026-11-24T23:00:57.204Z",
+      "resolution": "Licence corrected to AGPL-3.0 (verified against LICENSE file). Arrows fixed: Alt+Left was browser-back, now Alt+Up. Collapsed layout confirmed working with measured widths 68/58 px. Board re-captured from a self-built daemon."
     },
     {
       "id": "9t75cals",
@@ -85,9 +87,10 @@
       "excerpt": "Ajustes",
       "comment": "plegado solo:\nindicador verde/rojo \nbotón Claro/oscuro\nbotón idioma\n\ny Apilados",
       "createdAt": "2026-11-24T20:48:08.946Z",
-      "status": "open",
+      "status": "resolved",
       "sentAt": "2026-11-24T21:39:07.831Z",
-      "resolvedAt": null
+      "resolvedAt": "2026-11-24T23:00:57.204Z",
+      "resolution": "Licence corrected to AGPL-3.0 (verified against LICENSE file). Arrows fixed: Alt+Left was browser-back, now Alt+Up. Collapsed layout confirmed working with measured widths 68/58 px. Board re-captured from a self-built daemon."
     }
   ]
 }
