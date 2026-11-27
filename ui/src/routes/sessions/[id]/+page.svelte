@@ -1859,6 +1859,9 @@ $effect(() => { $langStore; });
     padding: 8px;
     border: 1px solid var(--term-line);
     border-radius: 18px;
+    /* The PANEL stays --surface. Ricardo corrected the target: "No decía todo
+       el panel, el panel está bien, ¿no es posible que solo sea el cuadro donde
+       se introduce el texto?" - the tint belongs to the field below, not here. */
     background: var(--surface);
     box-shadow: var(--clay-soft);
   }
@@ -1892,9 +1895,14 @@ $effect(() => { $langStore; });
     min-width: 0;
     min-height: 42px;
     max-height: min(180px, 24dvh);
-    padding: 10px 10px 6px;
+    padding: 10px;
     border: 0;
-    background: transparent;
+    /* Ricardo: the field, not the panel. It was , so the field and
+       the white panel were one shape (1.00:1) and there was no box to see - the
+       reason "no se distingue el cuadro de entrada". The tinted field gives the
+       caret somewhere to live and marks where typing goes before you click. */
+    background: var(--field-bg);
+    border-radius: 12px;
     color: var(--term-text);
     caret-color: var(--term-accent);
     font: 1rem/1.4 var(--font);

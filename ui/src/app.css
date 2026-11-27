@@ -9,6 +9,12 @@
 [data-theme='dark'] {
   color-scheme: dark;
   --bg: #1a1218;
+  /* The TEXT FIELD inside the composer (not the panel). Ricardo, choosing from
+     the captured variants: "C y C" - the field takes the tint, the panel stays
+     as it was. In dark the field sinks to near-black so there is a clear well
+     to type into: 1.41:1 against the #2a262a panel, up from 1.00:1 where the
+     field and panel were the same colour and the box was invisible. */
+  --field-bg: #000000;
   --bg-sunken: #000000;
   --surface: #20161e;
   --surface-2: #241822;
@@ -54,6 +60,12 @@
 [data-theme='light'] {
   color-scheme: light;
   --bg: #f8f5f7;
+  /* The TEXT FIELD inside the composer (not the panel). Ricardo: "C y C".
+     White on white was the whole problem - the field and the #ffffff panel were
+     the same colour (1.00:1), so there was no box to see. The rose gives the
+     field its own surface; at 1.10:1 against the panel it reads as a field
+     without competing with the message text on it. */
+  --field-bg: #f2dbe9;
   --bg-sunken: #f0eae0;
   --surface: #ffffff;
   --surface-2: #f7f3f5;
