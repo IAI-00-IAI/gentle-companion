@@ -289,41 +289,41 @@
         </div>
       </header>
 
-      {#if insecureContext && !httpsBannerDismissed}
-        <div class="banner danger" role="alert">
-          <Icon name="alert" />
-          <span>{t('shell.banner.https')}</span>
-          {#if companion.httpsLink}
-            <a class="btn btn-sm btn-primary" href={companion.httpsLink}>{t('shell.banner.https.open')}</a>
-          {/if}
-          <button class="btn btn-sm btn-ghost" onclick={dismissHttpsBanner} aria-label={t('shell.banner.dismiss')}>{t('shell.banner.dismiss')}</button>
-        </div>
-      {/if}
-      {#if companion.connection === 'disconnected'}
-        <div class="banner" role="alert">
-          <Icon name="unplug" />
-          <span>{t('shell.banner.disconnected')}</span>
-          <button class="btn btn-sm" onclick={() => companion.reconnect()} class:primary={true}>{t('shell.banner.reconnect')}</button>
-        </div>
-      {/if}
-      <ConnectionNotice />
-      {#if showNotificationPrompt}
-        <div class="banner" role="region" aria-label={t('shell.banner.notifications.aria')}>
-          <Icon name="bell" />
-          <span>{t('shell.banner.notifications')}</span>
-          <button class="btn btn-sm btn-primary" onclick={enableNotifications}>{t('shell.banner.notifications.on')}</button>
-          <button class="btn btn-sm btn-ghost" onclick={dismissNotificationPrompt}>{t('shell.banner.notifications.later')}</button>
-        </div>
-      {/if}
-      {#if updated.current}
-        <div class="banner" role="status">
-          <Icon name="sparkle" />
-          <span>{t('shell.banner.update')}</span>
-          <button class="btn btn-sm btn-primary" onclick={() => location.reload()} class:primary={true}>{t('shell.banner.reload')}</button>
-        </div>
-      {/if}
-
       <main class="content scroll" id="main" tabindex="-1">
+        {#if insecureContext && !httpsBannerDismissed}
+          <div class="banner danger" role="alert">
+            <Icon name="alert" />
+            <span>{t('shell.banner.https')}</span>
+            {#if companion.httpsLink}
+              <a class="btn btn-sm btn-primary" href={companion.httpsLink}>{t('shell.banner.https.open')}</a>
+            {/if}
+            <button class="btn btn-sm btn-ghost" onclick={dismissHttpsBanner} aria-label={t('shell.banner.dismiss')}>{t('shell.banner.dismiss')}</button>
+          </div>
+        {/if}
+        {#if companion.connection === 'disconnected'}
+          <div class="banner" role="alert">
+            <Icon name="unplug" />
+            <span>{t('shell.banner.disconnected')}</span>
+            <button class="btn btn-sm" onclick={() => companion.reconnect()} class:primary={true}>{t('shell.banner.reconnect')}</button>
+          </div>
+        {/if}
+        <div class="banner-slot"><ConnectionNotice /></div>
+        {#if showNotificationPrompt}
+          <div class="banner" role="region" aria-label={t('shell.banner.notifications.aria')}>
+            <Icon name="bell" />
+            <span>{t('shell.banner.notifications')}</span>
+            <button class="btn btn-sm btn-primary" onclick={enableNotifications}>{t('shell.banner.notifications.on')}</button>
+            <button class="btn btn-sm btn-ghost" onclick={dismissNotificationPrompt}>{t('shell.banner.notifications.later')}</button>
+          </div>
+        {/if}
+        {#if updated.current}
+          <div class="banner" role="status">
+            <Icon name="sparkle" />
+            <span>{t('shell.banner.update')}</span>
+            <button class="btn btn-sm btn-primary" onclick={() => location.reload()} class:primary={true}>{t('shell.banner.reload')}</button>
+          </div>
+        {/if}
+
         {#if companion.booted && !companion.bootError}
           {@render children()}
         {:else}
@@ -593,10 +593,28 @@
     flex-direction: column;
   }
 
+  /* Ricardo, canvas 01-overview: "el ancho del borde tiene que estar todos
+   * alineados ... calcular el borde sin ese mensaje".
+   *
+   * Measured cause: `main.content` scrolls, so its 21px scrollbar sat INSIDE
+   * the content box. `.page` is centred with `margin: 0 auto`, which centred it
+   * on the scrollable area (1015px) instead of on the box (1036px): left edge
+   * flush at 244, right edge 21px short at 1259. Pages that did not scroll
+   * looked aligned, which is why it seemed to depend on the banner.
+   *
+   * `stable` reserves the gutter always, so the centring box never changes with
+   * scroll length. `both-edges` reserves it on the leading side too: with the
+   * gutter on one side only, `.page` (width: 100% of the scrollable area)
+   * hugged the left edge and left 21px dead on the right. Measured after:
+   * 21px of margin on each side, so panels inside sit on a symmetric column.
+   *
+   * The banner keeps its own 16px inset; it is deliberately left out of this,
+   * since Ricardo asked for a border computed without it. */
   .content {
     flex: 1;
     min-height: 0;
     outline: none;
+    scrollbar-gutter: stable both-edges;
   }
 
   .topbar,
@@ -604,11 +622,30 @@
     display: none;
   }
 
+  /* Ricardo, canvas 01-overview: "todos los banners de notificaciones de este
+   * tipo deben tener el mismo [ancho], quizás lo más fácil que el margen esté
+   * alineado con el de la page y que quede unificado".
+   *
+   * They shared a fixed 16px inset, which lined them up with nothing: `.page`
+   * is `min(1180px, 100%)` centred, so its edge moves with the viewport while
+   * theirs did not.
+   *
+   * The banners now live INSIDE `main.content`, the box `.page` is centred on,
+   * so the browser does the arithmetic instead of a hardcoded number that would
+   * drift with the scrollbar width. `max-width` mirrors the page's inline
+   * padding so a banner's border sits on the same column as the panels below.
+   *
+   * Vertical spacing stays 12px: a banner is transient and must not push the
+   * page head around when it appears and disappears. */
   .banner {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 12px 16px 0;
+    box-sizing: border-box;
+    /* Same box as `.page`, less the page's own 32px inline padding. */
+    width: min(1180px, 100%);
+    max-width: calc(min(1180px, 100%) - 64px);
+    margin: 12px auto 0;
     padding: 10px 14px;
     border: 1px solid var(--accent-line);
     border-radius: var(--radius);
@@ -619,6 +656,16 @@
 
   .banner span {
     flex: 1;
+  }
+
+  /* `.page` drops its inline padding to 16px below 900px, so the banner's
+     mirrored inset has to follow or it would sit narrower than the panels
+     below it. Kept in its own query, after the base rule, so the mobile grid
+     query above stays adjacent to `.shell` as sidebar.test.ts requires. */
+  @media (max-width: 900px) {
+    .banner {
+      max-width: calc(min(1180px, 100%) - 32px);
+    }
   }
 
   .banner.danger {
