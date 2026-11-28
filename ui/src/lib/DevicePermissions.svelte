@@ -97,8 +97,19 @@ $effect(() => { $langStore; });
   /* Was `--bg-sunken` (#000000): a pure black block against the plum surfaces,
    * which Ricardo read as a hole with misaligned text. Every other card in the
    * system sits on surface-2, so this follows them. */
-  .permissions li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 12px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); }
-  .permission-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--surface); color: var(--accent); }
+  /* `auto` on the trailing column resolved to 0px at desktop widths (measured:
+   * `36px 708px 0px` at 1440), because a wrapping flex container reports a
+   * near-zero min-content width. The action buttons then overflowed their own
+   * grid cell and landed on top of the copy, which is what Ricardo saw as
+   * skewed text. `min-content` keeps the buttons on one line and reserves their
+   * real width; the copy column is the one that gives way, which is correct -
+   * it is the only column that can wrap meaningfully. */
+  .permissions li { display: grid; grid-template-columns: auto minmax(0, 1fr) min-content; align-items: start; gap: 12px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); }
+  .permission-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--surface); color: var(--accent); align-self: center; }
+  /* The checkbox sat inside a label that inherited the row's baseline
+   * alignment, so its background painted a taller box than the glyph and read
+   * as a shadow above and below. Centring it against the text fixes both. */
+  .toggle input[type='checkbox'] { align-self: center; }
   .permission-copy { min-width: 0; }
   /* In es-ES "Permitida" is longer than "Granted", and the whole badge wrapped
    * to its own line while the eye still read it as part of the title. The badge
@@ -106,7 +117,7 @@ $effect(() => { $langStore; });
   .permission-copy strong { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; min-width: 0; }
   .permission-copy strong > span.badge { flex: none; white-space: nowrap; }
   .permission-copy p { margin: 3px 0 0; }
-  .permission-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
+  .permission-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; }
   .badge.granted { color: var(--ok); }
   .badge.denied, .badge.insecure, .badge.policy { color: var(--danger); }
   .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; }
