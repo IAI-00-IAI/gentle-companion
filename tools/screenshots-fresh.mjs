@@ -307,12 +307,11 @@ try {
     await safe(page, async () => {
       await page.goto(BASE + '/automations/demo-review'); await settle(page);
       await shot(page, 'automation-detail-mobile');
-      const histTab = page.getByRole('tab', { name: /Run history/ });
-      if (await histTab.count()) {
-        await histTab.click();
-        await page.locator('#panel-history .collection-toolbar').scrollIntoViewIfNeeded().catch(() => {});
-        await settle(page);
-      }
+      const histTab = page.locator('#tab-history');
+      if (await histTab.count() !== 1) throw new Error('History tab missing');
+      await histTab.click();
+      await page.locator('#panel-history .collection-toolbar').scrollIntoViewIfNeeded();
+      await settle(page);
       await shot(page, 'automation-history-mobile');
     }, 'automation-history-mobile');
     await safe(page, async () => { await page.goto(BASE + '/settings'); await settle(page); await shot(page, 'settings-mobile'); }, 'settings-mobile');

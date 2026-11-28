@@ -1,0 +1,9 @@
+{
+  "type": "Design Asset",
+  "title": "Panel replegado — 68/58 px — captura real",
+  "description": "Columna del grid 68 px, caja del sidebar 58 px (padding y borde descontados). El trigger conserva 40×40 con chevron.",
+  "status": "active",
+  "author": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/design/front-review/02-sidebar-collapsed.png",
+  "generated": "2026-11-24"
+}

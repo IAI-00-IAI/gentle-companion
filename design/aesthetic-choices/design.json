@@ -1,0 +1,21 @@
+{
+  "title": "Aesthetic choices: clay tint and icon weight",
+  "brief": "Two visual decisions pending in the Gentle Companion UI. The clay art tint filter is amber today; the rose family sits at hue 326. The nav icon stroke width is 2.5 with undocumented intent. Artboards show variants side by side so the choice can be made by looking and annotated in the canvas.",
+  "artboards": [
+    {
+      "file": "01-clay-tint.html",
+      "title": "Clay art tint — A1 amber / A2 rose / A3 coral",
+      "tradeoff": "A1 keeps a warm help cue that reads as the most off-brand object in the palette; A2 unifies everything into the rose family and loses that distinctiveness; A3 hedges between them and may read as neither.",
+      "width": 1440,
+      "height": 760
+    },
+    {
+      "file": "02-icon-weight.html",
+      "title": "Icon stroke width — B1 2.0 / B2 2.5 / B3 3.0",
+      "tradeoff": "B1 is the subtlest and answers only the unused-selector warning; B2 is current but its difference from B1 is hard to see; B3 is clearly visible but heavier and may crowd 44px nav rows.",
+      "width": 1440,
+      "height": 940
+    }
+  ],
+  "feature": "odd/tasks/shell-aesthetic-align.md"
+}

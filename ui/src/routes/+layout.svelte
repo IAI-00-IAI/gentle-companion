@@ -39,6 +39,23 @@
   let insecureContext = $state(false);
   let httpsBannerDismissed = $state(false);
 
+  // Sidebar collapse is an explicit preference, never inferred from the viewport:
+  // the media queries below already own the responsive layouts.
+  const SIDEBAR_KEY = 'pi-companion-sidebar';
+  let sidebarCollapsed = $state(false);
+  let sidebarTrigger = $state<HTMLButtonElement | null>(null);
+  const sidebarExpanded = $derived(!sidebarCollapsed);
+  const sidebarTitle = $derived(sidebarExpanded ? t('shell.sidebar.collapse') : t('shell.sidebar.expand'));
+
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    try { localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? 'collapsed' : 'expanded'); } catch { /* storage blocked */ }
+    // The trigger keeps its node across states, but a hidden label must not drop focus
+    // onto <body>: restore it explicitly after the DOM updates.
+    const trigger = sidebarTrigger;
+    if (trigger) queueMicrotask(() => trigger.focus());
+  }
+
   function dismissHttpsBanner() { httpsBannerDismissed = true; }
 
   const connectionLabel = $derived({
@@ -54,6 +71,34 @@
     { value: 'light', label: t('shell.theme.light'), icon: 'sun' },
     { value: 'dark', label: t('shell.theme.dark'), icon: 'moon' }
   ]);
+
+  // Cyclic controls replace the two segmented radiogroups: three buttons each
+  // do not fit in the 68px collapsed sidebar, and hiding them inverted what was
+  // asked for. One button that rotates fits, and keeps the control reachable.
+  let themeButton = $state<HTMLButtonElement | null>(null);
+  let langButton = $state<HTMLButtonElement | null>(null);
+  // A silent cycle is an accessibility regression versus the radiogroup it
+  // replaces, so every press announces the value it landed on.
+  let cycleAnnouncement = $state('');
+
+  const themeLabel = $derived(themes.find((option) => option.value === theme.preference)?.label ?? '');
+  const themeIcon = $derived(themes.find((option) => option.value === theme.preference)?.icon ?? 'monitor');
+
+  function cycleTheme() {
+    const index = themes.findIndex((option) => option.value === theme.preference);
+    const next = themes[(index + 1) % themes.length];
+    theme.set(next.value);
+    cycleAnnouncement = t('shell.cycle.theme.announce', { value: next.label });
+    themeButton?.focus();
+  }
+
+  function cycleLang() {
+    const index = LOCALES.indexOf($langStore);
+    const next = LOCALES[(index + 1) % LOCALES.length];
+    setLang(next);
+    cycleAnnouncement = t('shell.cycle.lang.announce', { value: localeName(next) });
+    langButton?.focus();
+  }
 
   function active(href: string) {
     return href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
@@ -99,6 +144,7 @@
     devicePermissions.init();
     companion.onSessionChange = (previous, next) => devicePermissions.sessionChanged(previous, next);
     try { notificationPromptDismissed = localStorage.getItem('pi-companion-notification-prompt') === 'dismissed'; } catch { /* storage blocked */ }
+    try { sidebarCollapsed = localStorage.getItem(SIDEBAR_KEY) === 'collapsed'; } catch { /* storage blocked: stays expanded */ }
     const stopConnectivity = companion.watchConnectivity();
     // The tunnel pairing QR's fragment (#tunnel=…&port=…) configures tunnel mode
     // before boot reads it (feature tailcat-client T3); then it is stripped from the
@@ -154,22 +200,42 @@
     <ConnectionNotice />{@render children()}
   </main>
 {:else}
-  <div class="shell" class:working={Boolean(workPhase)} data-work-phase={workPhase}>
+  <div class="shell" class:working={Boolean(workPhase)} class:sidebar-collapsed={sidebarCollapsed} data-work-phase={workPhase}>
     <span class="sr-only" role="status">{workPhase === 'thinking' ? t('shell.working.thinking') : workPhase === 'working' ? t('shell.working.working') : ''}</span>
     <aside class="sidebar scroll" aria-label={t('shell.nav.aria')}>
-      <a class="brand" href="/">
+      <!-- Ricardo: "A sin flor, mantener solo la del logo, y que sea el logo el
+           botón de plegar/replegar el panel". The whole brand is now the toggle:
+           logo and title read as one unit, so splitting them would make half of
+           it a button and half a link. The route home is not lost — `Overview`
+           in the nav carries it. -->
+      <button
+        class="brand"
+        type="button"
+        bind:this={sidebarTrigger}
+        aria-expanded={sidebarExpanded}
+        aria-controls="sidebar-nav"
+        aria-label={sidebarTitle}
+        title={sidebarTitle}
+        onclick={toggleSidebar}
+      >
         <img src={logo} alt="" width="36" height="36" />
-        <span>
+        <span class="brand-text">
           <strong>Gentle Companion</strong>
           <small>{companion.remote ? t('shell.brand.paired') : t('shell.brand.local')}</small>
         </span>
-      </a>
+      </button>
 
-      <nav class="nav" aria-label={t('shell.nav.aria')}>
+      <nav class="nav" id="sidebar-nav" aria-label={t('shell.nav.aria')}>
         {#each visibleNav as item (item.href)}
-          <a href={item.href} class:active={active(item.href)} aria-current={active(item.href) ? 'page' : undefined}>
-            <Icon name={item.icon} />
-            <span>{item.label}</span>
+          <a
+            href={item.href}
+            class:active={active(item.href)}
+            aria-current={active(item.href) ? 'page' : undefined}
+            aria-label={item.label}
+            title={item.label}
+          >
+            <Icon name={item.icon} strokeWidth={2.5} />
+            <span class="nav-label">{item.label}</span>
             {#if item.href === '/sessions' && waiting}
               <span class="count" aria-label={t('shell.nav.waiting.aria', { count: waiting })}>{waiting}</span>
             {/if}
@@ -178,33 +244,30 @@
       </nav>
 
       <div class="sidebar-foot">
-        <button class="status status-trigger" aria-haspopup="dialog" aria-label={t('shell.connection.aria', { status: connectionLabel })} onclick={() => (aboutOpen = true)}>
+        <div class="cycle-controls">
+          <button
+            class="cycle theme-cycle"
+            type="button"
+            aria-label={t('shell.cycle.theme.aria', { value: themeLabel })}
+            title={t('shell.cycle.theme.aria', { value: themeLabel })}
+            bind:this={themeButton}
+            onclick={cycleTheme}
+          ><Icon name={themeIcon} size={16} /></button>
+          <button
+            class="cycle lang-cycle"
+            type="button"
+            aria-label={t('shell.cycle.lang.aria', { value: localeName($langStore) })}
+            title={t('shell.cycle.lang.aria', { value: localeName($langStore) })}
+            bind:this={langButton}
+            onclick={cycleLang}
+          ><span class="cycle-lang">{($langStore || 'es').toUpperCase()}</span></button>
+        </div>
+        <button class="status status-trigger" aria-haspopup="dialog" aria-label={t('shell.connection.aria', { status: connectionLabel })} title={connectionLabel} onclick={() => (aboutOpen = true)}>
           <span class="dot {companion.connection}" aria-hidden="true"></span>
-          <span>{connectionLabel}</span>
+          <span class="status-label">{connectionLabel}</span>
           {#if companion.version}<span class="subtle mono">v{companion.version}</span>{/if}
         </button>
-        <div class="segmented theme-switch" role="radiogroup" aria-label={t('shell.theme.aria')}>
-          {#each themes as option (option.value)}
-            <button
-              role="radio"
-              aria-checked={theme.preference === option.value}
-              aria-label={option.label}
-              title={option.label}
-              onclick={() => theme.set(option.value)}><Icon name={option.icon} size={16} /></button>
-          {/each}
-        </div>
-        <div class="segmented lang-switch" role="radiogroup" aria-label={t('lang.label')}>
-          {#each LOCALES as locale}
-            <button
-              role="radio"
-              aria-checked={$langStore === locale}
-              aria-label={localeName(locale)}
-              onclick={() => setLang(locale)}
-            >
-              {localeName(locale)}
-            </button>
-          {/each}
-        </div>
+        <span class="sr-only" aria-live="polite" aria-atomic="true">{cycleAnnouncement}</span>
         <nav class="legal-links" aria-label={t('shell.legal.aria')}>
           <a href="/privacy">{t('shell.legal.privacy')}</a><span aria-hidden="true">·</span><a href="/terms">{t('shell.legal.terms')}</a>
         </nav>
@@ -226,41 +289,41 @@
         </div>
       </header>
 
-      {#if insecureContext && !httpsBannerDismissed}
-        <div class="banner danger" role="alert">
-          <Icon name="alert" />
-          <span>{t('shell.banner.https')}</span>
-          {#if companion.httpsLink}
-            <a class="btn btn-sm btn-primary" href={companion.httpsLink}>{t('shell.banner.https.open')}</a>
-          {/if}
-          <button class="btn btn-sm btn-ghost" onclick={dismissHttpsBanner} aria-label={t('shell.banner.dismiss')}>{t('shell.banner.dismiss')}</button>
-        </div>
-      {/if}
-      {#if companion.connection === 'disconnected'}
-        <div class="banner" role="alert">
-          <Icon name="unplug" />
-          <span>{t('shell.banner.disconnected')}</span>
-          <button class="btn btn-sm" onclick={() => companion.reconnect()} class:primary={true}>{t('shell.banner.reconnect')}</button>
-        </div>
-      {/if}
-      <ConnectionNotice />
-      {#if showNotificationPrompt}
-        <div class="banner" role="region" aria-label={t('shell.banner.notifications.aria')}>
-          <Icon name="bell" />
-          <span>{t('shell.banner.notifications')}</span>
-          <button class="btn btn-sm btn-primary" onclick={enableNotifications}>{t('shell.banner.notifications.on')}</button>
-          <button class="btn btn-sm btn-ghost" onclick={dismissNotificationPrompt}>{t('shell.banner.notifications.later')}</button>
-        </div>
-      {/if}
-      {#if updated.current}
-        <div class="banner" role="status">
-          <Icon name="sparkle" />
-          <span>{t('shell.banner.update')}</span>
-          <button class="btn btn-sm btn-primary" onclick={() => location.reload()} class:primary={true}>{t('shell.banner.reload')}</button>
-        </div>
-      {/if}
-
       <main class="content scroll" id="main" tabindex="-1">
+        {#if insecureContext && !httpsBannerDismissed}
+          <div class="banner danger" role="alert">
+            <Icon name="alert" />
+            <span>{t('shell.banner.https')}</span>
+            {#if companion.httpsLink}
+              <a class="btn btn-sm btn-primary" href={companion.httpsLink}>{t('shell.banner.https.open')}</a>
+            {/if}
+            <button class="btn btn-sm btn-ghost" onclick={dismissHttpsBanner} aria-label={t('shell.banner.dismiss')}>{t('shell.banner.dismiss')}</button>
+          </div>
+        {/if}
+        {#if companion.connection === 'disconnected'}
+          <div class="banner" role="alert">
+            <Icon name="unplug" />
+            <span>{t('shell.banner.disconnected')}</span>
+            <button class="btn btn-sm" onclick={() => companion.reconnect()} class:primary={true}>{t('shell.banner.reconnect')}</button>
+          </div>
+        {/if}
+        <div class="banner-slot"><ConnectionNotice /></div>
+        {#if showNotificationPrompt}
+          <div class="banner" role="region" aria-label={t('shell.banner.notifications.aria')}>
+            <Icon name="bell" />
+            <span>{t('shell.banner.notifications')}</span>
+            <button class="btn btn-sm btn-primary" onclick={enableNotifications}>{t('shell.banner.notifications.on')}</button>
+            <button class="btn btn-sm btn-ghost" onclick={dismissNotificationPrompt}>{t('shell.banner.notifications.later')}</button>
+          </div>
+        {/if}
+        {#if updated.current}
+          <div class="banner" role="status">
+            <Icon name="sparkle" />
+            <span>{t('shell.banner.update')}</span>
+            <button class="btn btn-sm btn-primary" onclick={() => location.reload()} class:primary={true}>{t('shell.banner.reload')}</button>
+          </div>
+        {/if}
+
         {#if companion.booted && !companion.bootError}
           {@render children()}
         {:else}
@@ -275,7 +338,7 @@
         {#each mobileNav as item (item.href)}
           <a href={item.href} class:active={active(item.href)} aria-current={active(item.href) ? 'page' : undefined}>
             <span class="tab-icon">
-              <Icon name={item.icon} size={20} />
+              <Icon name={item.icon} size={20} strokeWidth={2.5} />
               {#if item.href === '/sessions' && waiting}<span class="pip" aria-hidden="true"></span>{/if}
             </span>
             <span>{item.label}</span>
@@ -320,6 +383,7 @@
     height: 100dvh;
     display: grid;
     grid-template-columns: var(--sidebar) minmax(0, 1fr);
+    transition: grid-template-columns 220ms var(--ease);
   }
 
   .bare {
@@ -335,12 +399,37 @@
     background: var(--bg-sunken);
   }
 
+  /* The brand is the collapse toggle. It looks like a plain brand block on
+   * purpose: the whole area is one control, and a visible button face would
+   * compete with the logo for attention. */
   .brand {
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
+    min-width: 0;
     padding: 4px 8px;
-    text-decoration: none;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms var(--ease), color 150ms var(--ease);
+  }
+
+  .brand:hover {
+    background: var(--surface-2);
+  }
+
+  .brand:hover strong {
+    color: var(--accent-text);
+  }
+
+  .brand:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
   }
 
   .brand img {
@@ -348,8 +437,9 @@
     flex: none;
   }
 
-  .brand span {
+  .brand-text {
     display: grid;
+    min-width: 0;
     line-height: 1.2;
   }
 
@@ -380,7 +470,6 @@
     text-decoration: none;
     transition: background-color 150ms var(--ease), color 150ms var(--ease);
   }
-
   .nav a:hover {
     background: var(--surface-2);
     color: var(--text);
@@ -424,6 +513,22 @@
     color: var(--accent-text);
     text-decoration: underline;
   }
+  .cycle-controls { display: flex; gap: 6px; justify-content: center; }
+
+  .cycle {
+    display: grid; place-items: center; min-height: 36px; min-width: 36px;
+    padding: 0 8px; border-radius: 10px; cursor: pointer;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text-2); font: inherit;
+    transition: color 150ms var(--ease), border-color 150ms var(--ease), background-color 150ms var(--ease);
+  }
+  .cycle:hover { color: var(--accent-text); border-color: var(--border-strong); }
+  .cycle:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .cycle-lang {
+    font-family: var(--mono); font-size: .68rem; font-weight: 700; letter-spacing: .03em;
+  }
+
   .sidebar-foot {
     margin-top: auto;
     display: grid;
@@ -480,12 +585,6 @@
     background: var(--surface);
   }
 
-  .lang-switch button[aria-checked='true'] {
-    background: var(--accent-soft);
-    color: var(--accent-text);
-    border-color: var(--accent-line);
-    box-shadow: var(--clay-pressed);
-  }
 
   .main-col {
     min-width: 0;
@@ -494,10 +593,29 @@
     flex-direction: column;
   }
 
+  /* Ricardo, canvas 01-overview: "el ancho del borde tiene que estar todos
+   * alineados ... calcular el borde sin ese mensaje".
+   *
+   * Measured cause: `main.content` scrolls, so its 21px scrollbar sat INSIDE
+   * the content box. `.page` is centred with `margin: 0 auto`, which centred it
+   * on the scrollable area (1015px) instead of on the box (1036px): left edge
+   * flush at 244, right edge 21px short at 1259. Pages that did not scroll
+   * looked aligned, which is why it seemed to depend on the banner.
+   *
+   * `stable` reserves the gutter always, so the centring box never changes with
+   * scroll length. `both-edges` reserves it on the leading side too: with the
+   * gutter on one side only, `.page` (width: 100% of the scrollable area)
+   * hugged the left edge and left 21px dead on the right. Measured after
+   * `both-edges`: 254..1270, exactly 10px of margin on each side.
+   *
+   * The banners are inside this box too (see the `.banner` rule below), so all
+   * of them share one centring context and no rule needs a hardcoded scrollbar
+   * width. */
   .content {
     flex: 1;
     min-height: 0;
     outline: none;
+    scrollbar-gutter: stable both-edges;
   }
 
   .topbar,
@@ -505,11 +623,30 @@
     display: none;
   }
 
+  /* Ricardo, canvas 01-overview: "todos los banners de notificaciones de este
+   * tipo deben tener el mismo [ancho], quizás lo más fácil que el margen esté
+   * alineado con el de la page y que quede unificado".
+   *
+   * They shared a fixed 16px inset, which lined them up with nothing: `.page`
+   * is `min(1180px, 100%)` centred, so its edge moves with the viewport while
+   * theirs did not.
+   *
+   * The banners now live INSIDE `main.content`, the box `.page` is centred on,
+   * so the browser does the arithmetic instead of a hardcoded number that would
+   * drift with the scrollbar width. `max-width` mirrors the page's inline
+   * padding so a banner's border sits on the same column as the panels below.
+   *
+   * Vertical spacing stays 12px: a banner is transient and must not push the
+   * page head around when it appears and disappears. */
   .banner {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 12px 16px 0;
+    box-sizing: border-box;
+    /* Same box as `.page`, less the page's own 32px inline padding. */
+    width: min(1180px, 100%);
+    max-width: calc(min(1180px, 100%) - 64px);
+    margin: 12px auto 0;
     padding: 10px 14px;
     border: 1px solid var(--accent-line);
     border-radius: var(--radius);
@@ -520,6 +657,16 @@
 
   .banner span {
     flex: 1;
+  }
+
+  /* `.page` drops its inline padding to 16px below 900px, so the banner's
+     mirrored inset has to follow or it would sit narrower than the panels
+     below it. Kept in its own query, after the base rule, so the mobile grid
+     query above stays adjacent to `.shell` as sidebar.test.ts requires. */
+  @media (max-width: 900px) {
+    .banner {
+      max-width: calc(min(1180px, 100%) - 32px);
+    }
   }
 
   .banner.danger {
@@ -738,6 +885,31 @@
     .status-trigger.compact { width: auto; min-height: 44px; padding: 0 10px; border-radius: 16px; background: var(--surface-2); box-shadow: var(--clay-soft); }
   }
   :global(:focus-visible) { outline: 3px solid var(--accent); outline-offset: 3px; }
+  /* Collapsed sidebar: the column narrows and only text labels hide, so the life
+   * indicator dot and the nav icons stay visible. Guarded to the desktop layout via
+   * the min-width query below, because under 900px the sidebar is hidden entirely and
+   * the tabbar owns navigation. */
+  @media (min-width: 901px) {
+    .shell.sidebar-collapsed { grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr); }
+    .shell.sidebar-collapsed .brand { flex-direction: column; gap: 8px; padding: 4px 0; }
+    .shell.sidebar-collapsed .brand-text,
+    .shell.sidebar-collapsed .nav-label,
+    .shell.sidebar-collapsed .status-label,
+    .shell.sidebar-collapsed .legal-links { display: none; }
+    .shell.sidebar-collapsed .nav a,
+    .shell.sidebar-collapsed .status-trigger { justify-content: center; }
+    .shell.sidebar-collapsed .nav a { position: relative; }
+    .shell.sidebar-collapsed .count {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      margin: 0;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      font-size: 0.66rem;
+    }
+  }
   .shell.working .brand img { animation: clay-breathe 2.2s ease-in-out infinite; }
   .shell.working .topbar { position: relative; }
   .shell.working .topbar::after {
@@ -751,9 +923,57 @@
   .shell[data-work-phase='thinking'] .topbar::after { animation-duration: 3.2s; }
   @keyframes clay-breathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.72; transform: scale(1.04); } }
   @keyframes clay-sweep { from { opacity: 0.45; transform: scaleX(0.25); } to { opacity: 0.85; transform: scaleX(1); } }
+  /* The title block is the collapse trigger: a pointer-only affordance, so it must
+   * never show as a button. The logo and mark stay as the sidebar home link. */
+  @media (min-width: 901px) {
+    .shell.sidebar-collapsed .sidebar { padding-left: 8px; padding-right: 8px; }
+    /* The trigger's only child hides when collapsed. Without a size of its own
+     * the button collapses to zero width and the sidebar cannot be reopened:
+     * the control would hide itself. Give it a real hit target. */
+    /* Ricardo, with a reference image: the bottom controls read badly when
+     * collapsed. His image shows three equal SQUARES stacked and centred — theme,
+     * language, then the life indicator — not full-width bars of different
+     * widths. The order in the markup was also life-first; it now matches. */
+    .shell.sidebar-collapsed .sidebar-foot {
+      align-items: center;
+      gap: 8px;
+    }
+    .shell.sidebar-collapsed .cycle-controls {
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .shell.sidebar-collapsed .cycle {
+      width: 42px; min-width: 42px; height: 42px; min-height: 42px;
+      padding: 0; border-radius: 12px;
+    }
+    /* The life indicator becomes a square matching the two pressers, with the
+     * dot alone inside it. Its label is already hidden here. */
+    .shell.sidebar-collapsed .status-trigger {
+      width: 42px; min-width: 42px; height: 42px;
+      border-radius: 12px;
+      padding: 0;
+      display: grid; place-items: center;
+    }
+    /* Ricardo: "botón 'en línea' indicador centrado y plegado desaparece
+     * versión". The version string is hidden when collapsed, and the dot sits
+     * dead centre rather than left-aligned in a wider box. */
+    .shell.sidebar-collapsed .status-trigger .dot { margin: 0 auto; }
+    .shell.sidebar-collapsed .status-trigger .subtle { display: none; }
+    /* Keep the pip-ish round frame the image shows for the status specifically. */
+    .shell.sidebar-collapsed .status-trigger { border-radius: 999px; }
+    .shell.sidebar-collapsed .brand {
+      padding: 4px; min-width: 40px; min-height: 40px;
+      display: grid; place-items: center;
+    }
+    .shell.sidebar-collapsed .brand::after {
+      content: '\203A'; /* › — points the way the panel will open */
+      font-size: 1.1rem; line-height: 1; color: var(--accent-text);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     .shell.working .brand img, .shell.working .topbar::after, .shell.working :global(.dot.active) { animation: none; transform: none; }
-    .nav a, .status-trigger, .tabbar a { transition: none; }
+    .nav a, .status-trigger, .tabbar a, .shell, .brand { transition: none; }
     .nav a:active, .status-trigger:active, .tabbar a:active { transform: none; }
   }
 </style>

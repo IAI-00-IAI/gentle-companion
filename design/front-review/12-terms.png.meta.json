@@ -1,0 +1,9 @@
+{
+  "type": "Design Asset",
+  "title": "Términos — licencia corregida — captura real",
+  "description": "Comentario aplicado: el texto decía MIT. Verificado contra el fichero LICENSE del repo, que es AGPL-3.0, y contra Cargo.toml.",
+  "status": "active",
+  "author": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/design/front-review/12-terms.png",
+  "generated": "2026-11-24"
+}

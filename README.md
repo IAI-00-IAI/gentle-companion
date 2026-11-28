@@ -497,7 +497,7 @@ Design notes:
 
 - light and dark themes with a system default, applied before first paint so there is no flash
 - claymorphism: solid surfaces with an outer drop shadow plus inset highlight and shade (no blur or glass); small icons are Lucide line icons on raised clay wells, feature art is 3D clay renders from [3dicons](https://3dicons.co) (CC0)
-- warm amber on graphite or paper, matching the logo; system fonts only, so nothing loads from the network. highlight.js and Mermaid load only when a reply contains code or a diagram
+- warm rose on plum or paper, matching gentle-shell; system fonts only, so nothing loads from the network. highlight.js and Mermaid load only when a reply contains code or a diagram
 - the window never scrolls. The sidebar, page content, activity feed, file list, diff, chips and tabs each scroll inside their own container, and the composer and mobile tab bar stay put
 - the shell gently breathes while the displayed session is working, with a slower [thinking animation](docs/thinking.webp) and a soft progress sweep on the mobile header; it stops when idle or disconnected and respects reduced-motion preferences
 - the activity feed follows new output and stops following when you scroll up ("Jump to latest" brings you back)

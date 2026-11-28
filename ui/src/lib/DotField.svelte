@@ -460,6 +460,8 @@
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Longer than the 220ms sidebar transition so no rebuild lands mid-slide.
+    const REBUILD_SETTLE_MS = 260;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const lowPower = window.matchMedia('(max-width: 767px), (pointer: coarse)');
     const canAnimate = () => !reducedMotion.matches;
@@ -884,7 +886,24 @@
     };
 
     let resizeFrame = 0;
+    // A rebuild resizes the canvas, which is what the observer sees; running it
+    // mid-transition means every animation frame during the 220ms sidebar slide
+    // pays for a full grid reconstruction. Nobody is judging the background
+    // grain while it is moving, so wait for the size to settle and rebuild once.
+    // This also covers window drags and theme switches, which hit the same path.
+    let rebuildTimer: ReturnType<typeof setTimeout> | 0 = 0;
     const queueRebuild = () => {
+      cancelAnimationFrame(resizeFrame);
+      clearTimeout(rebuildTimer);
+      rebuildTimer = setTimeout(() => {
+        rebuildTimer = 0;
+        resizeFrame = requestAnimationFrame(rebuild);
+      }, REBUILD_SETTLE_MS);
+    };
+    const flushRebuild = () => {
+      if (!rebuildTimer) return;
+      clearTimeout(rebuildTimer);
+      rebuildTimer = 0;
       cancelAnimationFrame(resizeFrame);
       resizeFrame = requestAnimationFrame(rebuild);
     };
@@ -930,13 +949,27 @@
     });
     queueRebuild();
 
-    const resizeObserver = new ResizeObserver(queueRebuild);
+    // Observe ONE element. Observing both host and its container fed back on
+    // itself: a rebuild resized the canvas, the observer fired, rebuild ran
+    // again. That is the intermittent 500ms stall, not a steady cost.
+    let lastW = 0, lastH = 0;
+    const onResize = () => {
+      if (!host) return;
+      const r = host.getBoundingClientRect();
+      if (Math.abs(r.width - lastW) < 0.5 && Math.abs(r.height - lastH) < 0.5) return;
+      lastW = r.width; lastH = r.height;
+      invalidateRect();
+      queueRebuild();
+    };
+    const resizeObserver = new ResizeObserver(onResize);
     resizeObserver.observe(host);
-    if (slot) resizeObserver.observe(slot);
 
     const themeObserver = new MutationObserver(() => {
       readTheme();
       drawAmbientLayer();
+      // A theme switch is instant for the reader: a debounced rebuild would show
+      // the previous colour for a quarter second. Force it here.
+      flushRebuild();
       if (!canAnimate() || lowPower.matches) paint(0, false);
     });
     themeObserver.observe(document.documentElement, {
@@ -960,10 +993,16 @@
     // Mouse/pen use pointer events; touch also listens to passive touch events,
     // because pointer events are cancelled as soon as the page starts scrolling.
     const pointerTarget = host.parentElement ?? host;
+    // Reading layout on every pointer event forces a synchronous reflow each
+    // time the mouse moves, which is how a decorative background blocks the
+    // main thread. The rect only changes on resize/scroll, so cache it and
+    // invalidate where those actually happen.
+    let rectCache: DOMRect | null = null;
+    const invalidateRect = () => { rectCache = null; };
     const toLocal = (clientX: number, clientY: number) => {
       if (!host) return null;
-      const rect = host.getBoundingClientRect();
-      return { x: clientX - rect.left, y: clientY - rect.top };
+      if (!rectCache) rectCache = host.getBoundingClientRect();
+      return { x: clientX - rectCache.left, y: clientY - rectCache.top };
     };
     const track = (clientX: number, clientY: number) => {
       const p = toLocal(clientX, clientY);

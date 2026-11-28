@@ -1,0 +1,91 @@
+{
+  "title": "Front review — todas las páginas",
+  "brief": "Capturas reales de la app en 0.7.1 (ventana 1400x900) con marcadores numerados y el selector CSS de cada zona, para que Ricardo senale sobre artefactos visuales. Cada captura se verifico contra su ruta y su encabezado, y los dos estados del sidebar se distinguen por ancho medido. Los estados que no existen en esta instancia (movil, desconectado) no se recrean: se declaran.",
+  "artboards": [
+    {
+      "file": "01-sidebar-expanded.html",
+      "title": "Panel desplegado — 244/234 px",
+      "tradeoff": "¿Se lee el título como algo pulsable? Si no, el repliegue es un secreto.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "02-sidebar-collapsed.html",
+      "title": "Panel replegado — 68/58 px",
+      "tradeoff": "Los iconos y el indicador de vida sobreviven. ¿Se ve estrecho?",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "03-sessions-list.html",
+      "title": "Sesiones — con datos reales",
+      "tradeoff": "8 sesiones, 5 activas. Estado poblado.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "04-session-detail.html",
+      "title": "Detalle de sesión",
+      "tradeoff": "El composer y la cola de mensajes viven aquí.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "05-ask-sheet.html",
+      "title": "Panel de preguntas — REAL",
+      "tradeoff": "La pantalla del bug de concurrencia. Pregunta viva, diálogo abierto.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "06-home.html",
+      "title": "Portada",
+      "tradeoff": "Fondo de puntos y rosa.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "07-automations-list.html",
+      "title": "Automatizaciones",
+      "tradeoff": "Paginación traducida.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "08-settings.html",
+      "title": "Ajustes",
+      "tradeoff": "Tema, idioma, aviso del puente.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "09-devices.html",
+      "title": "Dispositivos",
+      "tradeoff": "Emparejamiento.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "10-help.html",
+      "title": "Ayuda",
+      "tradeoff": "Estática.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "11-privacy.html",
+      "title": "Privacidad",
+      "tradeoff": "Estática.",
+      "width": 1400,
+      "height": 900
+    },
+    {
+      "file": "12-terms.html",
+      "title": "Términos",
+      "tradeoff": "Antes MIT, ahora AGPL-3.",
+      "width": 1400,
+      "height": 900
+    }
+  ],
+  "feature": "odd/tasks/shell-aesthetic-align.md"
+}

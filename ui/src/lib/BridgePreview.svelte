@@ -116,6 +116,10 @@
     </div>
     <div class="bridge-actions">
       {#if frame}
+        <!-- A real link, not a button: it needs no JS, it is not subject to the
+             page's CSP the way an injected script is, and it is the one route
+             that works when the iframe cannot render the site at all. -->
+        <a class="btn btn-ghost btn-icon" href={frame.path} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" aria-label={t('bridge.preview.open_browser')} title={t('bridge.preview.open_browser')}><Icon name="link" size={18} /></a>
         <button type="button" class="btn btn-ghost btn-icon" aria-label={t(fullscreen ? 'bridge.preview.fullscreen.exit' : 'bridge.preview.fullscreen.enter')} aria-pressed={fullscreen} onclick={() => fullscreen = !fullscreen}><Icon name={fullscreen ? 'minimize' : 'maximize'} /></button>
       {/if}
       <button type="button" class="btn btn-ghost btn-icon" aria-label={t('bridge.preview.close')} onclick={close}><Icon name="close" /></button>

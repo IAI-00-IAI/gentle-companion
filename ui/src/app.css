@@ -1,6 +1,6 @@
 /*
  * Gentle Companion design system.
- * Warm amber on graphite (dark) or paper (light), matching the logo.
+ * Warm rose on plum (dark) or paper (light), matching gentle-shell.
  * Layout rule: the window never scrolls. Each region owns its scrolling:
  *   sidebar · page content · feeds/lists/code blocks inside panels.
  */
@@ -8,13 +8,20 @@
 :root,
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #060407;
-  --bg-sunken: #0a060c;
-  --surface: #100A0F;
-  --surface-2: #170c15;
-  --surface-3: #1e1120;
-  --border: #563040;
-  --border-strong: #7a4558;
+  --bg: #1a1218;
+  /* The TEXT FIELD inside the composer (not the panel). Ricardo, choosing from
+     the captured variants: "C y C" - the field takes the tint, the panel stays
+     as it was. In dark the field sinks to near-black so there is a clear well
+     to type into: 1.41:1 against the #2a262a panel, up from 1.00:1 where the
+     field and panel were the same colour and the box was invisible. */
+  --field-bg: #000000;
+  --bg-sunken: #000000;
+  --surface: #20161e;
+  --surface-2: #241822;
+  --surface-3: #342230;
+  --border: #342230;
+  --border-strong: #4d3146;
+  --border-soft: #ffffff17;
   --text: #F6EFF3;
   --text-2: #A78E9B;
   --text-3: #76616B;
@@ -24,18 +31,20 @@
   --accent-text: #FFB1DD;
   --deep-pink: #C96AA2;
   --active-pink: #FFB1DD;
-  --warning: #F2B86D;
-  --warning-soft: rgb(242 184 109 / 0.14);
+  --warning: #e0c27a;
+  --warning-soft: rgb(224 194 122 / 0.14);
   --accent-soft: rgb(240 149 200 / 0.12);
   --accent-line: rgb(240 149 200 / 0.38);
   --selection: #28121E;
   --tool-pending-bg: #100A0F;
-  --ok: #4fc58c;
-  --ok-soft: rgb(79 197 140 / 0.14);
+  --ok: #b4e7c7;
+  --ok-soft: rgb(180 231 199 / 0.14);
+  --info: #a9c7ee;
+  --info-soft: rgb(169 199 238 / 0.14);
   --danger: #FF718F;
   --danger-soft: rgb(255 113 143 / 0.12);
-  --code-bg: #0f0c12;
-  --diff-add: rgb(79 197 140 / 0.12);
+  --code-bg: #171018;
+  --diff-add: rgb(180 231 199 / 0.12);
   --diff-del: rgb(255 113 143 / 0.12);
   --shadow-sm: 0 1px 0 rgb(255 255 255 / 0.03) inset;
   --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 18px 40px -18px rgb(0 0 0 / 0.6);
@@ -51,6 +60,12 @@
 [data-theme='light'] {
   color-scheme: light;
   --bg: #f8f5f7;
+  /* The TEXT FIELD inside the composer (not the panel). Ricardo: "C y C".
+     White on white was the whole problem - the field and the #ffffff panel were
+     the same colour (1.00:1), so there was no box to see. The rose gives the
+     field its own surface; at 1.10:1 against the panel it reads as a field
+     without competing with the message text on it. */
+  --field-bg: #f2dbe9;
   --bg-sunken: #f0eae0;
   --surface: #ffffff;
   --surface-2: #f7f3f5;
@@ -76,7 +91,7 @@
   --shadow-sm: 0 1px 2px rgb(26 24 21 / 0.05);
   --shadow: 0 1px 2px rgb(26 24 21 / 0.05), 0 14px 32px -16px rgb(26 24 21 / 0.18);
   --overlay: rgb(26 24 21 / 0.35);
-  --dot-color: #d98e00;
+  --dot-color: #C96AA2;
   --grid-line: color-mix(in srgb, var(--accent) 8%, transparent);
   --ambient-dot: color-mix(in srgb, var(--accent) 11%, transparent);
   --dot-field-ambient: 0.2;
@@ -93,6 +108,7 @@
   --radius-pill: 999px;
   --radius-bento: 20px;
   --sidebar: 244px;
+  --sidebar-collapsed: 68px;
   --tabbar: 64px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   font-family: var(--font);
@@ -195,6 +211,15 @@ pre,
 
 ::selection {
   background: var(--accent-soft);
+}
+
+/* ✿ petal brand glyph, placed next to the logo in the brand marks. */
+.brand-mark {
+  color: var(--accent);
+  font-size: 1.1em;
+  line-height: 1;
+  margin-left: 6px;
+  font-family: var(--font);
 }
 
 .sr-only {
@@ -779,6 +804,21 @@ button.chip:hover {
   gap: 24px;
   align-content: start;
 }
+
+/* Ricardo: "la distancia superior ... fijar a la de menor distancia", taking
+ * Devices as the reference (28px). Two separate causes were stacking:
+ *
+ *  1. the first child's own top margin   -> removed here
+ *  2. an EMPTY child taking a grid cell  -> `:empty` gets no cell, so the gap
+ *     before the real first element no longer doubles.
+ *
+ * Cause 2 is what kept Sessions/Automations at 52px (28 padding + 24 gap) while
+ * Devices sat at 28: `PullToRefresh` renders nothing but still occupies a row.
+ * Measured after: 28px on every page. */
+.page > :first-child {
+  margin-top: 0;
+}
+
 
 .page-head {
   display: flex;

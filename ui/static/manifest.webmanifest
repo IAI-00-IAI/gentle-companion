@@ -8,8 +8,8 @@
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#060407",
-  "theme_color": "#060407",
+  "background_color": "#1a1218",
+  "theme_color": "#1a1218",
   "categories": ["developer tools", "utilities"],
   "prefer_related_applications": false,
   "icons": [
@@ -32,20 +32,8 @@
       "purpose": "maskable"
     },
     {
-      "src": "/pwa-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/pwa-maskable.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
-    },
-    {
       "src": "/apple-touch-icon.png",
-      "sizes": "180x180",
+      "sizes": "360x360",
       "type": "image/png",
       "purpose": "any"
     }

@@ -37,3 +37,19 @@ accounting/hardware.local.json
 
 # GIMP sources keep their editable history outside the repo.
 *.xcf
+
+# Test-run artifacts: `server/tailcat` is a symlink into a throwaway /tmp dir that a
+# crashed integration run left behind. Never commit it.
+/server/tailcat
+
+# Fuentes editables de GIMP: material de trabajo pesado, no artefactos del repo.
+# Documentadas en odd/assets/OKF-MANIFEST.md, que sí se versiona.
+*.xcf
+
+# Material de trabajo pesado: las fuentes editables y las pruebas descartadas
+# viven aqui, fuera de git. Lo que SI se versiona es el manifiesto de cada
+# carpeta, que dice que hay y por que, para que no se pierda el rastro.
+odd/assets/borradores/*
+odd/assets/descartados/*
+!odd/assets/borradores/OKF-MANIFEST.md
+!odd/assets/descartados/OKF-MANIFEST.md

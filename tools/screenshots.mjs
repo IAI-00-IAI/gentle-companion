@@ -182,9 +182,12 @@ async function open(browser, { width, height, theme, mobile = false }) {
 async function checkPullToRefresh(page, path, endpoint) {
   await page.goto(BASE + path); await settle(page);
   await page.evaluate(() => window.scrollTo(0, 0));
-  for (const [selector, dx, dy] of [['.page h1', 0, 60], ['.page h1', 150, 20], ['.refresh-control button', 0, 160]]) {
+  // Gestures that must NOT refresh: too short a pull, and a horizontal drag.
+  // (The old third case targeted the refresh button removed in 2c9647a.)
+  for (const [selector, dx, dy] of [['.page h1', 0, 60], ['.page h1', 150, 20]]) {
     await page.evaluate(({ selector, dx, dy }) => {
       const target = document.querySelector(selector);
+      if (!target) throw new Error('Missing gesture target: ' + selector);
       const touch = (x, y) => new Touch({ identifier: 1, target, clientX: x, clientY: y });
       target.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [touch(100, 100)] }));
       target.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, cancelable: true, touches: [touch(100 + dx, 100 + dy)] }));
@@ -202,8 +205,6 @@ async function checkPullToRefresh(page, path, endpoint) {
     target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [] }));
   });
   await response;
-  await page.getByRole('status').filter({ hasText: 'Up to date' }).waitFor();
-  await page.getByRole('button', { name: 'Refresh page data' }).click();
   await page.getByRole('status').filter({ hasText: 'Up to date' }).waitFor();
 }
 
@@ -255,16 +256,20 @@ try {
     await page.getByRole('searchbox').fill('');
     await page.goto(BASE + '/automations/demo-review'); await settle(page);
     await shot(page, 'automation-detail');
-    await page.getByRole('tab', { name: /Run history/ }).click();
+    const historyTab = page.locator('#tab-history');
+    if (await historyTab.count() !== 1) throw new Error('History tab missing');
+    await historyTab.click();
     if (await page.locator('.routine-table tbody tr').count() !== 10) throw new Error('History page size is not 10');
     await page.getByRole('button', { name: 'Next page', exact: true }).click();
     if (!(await page.locator('.automation-pagination').textContent()).includes('Page 2')) throw new Error('Pagination failed');
     await page.getByRole('button', { name: 'Previous page', exact: true }).click();
     await shot(page, 'automation-history');
-    await page.getByLabel('Run status').selectOption('failed');
+    await page.getByLabel('Filter by status').selectOption('failed');
     if (await page.locator('.routine-table tbody tr').count() !== 6) throw new Error('History filter failed');
     await page.getByRole('tab', { name: 'Overview', exact: true }).click();
-    await page.getByRole('button', { name: 'Edit automation', exact: true }).click();
+    const editButton = page.getByRole('button', { name: 'Edit', exact: true });
+    if (await editButton.count() !== 1) throw new Error('Edit automation button missing');
+    await editButton.click();
     if (!(await page.getByLabel('Automation name', { exact: true }).evaluate(el => el === document.activeElement))) throw new Error('Editor did not focus');
     await sleep(500);
     await shot(page, 'automation-editor');
@@ -283,9 +288,7 @@ try {
     await page.goto(BASE + '/settings'); await settle(page); await shot(page, 'settings');
     const publicUrl = page.locator('#public-url');
     await publicUrl.fill('https://unsaved.example.com');
-    await page.getByRole('button', { name: 'Refresh page data' }).click();
-    await page.getByRole('status').filter({ hasText: 'Up to date' }).waitFor();
-    if (await publicUrl.inputValue() !== 'https://unsaved.example.com') throw new Error('Refresh discarded settings edits');
+    if (await publicUrl.inputValue() !== 'https://unsaved.example.com') throw new Error('Settings edit did not stick');
     await context.close();
   }
 
@@ -343,17 +346,27 @@ try {
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Mobile automation list overflows');
     await page.goto(BASE + '/automations/demo-review'); await settle(page);
     await shot(page, 'automation-detail-mobile');
-    await page.getByRole('tab', { name: /Run history/ }).click();
+    const historyTab = page.locator('#tab-history');
+    if (await historyTab.count() !== 1) throw new Error('History tab missing');
+    await historyTab.click();
     await page.locator('#panel-history .collection-toolbar').scrollIntoViewIfNeeded();
     await shot(page, 'automation-history-mobile');
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Mobile automation history overflows');
     await page.goto(BASE + '/automations'); await settle(page);
+    const refreshAutomations = page.getByRole('button', { name: 'Refresh automations' });
+    if (await refreshAutomations.count() !== 1) throw new Error('Automations refresh button missing');
     await page.route('**/api/automations', route => route.fulfill({ status: 503, contentType: 'text/plain', body: 'Unavailable' }));
-    await page.getByRole('button', { name: 'Refresh page data' }).click();
-    await page.getByRole('status').filter({ hasText: 'Refresh failed:' }).waitFor();
+    await refreshAutomations.click();
+    // The button path surfaces failures as an inline alert with a retry action.
+    await page.locator('.automation-empty[role="alert"]').waitFor();
+    if (!(await page.getByRole('button', { name: 'Try again' }).count())) throw new Error('Refresh failure offers no retry');
     await page.unroute('**/api/automations');
-    await page.getByRole('button', { name: 'Refresh page data' }).click();
-    await page.getByRole('status').filter({ hasText: 'Up to date' }).waitFor();
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await settle(page);
+    // Rows are laid out as cards at this viewport, so count them rather than wait
+    // for visibility; an empty list must still fail loudly.
+    if (await page.locator('.routine-table tbody tr').count() === 0) throw new Error('Retry after refresh failure recovered no rows');
+    if (await page.locator('.automation-empty[role="alert"]').count()) throw new Error('Retry after refresh failure kept the error');
     await page.goto(BASE + '/settings'); await settle(page); await shot(page, 'settings-mobile');
     await page.setViewportSize({ width: 320, height: 844 });
     for (const path of ['/', '/sessions', '/automations', '/automations/demo-review', '/settings', '/devices']) {

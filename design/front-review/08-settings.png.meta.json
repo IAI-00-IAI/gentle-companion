@@ -1,0 +1,9 @@
+{
+  "type": "Design Asset",
+  "title": "Ajustes — permisos y badge — captura real",
+  "description": "Comentarios aplicados: el badge ya no salta de línea (nowrap + baseline), y se añadió la explicación de por qué el navegador no permite revocar desde aquí.",
+  "status": "active",
+  "author": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/design/front-review/08-settings.png",
+  "generated": "2026-11-24"
+}

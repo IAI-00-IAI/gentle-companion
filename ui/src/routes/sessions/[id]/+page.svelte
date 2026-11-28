@@ -173,6 +173,9 @@
     void tick().then(() => { promptEl?.focus(); autosize(); });
   }
   let steer = $state(false);
+  /** Message held while the agent is busy. One slot: see the commit message for why. */
+  let queued = $state<{ text: string } | null>(null);
+  const agentBusy = $derived(session?.status === 'active' && !steer);
   let mode = $state<'auto' | 'plan'>('auto');
   let menuEl = $state<HTMLDetailsElement | null>(null);
   let staged = $state(false);
@@ -362,6 +365,20 @@
     const uploaded = attachments.flatMap((attachment) => attachment.status === 'ready' && attachment.uploaded ? [attachment.uploaded] : []);
     const text = attachmentPrompt(prompt, uploaded);
     if (readOnly || ended || uploading || invalidAttachments || (mode === 'auto' && !text)) return;
+    // Holding the message instead of dropping it is the whole point: typing while
+    // the agent answers used to either interrupt it or lose the text.
+    if (agentBusy && queued) {
+      toasts.show(t('session.detail.queue.full'), 'error');
+      return;
+    }
+    if (agentBusy) {
+      queued = { text };
+      prompt = '';
+      releasePreviews();
+      attachments = [];
+      void tick().then(autosize);
+      return;
+    }
     const sent = mode === 'plan'
       ? companion.send(id, { type: 'plan', text })
       : companion.prompt(id, text, steer && session?.status === 'active');
@@ -379,7 +396,43 @@
     void tick().then(autosize);
   }
 
+  // When the turn ends, the held message goes out on its own. If it stayed held
+  // the user would have to remember it exists, which is how a queue becomes a
+  // silent trash can.
+  let wasBusy = false;
+  $effect(() => {
+    const busy = session?.status === 'active';
+    if (wasBusy && !busy && queued) {
+      const text = queued.text;
+      queued = null;
+      if (!companion.prompt(id, text, false)) {
+        queued = { text };
+        toasts.show(t('session.detail.notconnected'), 'error');
+      }
+    }
+    wasBusy = busy;
+  });
+
+  /**
+   * Alt+ArrowUp: take the queued message back into the composer.
+   *
+   * It was Alt+ArrowLeft, which is "back" in Firefox and several Linux window
+   * managers — Ricardo reported the arrows not working, and that is why: the
+   * browser consumed the gesture before it reached us. ArrowLeft also collides
+   * with moving the caret inside the textarea. ArrowUp does neither.
+   */
+  function recallQueued(event: KeyboardEvent) {
+    if (!queued) return false;
+    if (!event.altKey || event.key !== 'ArrowUp') return false;
+    event.preventDefault();
+    prompt = queued.text;
+    queued = null;
+    void tick().then(() => { promptEl?.focus(); autosize(); });
+    return true;
+  }
+
   function onComposerKey(event: KeyboardEvent) {
+    if (recallQueued(event)) return;
     if (slashMatches.length && !event.isComposing) {
       if (event.key === 'Escape') { event.preventDefault(); slashDismissed = true; return; }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -486,7 +539,7 @@
 $effect(() => { $langStore; });
 </script>
 
-<svelte:window onkeydown={menuKey} onpointerdown={closeMenuOutside} />
+<svelte:window onkeydown={(event) => { if (!recallQueued(event)) menuKey(event); }} onpointerdown={closeMenuOutside} />
 <svelte:head><title>{session ? sessionTitle(session) : t('session.detail.title')} · Gentle Companion</title></svelte:head>
 
 {#if !session}
@@ -846,6 +899,13 @@ $effect(() => { $langStore; });
                 title={t('session.detail.composer.title')}
                 placeholder={t(mode === 'plan' ? 'session.detail.plan.placeholder' : steer && session.status === 'active' ? 'session.detail.steer.placeholder' : 'session.detail.composer.placeholder')}></textarea>
             </div>
+            {#if queued}
+              <div class="composer-notice queued-note" role="status">
+                <p>{t('session.detail.queue.held', { text: queued.text.length > 60 ? queued.text.slice(0, 60) + '…' : queued.text })}</p>
+                <button type="button" class="btn btn-ghost btn-sm" onclick={() => { prompt = queued!.text; queued = null; void tick().then(() => { promptEl?.focus(); autosize(); }); }}>{t('session.detail.queue.edit')}</button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick={() => (queued = null)}>{t('session.detail.queue.drop')}</button>
+              </div>
+            {/if}
             <div class="composer-bar">
               <div class="mode-switch segmented" role="group" aria-label={t('session.detail.mode.aria')}>
                 <button type="button" aria-pressed={mode === 'auto'} title="Send a normal prompt; does not change Pi permissions" onclick={() => (mode = 'auto')}>Auto</button>
@@ -1799,6 +1859,9 @@ $effect(() => { $langStore; });
     padding: 8px;
     border: 1px solid var(--term-line);
     border-radius: 18px;
+    /* The PANEL stays --surface. Ricardo corrected the target: "No decía todo
+       el panel, el panel está bien, ¿no es posible que solo sea el cuadro donde
+       se introduce el texto?" - the tint belongs to the field below, not here. */
     background: var(--surface);
     box-shadow: var(--clay-soft);
   }
@@ -1832,9 +1895,14 @@ $effect(() => { $langStore; });
     min-width: 0;
     min-height: 42px;
     max-height: min(180px, 24dvh);
-    padding: 10px 10px 6px;
+    padding: 10px;
     border: 0;
-    background: transparent;
+    /* Ricardo: the field, not the panel. It was , so the field and
+       the white panel were one shape (1.00:1) and there was no box to see - the
+       reason "no se distingue el cuadro de entrada". The tinted field gives the
+       caret somewhere to live and marks where typing goes before you click. */
+    background: var(--field-bg);
+    border-radius: 12px;
     color: var(--term-text);
     caret-color: var(--term-accent);
     font: 1rem/1.4 var(--font);

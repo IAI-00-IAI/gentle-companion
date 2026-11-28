@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "comments": [
+    {
+      "id": "dfu9p3vj",
+      "file": "12-terms.html",
+      "selector": "body > div > img",
+      "excerpt": "Términos",
+      "comment": "No es licencia MIT es AGPL 3",
+      "createdAt": "2026-11-24T19:23:55.045Z",
+      "status": "resolved",
+      "sentAt": "2026-11-24T21:39:07.831Z",
+      "resolvedAt": "2026-11-24T23:00:57.204Z",
+      "resolution": "Licence corrected to AGPL-3.0 (verified against LICENSE file). Arrows fixed: Alt+Left was browser-back, now Alt+Up. Collapsed layout confirmed working with measured widths 68/58 px. Board re-captured from a self-built daemon."
+    },
+    {
+      "id": "nqlwvmsh",
+      "file": "04-session-detail.html",
+      "selector": "body > div > img",
+      "excerpt": "Detalle de sesión — activa",
+      "comment": "Reemplazar Pi por Gentle Shell",
+      "createdAt": "2026-11-24T20:22:46.268Z",
+      "status": "open",
+      "sentAt": "2026-11-24T21:39:07.831Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "lfyn5seu",
+      "file": "04-session-detail.html",
+      "selector": "body > div > img",
+      "excerpt": "Detalle de sesión — activa",
+      "comment": "Revisar que funcionen las flechas, ayer no funcionaban",
+      "createdAt": "2026-11-24T20:23:31.764Z",
+      "status": "resolved",
+      "sentAt": "2026-11-24T21:39:07.831Z",
+      "resolvedAt": "2026-11-24T23:00:57.204Z",
+      "resolution": "Licence corrected to AGPL-3.0 (verified against LICENSE file). Arrows fixed: Alt+Left was browser-back, now Alt+Up. Collapsed layout confirmed working with measured widths 68/58 px. Board re-captured from a self-built daemon."
+    },
+    {
+      "id": "9t75cals",
+      "file": "04-session-detail.html",
+      "selector": "body > div > img",
+      "excerpt": "Detalle de sesión — activa",
+      "comment": "cambiar Pi por Gentle Shell",
+      "createdAt": "2026-11-24T20:23:53.411Z",
+      "status": "open",
+      "sentAt": "2026-11-24T21:39:07.831Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "405c9z0n",
+      "file": "03-sessions-list.html",
+      "selector": "body > div > img",
+      "excerpt": "Sesiones — lista con datos reales",
+      "comment": "Estaba pte añadir archivadas, comnetar con ORK",
+      "createdAt": "2026-11-24T20:25:17.781Z",
+      "status": "open",
+      "sentAt": "2026-11-24T21:39:07.831Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "5j9ha6wv",
+      "file": "08-settings.html",
+      "selector": "body > div > img",
+      "excerpt": "Ajustes",
+      "comment": "Cuando estan permitidas, en es-ES el indicador verde \"permitida\" salta de linea.\nSi se desmarca el checkbox no hay método de fijar el estado ¿que sentido tien en checkbox?¿una desactivación provisional?\ndevería apareer un botón para poder No permitir 8en notificaciones y en cámara",
+      "createdAt": "2026-11-24T20:31:13.780Z",
+      "status": "open",
+      "sentAt": "2026-11-24T21:39:07.831Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "aedwqgzo",
+      "file": "08-settings.html",
+      "selector": "body > div > img",
+      "excerpt": "Ajustes",
+      "comment": "Flor hace de boton para plegar/desplegar.\nEn la última prueba pliega pero no despliega, ni con tecla",
+      "createdAt": "2026-11-24T20:32:33.395Z",
+      "status": "open",
+      "sentAt": "2026-11-24T21:39:07.831Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "78rrht53",
+      "file": "08-settings.html",
+      "selector": "body > div > img",
+      "excerpt": "Ajustes",
+      "comment": "plegado solo:\nindicador verde/rojo \nbotón Claro/oscuro\nbotón idioma\n\ny Apilados",
+      "createdAt": "2026-11-24T20:48:08.946Z",
+      "status": "resolved",
+      "sentAt": "2026-11-24T21:39:07.831Z",
+      "resolvedAt": "2026-11-24T23:00:57.204Z",
+      "resolution": "Licence corrected to AGPL-3.0 (verified against LICENSE file). Arrows fixed: Alt+Left was browser-back, now Alt+Up. Collapsed layout confirmed working with measured widths 68/58 px. Board re-captured from a self-built daemon."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "type": "Design Asset",
+  "title": "App icon 192",
+  "description": "Transparent (Ricardo, 2026-11-25). Served by server/src/assets.rs:167 and covered by the PWA asset test.",
+  "status": "active",
+  "author": "Ricardo (_00_) — transparency pass 2026-11-25",
+  "documented_by": "PINTO (agent, session 01a1f971)",
+  "source": "gentle-companion-aesthetic/ui/static/icon-192.png",
+  "generated": "2026-11-25",
+  "opaquePercent": 28.9
+}
