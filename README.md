@@ -2,8 +2,6 @@
 
 Lightweight, local-first remote control for Gentle Shell sessions.
 
-> Fork of [pi-companion](https://github.com/ygrip/pi-companion), adapted for Gentle Shell. This repository lives at [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion). [Leer en español](README_es-ES.md)
-
 [![Watch the Gentle Companion walkthrough (2 min)](docs/pi-companion-promo.webp)](docs/pi-companion-promo.mp4)
 
 [Leer en español](README_es-ES.md)
@@ -636,6 +634,8 @@ The design follows a few non-negotiable rules:
 2. Bound browser event queues by both item count and bytes, dropping low-priority deltas first.
 3. Add upload count/quota limits per session.
 4. Package signed/notarized daemon binaries and service installation for macOS/Linux/Windows.
+
+> Fork of [pi-companion](https://github.com/ygrip/pi-companion), adapted for Gentle Shell. This repository lives at [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion).
 
 ## License
 

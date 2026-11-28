@@ -2,8 +2,6 @@
 
 Control remoto ligero, centrado en lo local, para sesiones de Gentle Shell.
 
-> Fork de [pi-companion](https://github.com/ygrip/pi-companion), adaptado para Gentle Shell. Este repositorio se encuentra en [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion).
-
 [Leer en inglés](README.md)
 
 [![Mira el recorrido de Gentle Companion (2 min)](docs/pi-companion-promo.webp)](docs/pi-companion-promo.mp4)
@@ -635,6 +633,8 @@ El diseño sigue algunas reglas innegociables:
 2. Acota las colas de eventos del navegador por tanto el conteo de elementos como los bytes, descartando primero los deltas de baja prioridad.
 3. Agrega límites de conteo/cuota de subidas por sesión.
 4. Empaqueta binarios del daemon firmados/notarizados y la instalación del servicio para macOS/Linux/Windows.
+
+> Fork de [pi-companion](https://github.com/ygrip/pi-companion), adaptado para Gentle Shell. Este repositorio se encuentra en [IAI-00-IAI/gentle-companion](https://github.com/IAI-00-IAI/gentle-companion).
 
 ## Licencia
 
