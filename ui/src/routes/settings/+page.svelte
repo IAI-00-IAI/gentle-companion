@@ -418,11 +418,22 @@
 
   /* The global form-control rules give inputs a 40px min-height and a focus shadow that
      look wrong on a checkbox, especially in the light theme. AutomationEditor already
-     neutralises them the same way; without this the box renders inside a stray frame. */
+     neutralises them the same way; without this the box renders inside a stray frame.
+
+     Measured two further faults, both from those same global rules:
+       width     13px instead of 18px - the box is a flex child and `width` alone does
+                 not stop flex-shrink, so it was squeezed into a tall rectangle. That
+                 rectangle is what Ricardo read as "shadow above and below".
+       background rgb(247,243,245) - the global input background is the LIGHT surface,
+                 so in the dark theme the box paints a pale block around a native
+                 checkbox. `flex: none` plus a transparent background fixes both.
+     Scoped to `.check-field`, so no other input changes. */
   .check-field input {
+    flex: none;
     min-height: auto;
     width: 18px;
     height: 18px;
+    background: transparent;
     accent-color: var(--accent);
     box-shadow: none;
   }
