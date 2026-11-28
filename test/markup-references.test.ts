@@ -34,8 +34,8 @@ import { compile } from 'svelte/compiler';
 
 const UI_SRC = new URL('../ui/src/', import.meta.url).pathname;
 
-function components(dir) {
-  const out = [];
+function components(dir: string): string[] {
+  const out: string[] = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) out.push(...components(full));
@@ -45,30 +45,30 @@ function components(dir) {
 }
 
 /** Bindings the compiler considers declared in the emitted module. */
-function declaredNames(js) {
-  const names = new Set();
+function declaredNames(js: string): Set<string> {
+  const names = new Set<string>();
   for (const m of js.matchAll(/\b(?:let|const|var)\s+([A-Za-z_$][\w$]*)/g)) names.add(m[1]);
   for (const m of js.matchAll(/\b(?:let|const|var)\s*[[{]([^\]}]*)[\]}]/g)) {
-    m[1].split(',').forEach((part) => {
+    m[1].split(',').forEach((part: string) => {
       const name = part.split(/[:=]/)[0].trim();
       if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);
     });
   }
   for (const m of js.matchAll(/function\s*[A-Za-z_$\w]*\s*\(([^)]*)\)/g)) {
-    m[1].split(',').forEach((part) => {
+    m[1].split(',').forEach((part: string) => {
       const name = part.split(/[:=]/)[0].trim();
       if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);
     });
   }
   for (const m of js.matchAll(/\(([^)]*)\)\s*=>/g)) {
-    m[1].split(',').forEach((part) => {
+    m[1].split(',').forEach((part: string) => {
       const name = part.split(/[:=]/)[0].trim();
       if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);
     });
   }
   for (const m of js.matchAll(/import\s+\{([^}]*)\}/g)) {
-    m[1].split(',').forEach((part) => {
-      const name = part.split(/\bas\b/).pop().trim();
+    m[1].split(',').forEach((part: string) => {
+      const name = (part.split(/\bas\b/).pop() ?? '').trim();
       if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);
     });
   }
@@ -92,11 +92,11 @@ test('no component references a name that is never declared', () => {
 
     const declared = declaredNames(js);
     // Template guards and simple conditionals the compiler inlines verbatim.
-    const used = new Set();
+    const used = new Set<string>();
     for (const m of js.matchAll(/\bif\s*\(\s*!\s*([A-Za-z_$][\w$]*)\s*\)/g)) used.add(m[1]);
     for (const m of js.matchAll(/\bif\s*\(\s*([A-Za-z_$][\w$]*)\s*\)/g)) used.add(m[1]);
 
-    const builtins = new Set([
+    const builtins = new Set<string>([
       'window', 'document', 'console', 'Math', 'JSON', 'Object', 'Array',
       'String', 'Number', 'Boolean', 'Date', 'Promise', 'Set', 'Map',
       'RegExp', 'Error', 'undefined', 'null', 'true', 'false', 'globalThis',
